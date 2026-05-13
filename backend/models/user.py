@@ -21,13 +21,21 @@ class User(Base):
     onboarding_complete: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    # Targets (pre-populated from onboarding)
+    # Targets (pre-populated from onboarding, editable in settings)
     protein_target_g: Mapped[float] = mapped_column(nullable=True)
     water_target_ml: Mapped[int] = mapped_column(nullable=True)
     calorie_target: Mapped[int] = mapped_column(nullable=True)
+
+    # Form Score unlock state
+    form_score_unlocked: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Relationships
     daily_summaries: Mapped[list["DailySummary"]] = relationship(back_populates="user", cascade="all, delete")
     goals: Mapped[list["Goal"]] = relationship(back_populates="user", cascade="all, delete")
     streak: Mapped["Streak"] = relationship(back_populates="user", cascade="all, delete", uselist=False)
     onboarding_baseline: Mapped["OnboardingBaseline"] = relationship(back_populates="user", cascade="all, delete", uselist=False)
+    energy_logs: Mapped[list["EnergyLog"]] = relationship(back_populates="user", cascade="all, delete")
+    stimulant_logs: Mapped[list["StimulantLog"]] = relationship(back_populates="user", cascade="all, delete")
+    hydration_logs: Mapped[list["HydrationLog"]] = relationship(back_populates="user", cascade="all, delete")
+    nutrition_logs: Mapped[list["NutritionLog"]] = relationship(back_populates="user", cascade="all, delete")
+    training_logs: Mapped[list["TrainingLog"]] = relationship(back_populates="user", cascade="all, delete")
