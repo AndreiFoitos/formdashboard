@@ -63,7 +63,7 @@ async def get_caffeine_curve(user_id, db: AsyncSession, sleep_hour: int = 23) ->
         )
         curve.append({
             "time": t.isoformat(),
-            "time_label": t.strftime("%-I:%M %p") if hasattr(t, 'strftime') else t.strftime("%I:%M %p").lstrip("0"),
+            "time_label": t.strftime("%I:%M %p").lstrip("0") if hasattr(t, 'strftime') else t.strftime("%I:%M %p").lstrip("0"),
             "caffeine_mg": round(total, 1),
             "in_past": t <= now,
             "zone": get_zone(total),

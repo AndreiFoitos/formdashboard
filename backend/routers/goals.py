@@ -1,3 +1,4 @@
+from datetime import date as Date
 import uuid
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,7 +16,7 @@ router = APIRouter(prefix="/goals", tags=["goals"])
 
 class CreateGoalRequest(BaseModel):
     text: str
-    date: date | None = None
+    date: Date | None = None
 
 
 class UpdateGoalRequest(BaseModel):
