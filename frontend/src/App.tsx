@@ -7,6 +7,7 @@ import { Register } from './pages/Register'
 import { Onboarding } from './pages/Onboarding'
 import { Dashboard } from './pages/Dashboard'
 import { Training } from './pages/Training'
+import { Nutrition } from './pages/Nutrition'
 
 // Placeholder pages for Phase 1B+
 function PlaceholderPage({ title }: { title: string }) {
@@ -85,7 +86,7 @@ function App() {
           element={
             <ProtectedRoute>
               <AppShell>
-                <PlaceholderPage title="Nutrition" />
+                <Nutrition />
               </AppShell>
             </ProtectedRoute>
           }
