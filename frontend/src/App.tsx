@@ -6,6 +6,7 @@ import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { Onboarding } from './pages/Onboarding'
 import { Dashboard } from './pages/Dashboard'
+import { Training } from './pages/Training'
 
 // Placeholder pages for Phase 1B+
 function PlaceholderPage({ title }: { title: string }) {
@@ -74,7 +75,7 @@ function App() {
           element={
             <ProtectedRoute>
               <AppShell>
-                <PlaceholderPage title="Training" />
+                <Training />
               </AppShell>
             </ProtectedRoute>
           }
