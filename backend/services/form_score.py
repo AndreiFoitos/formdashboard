@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date, timedelta, datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sqlfunc
@@ -73,43 +74,56 @@ async def estimate_caffeine_at_sleep(user_id, target_date: date, sleep_hour: int
 async def compute_form_score(day: DailySummary, user, db: AsyncSession) -> tuple[int, dict]:
     scores = {}
 
-    # Sleep
+    # ── Run all independent DB queries in parallel ────────────────────────────
+    hrv_task = normalize_hrv(user.id, day.hrv_score, db) if day.hrv_score else None
+    training_task = days_since_last_training(user.id, day.date, db)
+    caffeine_task = estimate_caffeine_at_sleep(user.id, day.date, 23, db)
+    streak_task = db.get(Streak, user.id)
+
+    # Gather all at once — saves 3 sequential round trips
+    results = await asyncio.gather(
+        hrv_task if hrv_task else asyncio.sleep(0),  # no-op if no HRV
+        training_task,
+        caffeine_task,
+        streak_task,
+    )
+
+    hrv_normalized = results[0] if day.hrv_score else 50
+    days_since = results[1]
+    caffeine_at_bed = results[2]
+    streak_row = results[3]
+
+    # ── Sleep ─────────────────────────────────────────────────────────────────
     scores["sleep"] = day.sleep_score if day.sleep_score else 50
 
-    # HRV — normalized against 30-day personal baseline
-    if day.hrv_score:
-        scores["hrv"] = await normalize_hrv(user.id, day.hrv_score, db)
-    else:
-        scores["hrv"] = 50
+    # ── HRV ───────────────────────────────────────────────────────────────────
+    scores["hrv"] = hrv_normalized if day.hrv_score else 50
 
-    # Hydration — 0 if not logged (penalty), scaled to target
+    # ── Hydration ─────────────────────────────────────────────────────────────
     target_water = user.water_target_ml or (int(user.weight_kg * 35) if user.weight_kg else 2500)
     if day.water_ml:
         scores["hydration"] = min(100, round((day.water_ml / target_water) * 100))
     else:
         scores["hydration"] = 0
 
-    # Nutrition — protein adherence (neutral if not tracked)
+    # ── Nutrition ─────────────────────────────────────────────────────────────
     target_protein = user.protein_target_g or (user.weight_kg * 2 if user.weight_kg else None)
     if day.protein_g and target_protein:
         scores["nutrition"] = min(100, round((day.protein_g / target_protein) * 100))
     else:
         scores["nutrition"] = 50
 
-    # Training — decay if not trained
+    # ── Training ──────────────────────────────────────────────────────────────
     if day.trained:
         scores["training"] = 100
     else:
-        days_since = await days_since_last_training(user.id, day.date, db)
         decay_map = {1: 70, 2: 40}
         scores["training"] = decay_map.get(days_since, 0) if days_since else 0
 
-    # Stimulants — caffeine at bedtime penalty
-    caffeine_at_bed = await estimate_caffeine_at_sleep(user.id, day.date, 23, db)
+    # ── Stimulants ────────────────────────────────────────────────────────────
     scores["stimulants"] = max(0, 100 - round(caffeine_at_bed / 3))
 
-    # Consistency — streak bonus (30-day streak = 100pts)
-    streak_row = await db.get(Streak, user.id)
+    # ── Consistency ───────────────────────────────────────────────────────────
     current_streak = streak_row.current_streak if streak_row else 0
     scores["consistency"] = min(100, round(current_streak * 3.33))
 

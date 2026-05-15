@@ -1,8 +1,14 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from core.redis import init_redis, close_redis
+from core.database import engine, get_db
+
 from routers.auth import router as auth_router
 from routers.users import router as users_router
 from routers.daily import router as daily_router
@@ -18,6 +24,12 @@ from routers.body import router as body_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Warm up DB connection pool so the first user request isn't slow
+    async with engine.connect() as conn:
+        await conn.execute(text("SELECT 1"))
+
+    print("DB connection pool warmed up")
+
     await init_redis()
     yield
     await close_redis()
@@ -49,3 +61,16 @@ app.include_router(body_router)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/ping-db")
+async def ping_db(db: AsyncSession = Depends(get_db)):
+    import time
+
+    t = time.time()
+
+    await db.execute(text("SELECT 1"))
+
+    return {
+        "db_ms": round((time.time() - t) * 1000)
+    }

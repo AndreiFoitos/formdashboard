@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 from datetime import date
 
 from fastapi import APIRouter, Depends
@@ -9,7 +10,7 @@ from core.database import get_db
 from middleware.auth import get_current_user
 from models.user import User
 from models.goal import Goal
-from services.daily import get_or_create_today
+from models.daily_summary import DailySummary
 from services.form_score import compute_form_score, check_and_unlock_form_score
 from services.stimulants import get_caffeine_curve
 
@@ -23,10 +24,36 @@ async def get_dashboard(
 ):
     today = date.today()
 
-    # 1. Read today's summary row — already up to date via incremental writes
-    summary = await get_or_create_today(current_user.id, db)
+    # ── Run independent queries in parallel ───────────────────────────────────
+    summary_task = db.execute(
+        select(DailySummary).where(
+            DailySummary.user_id == current_user.id,
+            DailySummary.date == today,
+        )
+    )
+    goals_task = db.execute(
+        select(Goal)
+        .where(Goal.user_id == current_user.id, Goal.date == today)
+        .order_by(Goal.position, Goal.created_at)
+    )
 
-    # 2. Form score
+    summary_result, goals_result, caffeine = await asyncio.gather(
+        summary_task,
+        goals_task,
+        get_caffeine_curve(current_user.id, db),
+    )
+
+    summary = summary_result.scalar_one_or_none()
+
+    # Create today's row if missing (first visit of the day)
+    if summary is None:
+        summary = DailySummary(user_id=current_user.id, date=today)
+        db.add(summary)
+        await db.flush()
+
+    goals = goals_result.scalars().all()
+
+    # ── Form score (only when unlocked) ───────────────────────────────────────
     score_breakdown = None
     if current_user.form_score_unlocked:
         score, score_breakdown = await compute_form_score(summary, current_user, db)
@@ -35,21 +62,10 @@ async def get_dashboard(
     else:
         await check_and_unlock_form_score(current_user, db)
 
-    # 3. Today's goals
-    goals_result = await db.execute(
-        select(Goal)
-        .where(Goal.user_id == current_user.id, Goal.date == today)
-        .order_by(Goal.position, Goal.created_at)
-    )
-    goals = goals_result.scalars().all()
-
-    # 4. Caffeine curve (reads stimulant logs for today)
-    caffeine = await get_caffeine_curve(current_user.id, db)
-
     await db.commit()
 
     return {
-        "date": today.isoformat(),  # used by frontend to detect day rollover
+        "date": today.isoformat(),
         "summary": {
             "form_score": summary.form_score,
             "form_score_unlocked": current_user.form_score_unlocked,
