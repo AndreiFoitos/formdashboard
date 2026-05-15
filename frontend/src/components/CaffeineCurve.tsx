@@ -16,7 +16,7 @@ interface CurvePoint {
   zone: 'low' | 'optimal' | 'elevated' | 'high'
 }
 
-interface CurveData {
+export interface CurveData {
   curve: CurvePoint[]
   current_mg: number
   caffeine_at_bedtime: number
@@ -33,18 +33,11 @@ interface Substance {
 
 // ─── Zone colours ─────────────────────────────────────────────────────────────
 
-const ZONE_COLOUR = {
-  low:      '#52525b',
-  optimal:  '#22c55e',
-  elevated: '#f59e0b',
-  high:     '#ef4444',
-}
-
 function zoneColour(mg: number) {
-  if (mg < 50)  return ZONE_COLOUR.low
-  if (mg < 200) return ZONE_COLOUR.optimal
-  if (mg < 300) return ZONE_COLOUR.elevated
-  return ZONE_COLOUR.high
+  if (mg < 50)  return '#52525b'
+  if (mg < 200) return '#22c55e'
+  if (mg < 300) return '#f59e0b'
+  return '#ef4444'
 }
 
 // ─── Custom tooltip ───────────────────────────────────────────────────────────
@@ -77,8 +70,8 @@ function LogSheet({ onClose }: { onClose: () => void }) {
     mutationFn: (body: { substance: string; caffeine_mg?: number }) =>
       api.post('/stimulants/log', body),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['caffeine-curve'] })
-      qc.invalidateQueries({ queryKey: ['summary'] })
+      // Invalidate dashboard so summary + caffeine curve both refresh
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
       onClose()
     },
   })
@@ -93,28 +86,17 @@ function LogSheet({ onClose }: { onClose: () => void }) {
   }
 
   const selectedSubstance = substances.find(s => s.key === selected)
-
-  // Filter out 'custom' from preset display — show it separately
   const presets = substances.filter(s => s.key !== 'custom')
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/60 z-40"
-        onClick={onClose}
-      />
-
-      {/* Sheet */}
+      <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
       <div className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950 border-t border-zinc-800 rounded-t-2xl px-4 pt-5 pb-10">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-white font-semibold">Log Stimulant</h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors text-sm">
-            ✕
-          </button>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors text-sm">✕</button>
         </div>
 
-        {/* Presets */}
         <div className="grid grid-cols-2 gap-2 mb-4">
           {presets.map(s => (
             <button
@@ -133,7 +115,6 @@ function LogSheet({ onClose }: { onClose: () => void }) {
             </button>
           ))}
 
-          {/* Custom */}
           <button
             onClick={() => setSelected('custom')}
             className={`text-left px-4 py-3 rounded-xl border transition-all duration-150 ${
@@ -149,7 +130,6 @@ function LogSheet({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        {/* Custom mg input */}
         {selected === 'custom' && (
           <div className="mb-4">
             <div className="relative">
@@ -165,7 +145,6 @@ function LogSheet({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {/* Summary line */}
         {selectedSubstance && selected !== 'custom' && (
           <p className="text-xs text-zinc-500 mb-4">
             {selectedSubstance.caffeine_mg}mg · half-life {selectedSubstance.half_life}h
@@ -186,14 +165,13 @@ function LogSheet({ onClose }: { onClose: () => void }) {
 
 // ─── Caffeine Curve Card ──────────────────────────────────────────────────────
 
-export function CaffeineCurve() {
-  const [showLog, setShowLog] = useState(false)
+interface CaffeineCurveProps {
+  data: CurveData | undefined
+  isLoading: boolean
+}
 
-  const { data, isLoading } = useQuery<CurveData>({
-    queryKey: ['caffeine-curve'],
-    queryFn: () => api.get('/stimulants/curve').then(r => r.data),
-    refetchInterval: 5 * 60 * 1000,
-  })
+export function CaffeineCurve({ data, isLoading }: CaffeineCurveProps) {
+  const [showLog, setShowLog] = useState(false)
 
   if (isLoading) {
     return (
@@ -208,25 +186,15 @@ export function CaffeineCurve() {
   const currentMg = data?.current_mg ?? 0
   const colour = zoneColour(currentMg)
 
-  // Find the "now" divider index
   const nowIndex = curve.findIndex(p => !p.in_past)
-
-  // X-axis: show every ~2 hours (4 points apart at 30-min intervals)
-  const tickIndices = new Set(
-    curve
-      .map((_, i) => i)
-      .filter(i => i % 4 === 0)
-  )
+  const tickIndices = new Set(curve.map((_, i) => i).filter(i => i % 4 === 0))
 
   return (
     <>
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-        {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div>
-            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest mb-1">
-              Caffeine
-            </p>
+            <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest mb-1">Caffeine</p>
             <div className="flex items-baseline gap-1.5">
               <span className="text-2xl font-bold text-white">{currentMg}</span>
               <span className="text-sm text-zinc-500">mg active</span>
@@ -246,7 +214,6 @@ export function CaffeineCurve() {
           </button>
         </div>
 
-        {/* Chart */}
         {curve.length > 0 ? (
           <ResponsiveContainer width="100%" height={110}>
             <AreaChart data={curve} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
@@ -256,7 +223,6 @@ export function CaffeineCurve() {
                   <stop offset="95%" stopColor={colour} stopOpacity={0} />
                 </linearGradient>
               </defs>
-
               <XAxis
                 dataKey="time_label"
                 tick={{ fontSize: 9, fill: '#52525b' }}
@@ -265,13 +231,9 @@ export function CaffeineCurve() {
                 interval={(_, i) => tickIndices.has(i) ? 0 : 1}
               />
               <YAxis hide domain={[0, 'auto']} />
-
-              {/* Zone reference lines */}
               <ReferenceLine y={50}  stroke="#52525b" strokeDasharray="3 3" strokeWidth={1} />
               <ReferenceLine y={200} stroke="#f59e0b" strokeDasharray="3 3" strokeWidth={1} />
               <ReferenceLine y={300} stroke="#ef4444" strokeDasharray="3 3" strokeWidth={1} />
-
-              {/* Now marker */}
               {nowIndex > 0 && (
                 <ReferenceLine
                   x={curve[nowIndex]?.time_label}
@@ -280,9 +242,7 @@ export function CaffeineCurve() {
                   strokeDasharray="4 2"
                 />
               )}
-
               <Tooltip content={<CurveTooltip />} />
-
               <Area
                 type="monotone"
                 dataKey="caffeine_mg"
@@ -300,7 +260,6 @@ export function CaffeineCurve() {
           </div>
         )}
 
-        {/* Sleep impact footer */}
         {data && (
           <p className="text-[11px] text-zinc-500 mt-2 leading-relaxed">
             {data.sleep_impact}

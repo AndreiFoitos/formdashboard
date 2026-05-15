@@ -10,6 +10,7 @@ from core.database import get_db
 from middleware.auth import get_current_user
 from models.user import User
 from models.nutrition_log import NutritionLog
+from services.daily import increment_daily_field
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
@@ -34,6 +35,17 @@ async def log_nutrition(
         **body.model_dump(),
     )
     db.add(entry)
+
+    # Incrementally update each macro field that was provided
+    if body.calories is not None:
+        await increment_daily_field(current_user.id, db, "calories_eaten", body.calories, mode="add")
+    if body.protein_g is not None:
+        await increment_daily_field(current_user.id, db, "protein_g", body.protein_g, mode="add")
+    if body.carbs_g is not None:
+        await increment_daily_field(current_user.id, db, "carbs_g", body.carbs_g, mode="add")
+    if body.fat_g is not None:
+        await increment_daily_field(current_user.id, db, "fat_g", body.fat_g, mode="add")
+
     await db.commit()
     await db.refresh(entry)
     return {"id": str(entry.id), "logged_at": entry.logged_at.isoformat()}
@@ -101,5 +113,16 @@ async def delete_nutrition(
     entry = result.scalar_one_or_none()
     if not entry:
         raise HTTPException(404, "Log entry not found")
+
+    # Decrement summary fields before deleting
+    if entry.calories is not None:
+        await increment_daily_field(current_user.id, db, "calories_eaten", -entry.calories, mode="add")
+    if entry.protein_g is not None:
+        await increment_daily_field(current_user.id, db, "protein_g", -entry.protein_g, mode="add")
+    if entry.carbs_g is not None:
+        await increment_daily_field(current_user.id, db, "carbs_g", -entry.carbs_g, mode="add")
+    if entry.fat_g is not None:
+        await increment_daily_field(current_user.id, db, "fat_g", -entry.fat_g, mode="add")
+
     await db.delete(entry)
     await db.commit()

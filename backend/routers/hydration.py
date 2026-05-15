@@ -10,6 +10,7 @@ from core.database import get_db
 from middleware.auth import get_current_user
 from models.user import User
 from models.hydration_log import HydrationLog
+from services.daily import increment_daily_field
 
 router = APIRouter(prefix="/hydration", tags=["hydration"])
 
@@ -27,6 +28,10 @@ async def log_hydration(
 ):
     entry = HydrationLog(user_id=current_user.id, amount_ml=body.amount_ml, source=body.source)
     db.add(entry)
+
+    # Incrementally update today's summary — no full recompute needed
+    await increment_daily_field(current_user.id, db, "water_ml", body.amount_ml, mode="add")
+
     await db.commit()
     await db.refresh(entry)
     return {"id": str(entry.id), "amount_ml": entry.amount_ml, "logged_at": entry.logged_at.isoformat()}
@@ -79,5 +84,9 @@ async def delete_hydration(
     entry = result.scalar_one_or_none()
     if not entry:
         raise HTTPException(404, "Log entry not found")
+
+    # Decrement summary before deleting the log
+    await increment_daily_field(current_user.id, db, "water_ml", -entry.amount_ml, mode="add")
+
     await db.delete(entry)
     await db.commit()

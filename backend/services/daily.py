@@ -34,10 +34,33 @@ async def get_or_create_today(
     )
 
     db.add(summary)
-
     await db.flush()
 
     return summary
+
+
+async def increment_daily_field(
+    user_id,
+    db: AsyncSession,
+    field: str,
+    value,
+    mode: str = "add",
+) -> None:
+    """
+    Incrementally update a single field on today's daily_summary.
+
+    mode="add"  → summary.field += value  (for water_ml, calories, protein, etc.)
+    mode="set"  → summary.field  = value  (for training_type, trained, etc.)
+    """
+    summary = await get_or_create_today(user_id, db)
+
+    if mode == "add":
+        current = getattr(summary, field) or 0
+        setattr(summary, field, current + value)
+    else:
+        setattr(summary, field, value)
+
+    await db.flush()
 
 
 async def aggregate_today(
@@ -119,13 +142,9 @@ async def aggregate_today(
     )
 
     water_ml = hydration_result.scalar()
-
     cal, protein, carbs, fat = nutrition_result.one()
-
     energy_avg = energy_result.scalar()
-
     trained = training_result.scalar()
-
     training_type = training_type_result.scalar()
 
     return {
@@ -159,7 +178,7 @@ async def refresh_daily_summary(
     for k, v in agg.items():
         setattr(summary, k, v)
 
-    await db.commit()
+    await db.flush()
 
     return summary
 

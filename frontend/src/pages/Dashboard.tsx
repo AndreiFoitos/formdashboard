@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { CaffeineCurve } from '../components/CaffeineCurve'
+import type { CurveData } from '../components/CaffeineCurve'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface DailySummary {
+interface Summary {
   form_score: number | null
   form_score_unlocked: boolean
   sleep_score: number | null
@@ -27,10 +28,27 @@ interface Goal {
   position: number
 }
 
-// ─── API helpers ──────────────────────────────────────────────────────────────
+interface Targets {
+  water_target_ml: number | null
+  protein_target_g: number | null
+  calorie_target: number | null
+}
 
-const fetchSummary = () => api.get<DailySummary>('/daily/summary').then(r => r.data)
-const fetchGoals   = () => api.get<Goal[]>('/goals/').then(r => r.data)
+interface DashboardData {
+  date: string
+  summary: Summary
+  goals: Goal[]
+  caffeine: CurveData
+  targets: Targets
+}
+
+// ─── API ──────────────────────────────────────────────────────────────────────
+
+const fetchDashboard = () => api.get<DashboardData>('/dashboard').then(r => r.data)
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10)
+}
 
 // ─── Greeting ─────────────────────────────────────────────────────────────────
 
@@ -43,7 +61,7 @@ function getGreeting() {
 
 // ─── Form Score Card ──────────────────────────────────────────────────────────
 
-function FormScoreCard({ summary }: { summary: DailySummary | undefined }) {
+function FormScoreCard({ summary }: { summary: Summary | undefined }) {
   if (!summary) {
     return (
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 animate-pulse">
@@ -56,21 +74,13 @@ function FormScoreCard({ summary }: { summary: DailySummary | undefined }) {
   if (!summary.form_score_unlocked) {
     return (
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-        <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest mb-3">
-          Form Score
-        </p>
+        <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest mb-3">Form Score</p>
         <div className="flex items-start gap-4">
-          {/* Calibration ring */}
           <div className="relative w-16 h-16 shrink-0">
             <svg viewBox="0 0 64 64" className="w-16 h-16 -rotate-90">
               <circle cx="32" cy="32" r="26" fill="none" stroke="#27272a" strokeWidth="6" />
-              <circle
-                cx="32" cy="32" r="26" fill="none"
-                stroke="#3f3f46" strokeWidth="6"
-                strokeDasharray="163.36"
-                strokeDashoffset="98" // ~40% shown
-                strokeLinecap="round"
-              />
+              <circle cx="32" cy="32" r="26" fill="none" stroke="#3f3f46" strokeWidth="6"
+                strokeDasharray="163.36" strokeDashoffset="98" strokeLinecap="round" />
             </svg>
             <span className="absolute inset-0 flex items-center justify-center">
               <span className="text-[10px] text-zinc-500 font-medium">—</span>
@@ -90,29 +100,18 @@ function FormScoreCard({ summary }: { summary: DailySummary | undefined }) {
   const score = summary.form_score ?? 0
   const circumference = 163.36
   const offset = circumference - (score / 100) * circumference
-
-  const color =
-    score >= 80 ? '#22c55e' :
-    score >= 60 ? '#eab308' :
-    score >= 40 ? '#f97316' : '#ef4444'
+  const color = score >= 80 ? '#22c55e' : score >= 60 ? '#eab308' : score >= 40 ? '#f97316' : '#ef4444'
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-      <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest mb-3">
-        Form Score
-      </p>
+      <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest mb-3">Form Score</p>
       <div className="flex items-center gap-5">
         <div className="relative w-16 h-16 shrink-0">
           <svg viewBox="0 0 64 64" className="w-16 h-16 -rotate-90">
             <circle cx="32" cy="32" r="26" fill="none" stroke="#27272a" strokeWidth="6" />
-            <circle
-              cx="32" cy="32" r="26" fill="none"
-              stroke={color} strokeWidth="6"
-              strokeDasharray={circumference}
-              strokeDashoffset={offset}
-              strokeLinecap="round"
-              style={{ transition: 'stroke-dashoffset 0.8s ease' }}
-            />
+            <circle cx="32" cy="32" r="26" fill="none" stroke={color} strokeWidth="6"
+              strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+              style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
           </svg>
           <span className="absolute inset-0 flex items-center justify-center">
             <span className="text-lg font-bold text-white">{score}</span>
@@ -135,11 +134,7 @@ function FormScoreCard({ summary }: { summary: DailySummary | undefined }) {
 // ─── Stat Tile ────────────────────────────────────────────────────────────────
 
 function StatTile({
-  label,
-  value,
-  target,
-  unit,
-  icon,
+  label, value, target, unit, icon,
 }: {
   label: string
   value: number | null | undefined
@@ -161,10 +156,7 @@ function StatTile({
       </p>
       {pct != null && (
         <div className="mt-2.5 h-0.5 bg-zinc-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-white rounded-full transition-all duration-700"
-            style={{ width: `${pct}%` }}
-          />
+          <div className="h-full bg-white rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
         </div>
       )}
       {target && (
@@ -176,7 +168,7 @@ function StatTile({
   )
 }
 
-// ─── Energy Check-in ─────────────────────────────────────────────────────────
+// ─── Energy Check-in ──────────────────────────────────────────────────────────
 
 function EnergyCheckin() {
   const [selected, setSelected] = useState<number | null>(null)
@@ -187,7 +179,7 @@ function EnergyCheckin() {
     mutationFn: (level: number) => api.post('/energy/log', { level }),
     onSuccess: () => {
       setDone(true)
-      qc.invalidateQueries({ queryKey: ['summary'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
       setTimeout(() => setDone(false), 3000)
     },
   })
@@ -239,7 +231,7 @@ function EnergyCheckin() {
   )
 }
 
-// ─── Quick Hydration ─────────────────────────────────────────────────────────
+// ─── Quick Hydration ──────────────────────────────────────────────────────────
 
 function HydrationQuickLog({ waterMl, targetMl }: { waterMl: number | null; targetMl: number | null }) {
   const qc = useQueryClient()
@@ -248,7 +240,7 @@ function HydrationQuickLog({ waterMl, targetMl }: { waterMl: number | null; targ
   const { mutate } = useMutation({
     mutationFn: (ml: number) => api.post('/hydration/log', { amount_ml: ml }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['summary'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
       setLogging(false)
     },
   })
@@ -256,7 +248,6 @@ function HydrationQuickLog({ waterMl, targetMl }: { waterMl: number | null; targ
   const target = targetMl ?? 2500
   const current = waterMl ?? 0
   const pct = Math.min(100, Math.round((current / target) * 100))
-
   const presets = [250, 500, 750]
 
   return (
@@ -268,16 +259,9 @@ function HydrationQuickLog({ waterMl, targetMl }: { waterMl: number | null; targ
           <span className="text-zinc-600"> / {target.toLocaleString()}ml</span>
         </p>
       </div>
-
-      {/* Bar */}
       <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-3">
-        <div
-          className="h-full bg-sky-400 rounded-full transition-all duration-700"
-          style={{ width: `${pct}%` }}
-        />
+        <div className="h-full bg-sky-400 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
       </div>
-
-      {/* Quick add */}
       {logging ? (
         <div className="flex gap-2">
           {presets.map((ml) => (
@@ -297,10 +281,7 @@ function HydrationQuickLog({ waterMl, targetMl }: { waterMl: number | null; targ
           </button>
         </div>
       ) : (
-        <button
-          onClick={() => setLogging(true)}
-          className="text-xs font-medium text-zinc-400 hover:text-white transition-colors"
-        >
+        <button onClick={() => setLogging(true)} className="text-xs font-medium text-zinc-400 hover:text-white transition-colors">
           + Log water
         </button>
       )}
@@ -310,46 +291,42 @@ function HydrationQuickLog({ waterMl, targetMl }: { waterMl: number | null; targ
 
 // ─── Goals Section ────────────────────────────────────────────────────────────
 
-function GoalsSection() {
+function GoalsSection({ initialGoals }: { initialGoals: Goal[] }) {
   const qc = useQueryClient()
   const [newText, setNewText] = useState('')
   const [adding, setAdding] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const { data: goals = [], isLoading } = useQuery({
-    queryKey: ['goals'],
-    queryFn: fetchGoals,
-  })
+  const goals = qc.getQueryData<DashboardData>(['dashboard'])?.goals ?? initialGoals
 
   const addMutation = useMutation({
     mutationFn: (text: string) => api.post('/goals/', { text }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['goals'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
       setNewText('')
       setAdding(false)
     },
   })
 
   const toggleMutation = useMutation({
-    mutationFn: ({ id, done }: { id: string; done: boolean }) =>
-      api.put(`/goals/${id}`, { done }),
+    mutationFn: ({ id, done }: { id: string; done: boolean }) => api.put(`/goals/${id}`, { done }),
     onMutate: async ({ id, done }) => {
-      await qc.cancelQueries({ queryKey: ['goals'] })
-      const prev = qc.getQueryData<Goal[]>(['goals'])
-      qc.setQueryData<Goal[]>(['goals'], old =>
-        old?.map(g => g.id === id ? { ...g, done } : g) ?? []
+      await qc.cancelQueries({ queryKey: ['dashboard'] })
+      const prev = qc.getQueryData<DashboardData>(['dashboard'])
+      qc.setQueryData<DashboardData>(['dashboard'], old =>
+        old ? { ...old, goals: old.goals.map(g => g.id === id ? { ...g, done } : g) } : old
       )
       return { prev }
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(['goals'], ctx.prev)
+      if (ctx?.prev) qc.setQueryData(['dashboard'], ctx.prev)
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['goals'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['dashboard'] }),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/goals/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['goals'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['dashboard'] }),
   })
 
   useEffect(() => {
@@ -367,19 +344,13 @@ function GoalsSection() {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest">
-          Today's Goals
-        </p>
-        <button
-          onClick={() => setAdding(true)}
-          className="text-xs text-zinc-400 hover:text-white transition-colors"
-        >
+        <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest">Today's Goals</p>
+        <button onClick={() => setAdding(true)} className="text-xs text-zinc-400 hover:text-white transition-colors">
           + Add
         </button>
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden divide-y divide-zinc-800">
-        {/* Add input */}
         {adding && (
           <div className="flex items-center gap-2 px-4 py-3">
             <input
@@ -400,48 +371,27 @@ function GoalsSection() {
             >
               {addMutation.isPending ? '…' : 'Add'}
             </button>
-            <button
-              onClick={() => { setAdding(false); setNewText('') }}
-              className="text-zinc-500 hover:text-white text-xs transition-colors"
-            >
-              ✕
-            </button>
+            <button onClick={() => { setAdding(false); setNewText('') }} className="text-zinc-500 hover:text-white text-xs transition-colors">✕</button>
           </div>
         )}
 
-        {/* Loading */}
-        {isLoading && (
-          <div className="px-4 py-6 text-center text-sm text-zinc-600">Loading…</div>
-        )}
-
-        {/* Empty state */}
-        {!isLoading && goals.length === 0 && !adding && (
+        {goals.length === 0 && !adding && (
           <div className="px-4 py-6 text-center">
             <p className="text-sm text-zinc-500">No goals yet</p>
-            <button
-              onClick={() => setAdding(true)}
-              className="text-xs text-zinc-400 hover:text-white mt-1 transition-colors"
-            >
+            <button onClick={() => setAdding(true)} className="text-xs text-zinc-400 hover:text-white mt-1 transition-colors">
               Add your first goal →
             </button>
           </div>
         )}
 
-        {/* Pending goals */}
         {pending.map(goal => (
-          <GoalRow
-            key={goal.id}
-            goal={goal}
+          <GoalRow key={goal.id} goal={goal}
             onToggle={() => toggleMutation.mutate({ id: goal.id, done: !goal.done })}
             onDelete={() => deleteMutation.mutate(goal.id)}
           />
         ))}
-
-        {/* Done goals */}
         {done.map(goal => (
-          <GoalRow
-            key={goal.id}
-            goal={goal}
+          <GoalRow key={goal.id} goal={goal}
             onToggle={() => toggleMutation.mutate({ id: goal.id, done: !goal.done })}
             onDelete={() => deleteMutation.mutate(goal.id)}
           />
@@ -451,15 +401,7 @@ function GoalsSection() {
   )
 }
 
-function GoalRow({
-  goal,
-  onToggle,
-  onDelete,
-}: {
-  goal: Goal
-  onToggle: () => void
-  onDelete: () => void
-}) {
+function GoalRow({ goal, onToggle, onDelete }: { goal: Goal; onToggle: () => void; onDelete: () => void }) {
   const [hovering, setHovering] = useState(false)
 
   return (
@@ -471,9 +413,7 @@ function GoalRow({
       <button
         onClick={onToggle}
         className={`w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-all duration-150 ${
-          goal.done
-            ? 'bg-white border-white'
-            : 'border-zinc-600 hover:border-zinc-400'
+          goal.done ? 'bg-white border-white' : 'border-zinc-600 hover:border-zinc-400'
         }`}
       >
         {goal.done && (
@@ -482,20 +422,11 @@ function GoalRow({
           </svg>
         )}
       </button>
-      <span
-        className={`flex-1 text-sm transition-colors ${
-          goal.done ? 'text-zinc-600 line-through' : 'text-zinc-200'
-        }`}
-      >
+      <span className={`flex-1 text-sm transition-colors ${goal.done ? 'text-zinc-600 line-through' : 'text-zinc-200'}`}>
         {goal.text}
       </span>
       {hovering && (
-        <button
-          onClick={onDelete}
-          className="text-zinc-600 hover:text-red-400 transition-colors text-xs"
-        >
-          ✕
-        </button>
+        <button onClick={onDelete} className="text-zinc-600 hover:text-red-400 transition-colors text-xs">✕</button>
       )}
     </div>
   )
@@ -505,24 +436,34 @@ function GoalRow({
 
 export function Dashboard() {
   const { user } = useAuthStore()
+  const qc = useQueryClient()
 
-  const { data: summary } = useQuery({
-    queryKey: ['summary'],
-    queryFn: fetchSummary,
+  const { data, isLoading } = useQuery({
+    queryKey: ['dashboard'],
+    queryFn: fetchDashboard,
     refetchInterval: 5 * 60 * 1000,
   })
 
+  // Day rollover: if cached data is from a previous day, force a fresh fetch
+  useEffect(() => {
+    if (data && data.date !== todayISO()) {
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+    }
+  }, [data, qc])
+
+  const summary  = data?.summary
+  const goals    = data?.goals ?? []
+  const caffeine = data?.caffeine
+  const targets  = data?.targets
+
   const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
+    weekday: 'long', month: 'long', day: 'numeric',
   })
 
   const firstName = user?.name?.split(' ')[0] ?? null
 
   return (
     <div className="min-h-screen bg-black text-white pb-24">
-      {/* Header */}
       <header className="px-4 pt-14 pb-5">
         <p className="text-zinc-500 text-xs font-medium uppercase tracking-widest">{today}</p>
         <h1 className="text-2xl font-bold mt-1">
@@ -531,83 +472,54 @@ export function Dashboard() {
       </header>
 
       <main className="px-4 space-y-3">
-        {/* Form Score */}
         <FormScoreCard summary={summary} />
 
-        {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3">
           <StatTile
-            label="Water"
-            value={summary?.water_ml ?? null}
-            target={user?.water_target_ml}
-            unit="ml"
-            icon={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2a7 7 0 0 1 7 7c0 4-3.5 7-7 13C8.5 16 5 13 5 9a7 7 0 0 1 7-7z" />
-              </svg>
-            }
+            label="Water" value={summary?.water_ml ?? null}
+            target={targets?.water_target_ml} unit="ml"
+            icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 4-3.5 7-7 13C8.5 16 5 13 5 9a7 7 0 0 1 7-7z" /></svg>}
           />
           <StatTile
             label="Protein"
             value={summary?.protein_g != null ? Math.round(summary.protein_g) : null}
-            target={user?.protein_target_g != null ? Math.round(user.protein_target_g) : null}
+            target={targets?.protein_target_g != null ? Math.round(targets.protein_target_g) : null}
             unit="g"
-            icon={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6.5 6.5h11M6.5 17.5h11M4 12h16" />
-              </svg>
-            }
+            icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6.5 6.5h11M6.5 17.5h11M4 12h16" /></svg>}
           />
           <StatTile
-            label="Calories"
-            value={summary?.calories_eaten ?? null}
-            target={user?.calorie_target}
-            unit="kcal"
-            icon={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2v20M2 12h20" />
-              </svg>
-            }
+            label="Calories" value={summary?.calories_eaten ?? null}
+            target={targets?.calorie_target} unit="kcal"
+            icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M2 12h20" /></svg>}
           />
           <StatTile
             label="Energy"
             value={summary?.energy_avg != null ? Math.round(summary.energy_avg * 10) / 10 : null}
             unit="/ 5"
-            icon={
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-              </svg>
-            }
+            icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>}
           />
         </div>
 
-        {/* Training badge */}
         {summary?.trained && (
           <div className="flex items-center gap-2.5 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3">
             <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
             <p className="text-sm text-zinc-300">
               Trained today
-              {summary.training_type && (
-                <span className="text-zinc-500 ml-1.5">· {summary.training_type}</span>
-              )}
+              {summary.training_type && <span className="text-zinc-500 ml-1.5">· {summary.training_type}</span>}
             </p>
           </div>
         )}
 
-        {/* Energy check-in */}
         <EnergyCheckin />
 
-        {/* Hydration quick-log */}
         <HydrationQuickLog
           waterMl={summary?.water_ml ?? null}
-          targetMl={user?.water_target_ml ?? null}
+          targetMl={targets?.water_target_ml ?? null}
         />
 
-        {/* Caffeine curve */}
-        <CaffeineCurve />
+        <CaffeineCurve data={caffeine} isLoading={isLoading} />
 
-        {/* Goals */}
-        <GoalsSection />
+        <GoalsSection initialGoals={goals} />
       </main>
     </div>
   )

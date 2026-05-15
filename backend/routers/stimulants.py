@@ -9,6 +9,7 @@ from core.database import get_db
 from middleware.auth import get_current_user
 from models.user import User
 from models.stimulant_log import StimulantLog
+from services.daily import increment_daily_field
 from services.stimulants import SUBSTANCES, get_caffeine_curve
 
 router = APIRouter(prefix="/stimulants", tags=["stimulants"])
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/stimulants", tags=["stimulants"])
 
 class LogStimulantRequest(BaseModel):
     substance: str
-    caffeine_mg: int | None = None  # overrides preset if provided
+    caffeine_mg: int | None = None
     note: str | None = None
 
 
@@ -41,6 +42,10 @@ async def log_stimulant(
         note=body.note,
     )
     db.add(entry)
+
+    # Incrementally update today's total caffeine on the summary
+    await increment_daily_field(current_user.id, db, "caffeine_mg", caffeine_mg, mode="add")
+
     await db.commit()
     await db.refresh(entry)
     return {
@@ -83,6 +88,10 @@ async def delete_stimulant(
     entry = result.scalar_one_or_none()
     if not entry:
         raise HTTPException(404, "Log entry not found")
+
+    # Decrement summary before deleting
+    await increment_daily_field(current_user.id, db, "caffeine_mg", -entry.caffeine_mg, mode="add")
+
     await db.delete(entry)
     await db.commit()
 
