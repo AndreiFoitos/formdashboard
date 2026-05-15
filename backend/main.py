@@ -13,6 +13,7 @@ from routers.nutrition import router as nutrition_router
 from routers.stimulants import router as stimulants_router
 from routers.training import router as training_router
 from routers.dashboard import router as dashboard_router
+from routers.body import router as body_router
 
 
 @asynccontextmanager
@@ -42,6 +43,7 @@ app.include_router(nutrition_router)
 app.include_router(stimulants_router)
 app.include_router(training_router)
 app.include_router(dashboard_router)
+app.include_router(body_router)
 
 
 @app.get("/health")

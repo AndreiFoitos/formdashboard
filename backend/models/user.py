@@ -39,3 +39,4 @@ class User(Base):
     hydration_logs: Mapped[list["HydrationLog"]] = relationship(back_populates="user", cascade="all, delete")
     nutrition_logs: Mapped[list["NutritionLog"]] = relationship(back_populates="user", cascade="all, delete")
     training_logs: Mapped[list["TrainingLog"]] = relationship(back_populates="user", cascade="all, delete")
+    body_metrics: Mapped[list["BodyMetric"]] = relationship(back_populates="user", cascade="all, delete")

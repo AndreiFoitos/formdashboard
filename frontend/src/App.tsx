@@ -8,8 +8,9 @@ import { Onboarding } from './pages/Onboarding'
 import { Dashboard } from './pages/Dashboard'
 import { Training } from './pages/Training'
 import { Nutrition } from './pages/Nutrition'
+import { Body } from './pages/Body'
 
-// Placeholder pages for Phase 1B+
+// Placeholder pages for future phases
 function PlaceholderPage({ title }: { title: string }) {
   return (
     <div className="min-h-screen bg-black flex items-center justify-center px-4 pb-20">
@@ -46,7 +47,7 @@ function App() {
           element={user ? <Navigate to={user.onboarding_complete ? '/' : '/onboarding'} replace /> : <Register />}
         />
 
-        {/* Onboarding — authenticated but not yet complete */}
+        {/* Onboarding */}
         <Route
           path="/onboarding"
           element={
@@ -65,9 +66,7 @@ function App() {
           path="/"
           element={
             <ProtectedRoute>
-              <AppShell>
-                <Dashboard />
-              </AppShell>
+              <AppShell><Dashboard /></AppShell>
             </ProtectedRoute>
           }
         />
@@ -75,9 +74,7 @@ function App() {
           path="/training"
           element={
             <ProtectedRoute>
-              <AppShell>
-                <Training />
-              </AppShell>
+              <AppShell><Training /></AppShell>
             </ProtectedRoute>
           }
         />
@@ -85,9 +82,7 @@ function App() {
           path="/nutrition"
           element={
             <ProtectedRoute>
-              <AppShell>
-                <Nutrition />
-              </AppShell>
+              <AppShell><Nutrition /></AppShell>
             </ProtectedRoute>
           }
         />
@@ -95,9 +90,7 @@ function App() {
           path="/body"
           element={
             <ProtectedRoute>
-              <AppShell>
-                <PlaceholderPage title="Body" />
-              </AppShell>
+              <AppShell><Body /></AppShell>
             </ProtectedRoute>
           }
         />
@@ -105,9 +98,7 @@ function App() {
           path="/ask"
           element={
             <ProtectedRoute>
-              <AppShell>
-                <PlaceholderPage title="Ask" />
-              </AppShell>
+              <AppShell><PlaceholderPage title="Ask" /></AppShell>
             </ProtectedRoute>
           }
         />
@@ -115,9 +106,7 @@ function App() {
           path="/settings"
           element={
             <ProtectedRoute>
-              <AppShell>
-                <PlaceholderPage title="Settings" />
-              </AppShell>
+              <AppShell><PlaceholderPage title="Settings" /></AppShell>
             </ProtectedRoute>
           }
         />
