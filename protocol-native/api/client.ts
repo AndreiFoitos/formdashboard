@@ -7,7 +7,7 @@ import { useAuthStore } from '../store/auth'
 //   'http://192.168.x.x:8000'
 // localhost only works on an iOS/Android simulator, not a real device.
 // For production, swap this for your Railway URL.
-const BASE_URL = 'http://localhost:8000'
+const BASE_URL = 'http://192.168.178.240:8000'
 
 export const api = axios.create({
   baseURL: BASE_URL,
