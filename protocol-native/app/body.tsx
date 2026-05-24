@@ -7,11 +7,12 @@ import {
   RefreshControl,
   ActivityIndicator,
   Modal,
+  Dimensions,
 } from 'react-native'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { VictoryChart, VictoryLine, VictoryAxis } from 'victory-native'
+import Svg, { Polyline, Line, Text as SvgText, Circle } from 'react-native-svg'
 import { api } from '../api/client'
 import { useRequireAuth } from '../hooks/useRequireAuth'
 import { useAuthStore } from '../store/auth'
@@ -76,6 +77,142 @@ function trendInfo(change: number | null, isWeight = true) {
   }
 }
 
+// ─── SVG Line Chart (replaces victory-native) ────────────────────────────────
+
+function MetricChart({
+  entries,
+  field,
+  color,
+  label,
+}: {
+  entries: BodyMetric[]
+  field: 'weight_kg' | 'body_fat_pct'
+  color: string
+  label: string
+}) {
+  const data = entries
+    .filter((e) => e[field] != null)
+    .map((e) => ({ date: formatDate(e.date), value: e[field] as number }))
+
+  if (data.length < 2) {
+    return (
+      <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+        <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1">
+          {label} trend
+        </Text>
+        <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
+          <Text className="text-zinc-600 text-xs">Log at least 2 entries to see a chart</Text>
+        </View>
+      </View>
+    )
+  }
+
+  const screenWidth = Dimensions.get('window').width
+  const chartWidth = screenWidth - 64 // 16px padding each side + 16px card padding each side
+  const chartHeight = 110
+  const paddingLeft = 36
+  const paddingRight = 8
+  const paddingTop = 8
+  const paddingBottom = 24
+
+  const plotW = chartWidth - paddingLeft - paddingRight
+  const plotH = chartHeight - paddingTop - paddingBottom
+
+  const values = data.map((d) => d.value)
+  const minV = Math.min(...values)
+  const maxV = Math.max(...values)
+  const range = maxV - minV || 1
+  const pad = range * 0.15
+
+  const toX = (i: number) => paddingLeft + (i / (data.length - 1)) * plotW
+  const toY = (v: number) =>
+    paddingTop + plotH - ((v - (minV - pad)) / (range + pad * 2)) * plotH
+
+  const points = data.map((d, i) => `${toX(i)},${toY(d.value)}`).join(' ')
+
+  // Tick labels: show up to 5 evenly spaced
+  const tickStep = Math.max(1, Math.floor(data.length / 4))
+  const tickIndices = Array.from({ length: data.length }, (_, i) => i).filter(
+    (i) => i % tickStep === 0 || i === data.length - 1,
+  )
+
+  // Y-axis: 3 reference values
+  const yTicks = [minV - pad, (minV + maxV) / 2, maxV + pad]
+
+  return (
+    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-3">
+        {label} trend
+      </Text>
+      <Svg width={chartWidth} height={chartHeight}>
+        {/* Grid lines */}
+        {yTicks.map((v, i) => (
+          <Line
+            key={i}
+            x1={paddingLeft}
+            y1={toY(v)}
+            x2={chartWidth - paddingRight}
+            y2={toY(v)}
+            stroke="#27272a"
+            strokeWidth={1}
+            strokeDasharray="3,3"
+          />
+        ))}
+
+        {/* Y-axis labels */}
+        {yTicks.map((v, i) => (
+          <SvgText
+            key={i}
+            x={paddingLeft - 4}
+            y={toY(v) + 4}
+            fontSize={8}
+            fill="#52525b"
+            textAnchor="end"
+          >
+            {v.toFixed(1)}
+          </SvgText>
+        ))}
+
+        {/* Line */}
+        <Polyline
+          points={points}
+          fill="none"
+          stroke={color}
+          strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        {/* Dots (only when few points) */}
+        {data.length <= 15 &&
+          data.map((d, i) => (
+            <Circle
+              key={i}
+              cx={toX(i)}
+              cy={toY(d.value)}
+              r={3}
+              fill={color}
+            />
+          ))}
+
+        {/* X-axis labels */}
+        {tickIndices.map((i) => (
+          <SvgText
+            key={i}
+            x={toX(i)}
+            y={chartHeight - 4}
+            fontSize={8}
+            fill="#52525b"
+            textAnchor="middle"
+          >
+            {data[i].date}
+          </SvgText>
+        ))}
+      </Svg>
+    </View>
+  )
+}
+
 // ─── Trend Card ───────────────────────────────────────────────────────────────
 
 function TrendCard({
@@ -126,77 +263,6 @@ function TrendCard({
           <Text className="text-zinc-600 text-xs">Log more to see trends</Text>
         )}
       </View>
-    </View>
-  )
-}
-
-// ─── Metric Chart ─────────────────────────────────────────────────────────────
-
-function MetricChart({
-  entries,
-  field,
-  color,
-  label,
-}: {
-  entries: BodyMetric[]
-  field: 'weight_kg' | 'body_fat_pct'
-  color: string
-  label: string
-}) {
-  const data = entries
-    .filter((e) => e[field] != null)
-    .map((e) => ({ x: formatDate(e.date), y: e[field] as number }))
-
-  if (data.length < 2) {
-    return (
-      <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-        <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1">
-          {label} trend
-        </Text>
-        <View className="h-24 items-center justify-center">
-          <Text className="text-zinc-600 text-xs">
-            Log at least 2 entries to see a chart
-          </Text>
-        </View>
-      </View>
-    )
-  }
-
-  return (
-    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
-        {label} trend
-      </Text>
-      <VictoryChart
-        width={320}
-        height={130}
-        padding={{ top: 10, bottom: 30, left: 44, right: 16 }}
-      >
-        <VictoryAxis
-          style={{
-            axis: { stroke: '#3f3f46' },
-            tickLabels: { fill: '#52525b', fontSize: 9 },
-            grid: { stroke: 'transparent' },
-          }}
-          tickCount={4}
-        />
-        <VictoryAxis
-          dependentAxis
-          style={{
-            axis: { stroke: 'transparent' },
-            tickLabels: { fill: '#52525b', fontSize: 9 },
-            grid: { stroke: '#27272a', strokeDasharray: '3,3' },
-          }}
-          tickCount={4}
-        />
-        <VictoryLine
-          data={data}
-          style={{
-            data: { stroke: color, strokeWidth: 2 },
-          }}
-          interpolation="monotoneX"
-        />
-      </VictoryChart>
     </View>
   )
 }

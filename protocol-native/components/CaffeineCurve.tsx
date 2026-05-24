@@ -1,7 +1,16 @@
 import { useState } from 'react'
-import { View, Text, TouchableOpacity, Modal, ScrollView, ActivityIndicator } from 'react-native'
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  ActivityIndicator,
+  Dimensions,
+  TextInput,
+} from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { VictoryArea, VictoryChart, VictoryAxis, VictoryTheme } from 'victory-native'
+import Svg, { Polyline, Line, Defs, LinearGradient, Stop, Polygon } from 'react-native-svg'
 import { api } from '../api/client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -45,6 +54,102 @@ function zoneLabel(mg: number) {
   return 'high'
 }
 
+// ─── SVG Caffeine Chart ───────────────────────────────────────────────────────
+
+function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string }) {
+  const screenWidth = Dimensions.get('window').width
+  const chartWidth = screenWidth - 64 // card padding
+  const chartHeight = 100
+  const paddingLeft = 4
+  const paddingRight = 4
+  const paddingTop = 6
+  const paddingBottom = 18
+
+  const plotW = chartWidth - paddingLeft - paddingRight
+  const plotH = chartHeight - paddingTop - paddingBottom
+
+  const values = curve.map((p) => p.caffeine_mg)
+  const maxV = Math.max(...values, 10)
+
+  const toX = (i: number) =>
+    paddingLeft + (i / (curve.length - 1)) * plotW
+
+  const toY = (v: number) =>
+    paddingTop + plotH - (v / maxV) * plotH
+
+  // Build area polygon (line + bottom close)
+  const linePoints = curve.map((p, i) => `${toX(i)},${toY(p.caffeine_mg)}`).join(' ')
+  const areaPoints =
+    `${paddingLeft},${paddingTop + plotH} ` +
+    linePoints +
+    ` ${chartWidth - paddingRight},${paddingTop + plotH}`
+
+  // Now-line index
+  const nowIdx = curve.findIndex((p) => !p.in_past)
+
+  // X-axis labels: every 8 points (~4 labels)
+  const labelStep = Math.max(1, Math.floor(curve.length / 4))
+  const xLabels = curve
+    .map((p, i) => ({ p, i }))
+    .filter(({ i }) => i % labelStep === 0)
+
+  // Reference lines (50, 200, 300 mg)
+  const refLines = [50, 200, 300].filter((v) => v < maxV * 1.1)
+
+  return (
+    <Svg width={chartWidth} height={chartHeight}>
+      <Defs>
+        <LinearGradient id="cafGrad" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0%" stopColor={colour} stopOpacity={0.25} />
+          <Stop offset="100%" stopColor={colour} stopOpacity={0} />
+        </LinearGradient>
+      </Defs>
+
+      {/* Reference lines */}
+      {refLines.map((v) => (
+        <Line
+          key={v}
+          x1={paddingLeft}
+          y1={toY(v)}
+          x2={chartWidth - paddingRight}
+          y2={toY(v)}
+          stroke={v === 50 ? '#3f3f46' : v === 200 ? '#f59e0b' : '#ef4444'}
+          strokeWidth={1}
+          strokeDasharray="3,3"
+          opacity={0.6}
+        />
+      ))}
+
+      {/* Area fill */}
+      <Polygon points={areaPoints} fill="url(#cafGrad)" />
+
+      {/* Line */}
+      <Polyline
+        points={linePoints}
+        fill="none"
+        stroke={colour}
+        strokeWidth={2}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+
+      {/* Now reference line */}
+      {nowIdx > 0 && nowIdx < curve.length && (
+        <Line
+          x1={toX(nowIdx)}
+          y1={paddingTop}
+          x2={toX(nowIdx)}
+          y2={paddingTop + plotH}
+          stroke="#ffffff"
+          strokeWidth={1}
+          strokeDasharray="4,2"
+          opacity={0.4}
+        />
+      )}
+    </Svg>
+  )
+}
+
 // ─── Log Modal ────────────────────────────────────────────────────────────────
 
 function LogModal({ onClose }: { onClose: () => void }) {
@@ -54,7 +159,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
 
   const { data: substances = [] } = useQuery<Substance[]>({
     queryKey: ['substances'],
-    queryFn: () => api.get('/stimulants/substances').then(r => r.data),
+    queryFn: () => api.get('/stimulants/substances').then((r) => r.data),
     staleTime: Infinity,
   })
 
@@ -76,8 +181,8 @@ function LogModal({ onClose }: { onClose: () => void }) {
     mutate(body)
   }
 
-  const presets = substances.filter(s => s.key !== 'custom')
-  const selectedSubstance = substances.find(s => s.key === selected)
+  const presets = substances.filter((s) => s.key !== 'custom')
+  const selectedSubstance = substances.find((s) => s.key === selected)
 
   return (
     <Modal
@@ -100,7 +205,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
 
         <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
           <View className="flex-row flex-wrap gap-2 mb-4">
-            {presets.map(s => (
+            {presets.map((s) => (
               <TouchableOpacity
                 key={s.key}
                 onPress={() => setSelected(s.key)}
@@ -156,10 +261,15 @@ function LogModal({ onClose }: { onClose: () => void }) {
                 Caffeine (mg)
               </Text>
               <View>
-                {/* TextInput not imported here — handled inline for simplicity */}
-                <Text className="text-zinc-400 text-sm">
-                  Enter amount in the field below
-                </Text>
+                <TextInput
+                  value={customMg}
+                  onChangeText={setCustomMg}
+                  placeholder="e.g. 150"
+                  placeholderTextColor="#52525b"
+                  keyboardType="number-pad"
+                  className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm"
+                />
+                <Text className="absolute right-4 top-4 text-zinc-500 text-sm">mg</Text>
               </View>
             </View>
           )}
@@ -172,9 +282,11 @@ function LogModal({ onClose }: { onClose: () => void }) {
 
           <TouchableOpacity
             onPress={handleLog}
-            disabled={!selected || isPending}
+            disabled={!selected || isPending || (selected === 'custom' && !customMg)}
             className="bg-white rounded-2xl py-4 items-center mb-10"
-            style={{ opacity: !selected || isPending ? 0.4 : 1 }}
+            style={{
+              opacity: !selected || isPending || (selected === 'custom' && !customMg) ? 0.4 : 1,
+            }}
           >
             {isPending ? (
               <ActivityIndicator color="black" />
@@ -202,7 +314,7 @@ export function CaffeineCurve({ data, isLoading }: Props) {
     return (
       <View className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
         <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Caffeine</Text>
-        <View className="h-36 items-center justify-center">
+        <View style={{ height: 100, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color="#52525b" />
         </View>
       </View>
@@ -213,21 +325,11 @@ export function CaffeineCurve({ data, isLoading }: Props) {
   const currentMg = data?.current_mg ?? 0
   const colour = zoneColour(currentMg)
 
-  // Downsample to every 2nd point for performance (38 → 19 points)
-  const chartData = curve
-    .filter((_, i) => i % 2 === 0)
-    .map((p, i) => ({ x: i, y: p.caffeine_mg }))
-
-  // Show every 4th label on x-axis
-  const xLabels = curve
-    .filter((_, i) => i % 8 === 0)
-    .map((p, i) => ({ x: i * 0.5, label: p.time_label }))
-
   return (
     <>
       <View className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
         {/* Header */}
-        <View className="flex-row items-start justify-between mb-2">
+        <View className="flex-row items-start justify-between mb-3">
           <View>
             <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1">
               Caffeine
@@ -254,52 +356,17 @@ export function CaffeineCurve({ data, isLoading }: Props) {
         </View>
 
         {/* Chart */}
-        {chartData.length > 1 ? (
-          <VictoryChart
-            height={140}
-            padding={{ top: 10, bottom: 30, left: 0, right: 10 }}
-            theme={VictoryTheme.material}
-          >
-            <VictoryAxis
-              style={{
-                axis: { stroke: 'transparent' },
-                tickLabels: { fill: '#52525b', fontSize: 9 },
-                grid: { stroke: 'transparent' },
-              }}
-              tickFormat={(_, i) => {
-                const match = xLabels.find(l => Math.abs(l.x - i) < 0.6)
-                return match ? match.label : ''
-              }}
-            />
-            <VictoryAxis
-              dependentAxis
-              style={{
-                axis: { stroke: 'transparent' },
-                tickLabels: { fill: 'transparent' },
-                grid: { stroke: 'transparent' },
-              }}
-            />
-            <VictoryArea
-              data={chartData}
-              style={{
-                data: {
-                  fill: `${colour}30`,
-                  stroke: colour,
-                  strokeWidth: 2,
-                },
-              }}
-              interpolation="natural"
-            />
-          </VictoryChart>
+        {curve.length > 1 ? (
+          <CaffeineChart curve={curve} colour={colour} />
         ) : (
-          <View className="h-24 items-center justify-center">
+          <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
             <Text className="text-zinc-600 text-sm">No caffeine logged today</Text>
           </View>
         )}
 
         {/* Footer */}
         {data && (
-          <Text className="text-zinc-500 text-xs leading-5 mt-1">
+          <Text className="text-zinc-500 text-xs leading-5 mt-2">
             {data.sleep_impact}
             {data.caffeine_at_bedtime > 0 && (
               <Text className="text-zinc-600">
