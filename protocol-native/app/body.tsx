@@ -11,7 +11,7 @@ import {
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { LineChart } from 'victory-native'
+import { VictoryChart, VictoryLine, VictoryAxis } from 'victory-native'
 import { api } from '../api/client'
 import { useRequireAuth } from '../hooks/useRequireAuth'
 import { useAuthStore } from '../store/auth'
@@ -67,10 +67,9 @@ function trendInfo(change: number | null, isWeight = true) {
   const threshold = isWeight ? 0.05 : 0.1
   if (abs < threshold) return { arrow: '→', color: '#71717a', label: 'stable' }
   const up = change > 0
-  const bad = isWeight ? up : up // for weight, up = orange; for BF, up = orange too
   return {
     arrow: up ? '↑' : '↓',
-    color: bad ? '#f97316' : '#22c55e',
+    color: up ? '#f97316' : '#22c55e',
     label: isWeight
       ? `${up ? '+' : ''}${change.toFixed(1)} kg`
       : `${up ? '+' : ''}${change.toFixed(1)}%`,
@@ -131,7 +130,7 @@ function TrendCard({
   )
 }
 
-// ─── Weight Chart ─────────────────────────────────────────────────────────────
+// ─── Metric Chart ─────────────────────────────────────────────────────────────
 
 function MetricChart({
   entries,
@@ -165,16 +164,39 @@ function MetricChart({
 
   return (
     <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-4">
+      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
         {label} trend
       </Text>
-      <LineChart
-        data={data}
-        width={280}
-        height={120}
-        style={{ data: { stroke: color, strokeWidth: 2 } }}
-        padding={{ top: 10, bottom: 30, left: 40, right: 20 }}
-      />
+      <VictoryChart
+        width={320}
+        height={130}
+        padding={{ top: 10, bottom: 30, left: 44, right: 16 }}
+      >
+        <VictoryAxis
+          style={{
+            axis: { stroke: '#3f3f46' },
+            tickLabels: { fill: '#52525b', fontSize: 9 },
+            grid: { stroke: 'transparent' },
+          }}
+          tickCount={4}
+        />
+        <VictoryAxis
+          dependentAxis
+          style={{
+            axis: { stroke: 'transparent' },
+            tickLabels: { fill: '#52525b', fontSize: 9 },
+            grid: { stroke: '#27272a', strokeDasharray: '3,3' },
+          }}
+          tickCount={4}
+        />
+        <VictoryLine
+          data={data}
+          style={{
+            data: { stroke: color, strokeWidth: 2 },
+          }}
+          interpolation="monotoneX"
+        />
+      </VictoryChart>
     </View>
   )
 }
@@ -241,14 +263,17 @@ function LogModal({
             <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">
               Weight
             </Text>
-            <TextInput
-              value={weight}
-              onChangeText={setWeight}
-              placeholder={currentWeight ? currentWeight.toFixed(1) : '80.0'}
-              placeholderTextColor="#52525b"
-              keyboardType="decimal-pad"
-              className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm"
-            />
+            <View>
+              <TextInput
+                value={weight}
+                onChangeText={setWeight}
+                placeholder={currentWeight ? currentWeight.toFixed(1) : '80.0'}
+                placeholderTextColor="#52525b"
+                keyboardType="decimal-pad"
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm"
+              />
+              <Text className="absolute right-4 top-4 text-zinc-500 text-sm">kg</Text>
+            </View>
             {bmiVal && (
               <Text className="text-zinc-600 text-xs mt-1.5">BMI: {bmiVal}</Text>
             )}
@@ -260,14 +285,17 @@ function LogModal({
               Body Fat{' '}
               <Text className="text-zinc-700 normal-case">(optional)</Text>
             </Text>
-            <TextInput
-              value={bodyFat}
-              onChangeText={setBodyFat}
-              placeholder="15.0"
-              placeholderTextColor="#52525b"
-              keyboardType="decimal-pad"
-              className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm"
-            />
+            <View>
+              <TextInput
+                value={bodyFat}
+                onChangeText={setBodyFat}
+                placeholder="15.0"
+                placeholderTextColor="#52525b"
+                keyboardType="decimal-pad"
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm"
+              />
+              <Text className="absolute right-4 top-4 text-zinc-500 text-sm">%</Text>
+            </View>
           </View>
 
           <TouchableOpacity

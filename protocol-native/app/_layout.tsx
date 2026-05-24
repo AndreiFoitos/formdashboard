@@ -1,3 +1,4 @@
+import '../global.css'
 import { useEffect } from 'react'
 import { Stack, router } from 'expo-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
