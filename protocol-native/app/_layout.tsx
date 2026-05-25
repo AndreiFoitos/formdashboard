@@ -1,6 +1,7 @@
 import '../global.css'
 import { useEffect } from 'react'
 import { Stack, router } from 'expo-router'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { useAuthStore } from '../store/auth'
@@ -63,31 +64,29 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthGate>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: 'black' },
-              // Smooth slide animation on iOS, native on Android
-              animation: 'slide_from_right',
-            }}
-          >
-            {/* Public screens */}
-            <Stack.Screen name="login" />
-            <Stack.Screen name="register" />
-            <Stack.Screen name="onboarding" />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthGate>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: 'black' },
+                // Smooth slide animation on iOS, native on Android
+                animation: 'slide_from_right',
+              }}
+            >
+              {/* Public screens */}
+              <Stack.Screen name="login" />
+              <Stack.Screen name="register" />
+              <Stack.Screen name="onboarding" />
 
-            {/* App screens — all protected via useRequireAuth() */}
-            <Stack.Screen name="index" />
-            <Stack.Screen name="training" />
-            <Stack.Screen name="nutrition" />
-            <Stack.Screen name="body" />
-            <Stack.Screen name="ask" />
-          </Stack>
-        </AuthGate>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+              {/* Main app — swipeable tab group, protected via useRequireAuth() */}
+              <Stack.Screen name="(tabs)" />
+            </Stack>
+          </AuthGate>
+        </QueryClientProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   )
 }

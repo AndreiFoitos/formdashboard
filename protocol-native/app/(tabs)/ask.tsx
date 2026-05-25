@@ -1,7 +1,6 @@
 import { View, Text } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRequireAuth } from '../hooks/useRequireAuth'
-import { BottomNav } from '../components/BottomNav'
+import { useRequireAuth } from '../../hooks/useRequireAuth'
 
 export default function AskScreen() {
   useRequireAuth()
@@ -14,7 +13,6 @@ export default function AskScreen() {
           AI coach coming soon
         </Text>
       </View>
-      <BottomNav />
     </SafeAreaView>
   )
 }

@@ -11,9 +11,12 @@ import {
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { api } from '../api/client'
-import { useRequireAuth } from '../hooks/useRequireAuth'
-import { BottomNav } from '../components/BottomNav'
+import { api } from '../../api/client'
+import { useRequireAuth } from '../../hooks/useRequireAuth'
+import { SkeletonCard } from '../../components/Skeleton'
+import { SwipeableRow } from '../../components/SwipeableRow'
+import { PressableScale } from '../../components/PressableScale'
+import { hapticSuccess, hapticSelection } from '../../lib/haptics'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -85,6 +88,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
   const { mutate, isPending } = useMutation({
     mutationFn: (body: object) => api.post('/training/log', body),
     onSuccess: () => {
+      hapticSuccess()
       qc.invalidateQueries({ queryKey: ['training-history'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       onClose()
@@ -189,7 +193,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
                   {[1, 2, 3, 4, 5].map(n => (
                     <TouchableOpacity
                       key={n}
-                      onPress={() => setIntensity(n)}
+                      onPress={() => { hapticSelection(); setIntensity(n) }}
                       className="flex-1 py-3 rounded-2xl border items-center"
                       style={{
                         backgroundColor: intensity === n ? 'white' : '#18181b',
@@ -270,20 +274,17 @@ function LogModal({ onClose }: { onClose: () => void }) {
 
 function SessionCard({
   log,
-  onDelete,
   isLast,
 }: {
   log: TrainingLog
-  onDelete: () => void
   isLast: boolean
 }) {
-  const [confirm, setConfirm] = useState(false)
   const colour = typeColour(log.type)
   const label  = TRAINING_TYPES.find(t => t.key === log.type)?.label ?? log.type
 
   return (
     <View
-      className="flex-row items-start gap-3 px-4 py-4"
+      className="flex-row items-start gap-3 px-4 py-4 bg-zinc-900"
       style={{ borderBottomWidth: isLast ? 0 : 1, borderBottomColor: '#27272a' }}
     >
       {/* Colour dot */}
@@ -316,22 +317,6 @@ function SessionCard({
           </Text>
         )}
       </View>
-
-      {/* Delete */}
-      {confirm ? (
-        <View className="flex-row gap-3">
-          <TouchableOpacity onPress={onDelete}>
-            <Text className="text-red-400 text-xs">Delete</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setConfirm(false)}>
-            <Text className="text-zinc-600 text-xs">Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity onPress={() => setConfirm(true)}>
-          <Text className="text-zinc-700 text-sm">···</Text>
-        </TouchableOpacity>
-      )}
     </View>
   )
 }
@@ -429,7 +414,7 @@ export default function TrainingScreen() {
     <SafeAreaView className="flex-1 bg-black" edges={['top']}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -444,16 +429,21 @@ export default function TrainingScreen() {
             <Text className="text-zinc-500 text-xs uppercase tracking-widest">{today}</Text>
             <Text className="text-white text-2xl font-bold mt-1">Training</Text>
           </View>
-          <TouchableOpacity
+          <PressableScale
+            haptic
             onPress={() => setShowLog(true)}
             className="bg-white px-4 py-2 rounded-2xl"
           >
             <Text className="text-black text-sm font-semibold">+ Log</Text>
-          </TouchableOpacity>
+          </PressableScale>
         </View>
 
         {isLoading ? (
-          <ActivityIndicator color="white" style={{ marginTop: 40 }} />
+          <View style={{ gap: 12, marginTop: 4 }}>
+            <SkeletonCard height={88} />
+            <SkeletonCard height={64} />
+            <SkeletonCard height={64} />
+          </View>
         ) : (
           <View style={{ gap: 12 }}>
             <WeeklyBar logs={history} />
@@ -487,12 +477,12 @@ export default function TrainingScreen() {
                       date === sortedDates[sortedDates.length - 1] &&
                       i === grouped[date].length - 1
                     return (
-                      <SessionCard
+                      <SwipeableRow
                         key={log.id}
-                        log={log}
-                        isLast={isLast}
                         onDelete={() => deleteMutation.mutate(log.id)}
-                      />
+                      >
+                        <SessionCard log={log} isLast={isLast} />
+                      </SwipeableRow>
                     )
                   })
                 ))}
@@ -503,7 +493,6 @@ export default function TrainingScreen() {
       </ScrollView>
 
       {showLog && <LogModal onClose={() => setShowLog(false)} />}
-      <BottomNav />
     </SafeAreaView>
   )
 }

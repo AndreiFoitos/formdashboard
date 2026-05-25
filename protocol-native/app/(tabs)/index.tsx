@@ -10,9 +10,15 @@ import {
 import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { api } from '../api/client'
-import { useRequireAuth } from '../hooks/useRequireAuth'
-import { BottomNav } from '../components/BottomNav'
+import { api } from '../../api/client'
+import { useRequireAuth } from '../../hooks/useRequireAuth'
+import { CountUp } from '../../components/CountUp'
+import { AnimatedBar } from '../../components/AnimatedBar'
+import { SkeletonCard } from '../../components/Skeleton'
+import { SuccessCheck } from '../../components/SuccessCheck'
+import { PressableScale } from '../../components/PressableScale'
+import { SwipeableRow } from '../../components/SwipeableRow'
+import { hapticLight, hapticSuccess, hapticSelection } from '../../lib/haptics'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -105,7 +111,7 @@ function FormScoreCard({ summary }: { summary: Summary | undefined }) {
           className="w-16 h-16 rounded-full items-center justify-center border-2"
           style={{ borderColor: color }}
         >
-          <Text className="text-white text-xl font-bold">{score}</Text>
+          <CountUp value={score} className="text-white text-xl font-bold" />
         </View>
 
         <View className="flex-1">
@@ -142,18 +148,20 @@ function StatTile({
         {label}
       </Text>
       <Text className="text-white font-semibold text-base">
-        {value != null ? Math.round(value).toLocaleString() : '—'}
+        {value != null ? (
+          <CountUp
+            value={Math.round(value)}
+            separator
+            className="text-white font-semibold text-base"
+          />
+        ) : (
+          '—'
+        )}
         <Text className="text-zinc-500 text-xs font-normal"> {unit}</Text>
       </Text>
       {target != null && (
         <>
-          {/* Progress bar */}
-          <View className="h-0.5 bg-zinc-800 rounded-full mt-3 overflow-hidden">
-            <View
-              className="h-full bg-white rounded-full"
-              style={{ width: `${p}%` }}
-            />
-          </View>
+          <AnimatedBar percent={p} color="#ffffff" height={2} style={{ marginTop: 12 }} />
           <Text className="text-zinc-600 text-xs mt-1">{p}%</Text>
         </>
       )}
@@ -171,6 +179,7 @@ function EnergyCheckin() {
   const { mutate, isPending } = useMutation({
     mutationFn: (level: number) => api.post('/energy/log', { level }),
     onSuccess: () => {
+      hapticSuccess()
       setDone(true)
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       setTimeout(() => setDone(false), 3000)
@@ -182,7 +191,7 @@ function EnergyCheckin() {
   if (done) {
     return (
       <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex-row items-center gap-3">
-        <Text className="text-green-500 text-base">✓</Text>
+        <SuccessCheck size={22} />
         <Text className="text-zinc-300 text-sm">Energy logged</Text>
       </View>
     )
@@ -195,9 +204,9 @@ function EnergyCheckin() {
       </Text>
       <View className="flex-row gap-2 mb-3">
         {[1, 2, 3, 4, 5].map((n) => (
-          <TouchableOpacity
+          <PressableScale
             key={n}
-            onPress={() => setSelected(n)}
+            onPress={() => { hapticSelection(); setSelected(n) }}
             className="flex-1 py-2.5 rounded-xl border items-center"
             style={{
               backgroundColor: selected === n ? 'white' : '#18181b',
@@ -210,7 +219,7 @@ function EnergyCheckin() {
             >
               {n}
             </Text>
-          </TouchableOpacity>
+          </PressableScale>
         ))}
       </View>
       <View className="flex-row items-center justify-between">
@@ -249,6 +258,7 @@ function HydrationQuickLog({
   const { mutate } = useMutation({
     mutationFn: (ml: number) => api.post('/hydration/log', { amount_ml: ml }),
     onSuccess: () => {
+      hapticSuccess()
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       setLogging(false)
     },
@@ -270,24 +280,18 @@ function HydrationQuickLog({
         </Text>
       </View>
 
-      {/* Progress bar */}
-      <View className="h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-3">
-        <View
-          className="h-full rounded-full"
-          style={{ width: `${p}%`, backgroundColor: '#38bdf8' }}
-        />
-      </View>
+      <AnimatedBar percent={p} color="#38bdf8" height={6} style={{ marginBottom: 12 }} />
 
       {logging ? (
         <View className="flex-row gap-2">
           {[250, 500, 750].map((ml) => (
-            <TouchableOpacity
+            <PressableScale
               key={ml}
               onPress={() => mutate(ml)}
               className="flex-1 py-2 rounded-xl bg-zinc-800 items-center"
             >
               <Text className="text-white text-xs font-medium">{ml}ml</Text>
-            </TouchableOpacity>
+            </PressableScale>
           ))}
           <TouchableOpacity
             onPress={() => setLogging(false)}
@@ -401,15 +405,21 @@ function GoalsSection({ goals }: { goals: Goal[] }) {
           </View>
         )}
 
-        {/* Pending goals */}
+        {/* Goals — swipe a row left to delete */}
         {[...pending, ...done].map((goal, index) => (
-          <GoalRow
+          <SwipeableRow
             key={goal.id}
-            goal={goal}
-            isLast={index === goals.length - 1}
-            onToggle={() => toggleMutation.mutate({ id: goal.id, done: !goal.done })}
             onDelete={() => deleteMutation.mutate(goal.id)}
-          />
+          >
+            <GoalRow
+              goal={goal}
+              isLast={index === goals.length - 1}
+              onToggle={() => {
+                hapticLight()
+                toggleMutation.mutate({ id: goal.id, done: !goal.done })
+              }}
+            />
+          </SwipeableRow>
         ))}
       </View>
     </View>
@@ -420,23 +430,20 @@ function GoalRow({
   goal,
   isLast,
   onToggle,
-  onDelete,
 }: {
   goal: Goal
   isLast: boolean
   onToggle: () => void
-  onDelete: () => void
 }) {
-  const [showDelete, setShowDelete] = useState(false)
-
   return (
     <View
-      className="flex-row items-center px-4 py-3"
+      className="flex-row items-center px-4 py-3 bg-zinc-900"
       style={{ borderBottomWidth: isLast ? 0 : 1, borderBottomColor: '#27272a' }}
     >
       {/* Checkbox */}
       <TouchableOpacity
         onPress={onToggle}
+        hitSlop={8}
         className="w-4 h-4 rounded border mr-3 items-center justify-center"
         style={{
           backgroundColor: goal.done ? 'white' : 'transparent',
@@ -458,22 +465,6 @@ function GoalRow({
       >
         {goal.text}
       </Text>
-
-      {/* Delete */}
-      {showDelete ? (
-        <View className="flex-row gap-3">
-          <TouchableOpacity onPress={onDelete}>
-            <Text className="text-red-400 text-xs">Delete</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowDelete(false)}>
-            <Text className="text-zinc-600 text-xs">Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity onPress={() => setShowDelete(true)}>
-          <Text className="text-zinc-700 text-sm">···</Text>
-        </TouchableOpacity>
-      )}
     </View>
   )
 }
@@ -511,7 +502,7 @@ export default function DashboardScreen() {
     <SafeAreaView className="flex-1 bg-black" edges={['top']}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
         // Pull-to-refresh — not available in the web version but expected on mobile
         refreshControl={
           <RefreshControl
@@ -532,7 +523,18 @@ export default function DashboardScreen() {
         </View>
 
         {isLoading ? (
-          <ActivityIndicator color="white" style={{ marginTop: 40 }} />
+          <View style={{ gap: 12 }}>
+            <SkeletonCard height={96} />
+            <View className="flex-row gap-3">
+              <View className="flex-1"><SkeletonCard height={80} /></View>
+              <View className="flex-1"><SkeletonCard height={80} /></View>
+            </View>
+            <View className="flex-row gap-3">
+              <View className="flex-1"><SkeletonCard height={80} /></View>
+              <View className="flex-1"><SkeletonCard height={80} /></View>
+            </View>
+            <SkeletonCard height={80} />
+          </View>
         ) : (
           <View style={{ gap: 12 }}>
             <FormScoreCard summary={summary} />
@@ -592,7 +594,6 @@ export default function DashboardScreen() {
         )}
       </ScrollView>
 
-      <BottomNav />
     </SafeAreaView>
   )
 }

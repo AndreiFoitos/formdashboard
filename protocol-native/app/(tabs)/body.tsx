@@ -13,10 +13,14 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Polyline, Line, Text as SvgText, Circle } from 'react-native-svg'
-import { api } from '../api/client'
-import { useRequireAuth } from '../hooks/useRequireAuth'
-import { useAuthStore } from '../store/auth'
-import { BottomNav } from '../components/BottomNav'
+import { api } from '../../api/client'
+import { useRequireAuth } from '../../hooks/useRequireAuth'
+import { useAuthStore } from '../../store/auth'
+import { CountUp } from '../../components/CountUp'
+import { SkeletonCard } from '../../components/Skeleton'
+import { SwipeableRow } from '../../components/SwipeableRow'
+import { PressableScale } from '../../components/PressableScale'
+import { hapticSuccess, hapticSelection } from '../../lib/haptics'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -239,7 +243,11 @@ function TrendCard({
         {label}
       </Text>
       <Text className="text-white text-2xl font-bold mb-3">
-        {value != null ? value.toFixed(1) : '—'}
+        {value != null ? (
+          <CountUp value={value} decimals={1} className="text-white text-2xl font-bold" />
+        ) : (
+          '—'
+        )}
         <Text className="text-zinc-500 text-sm font-normal"> {unit}</Text>
       </Text>
       <View className="flex-row gap-4">
@@ -284,6 +292,7 @@ function LogModal({
   const { mutate, isPending } = useMutation({
     mutationFn: (body: object) => api.post('/body/metrics', body),
     onSuccess: () => {
+      hapticSuccess()
       qc.invalidateQueries({ queryKey: ['body-history'] })
       onClose()
     },
@@ -386,18 +395,14 @@ function LogModal({
 
 function HistoryRow({
   metric,
-  onDelete,
   isLast,
 }: {
   metric: BodyMetric
-  onDelete: () => void
   isLast: boolean
 }) {
-  const [confirm, setConfirm] = useState(false)
-
   return (
     <View
-      className="flex-row items-center px-4 py-4"
+      className="flex-row items-center px-4 py-4 bg-zinc-900"
       style={{ borderBottomWidth: isLast ? 0 : 1, borderBottomColor: '#27272a' }}
     >
       <View className="flex-1">
@@ -417,21 +422,6 @@ function HistoryRow({
           )}
         </View>
       </View>
-
-      {confirm ? (
-        <View className="flex-row gap-3">
-          <TouchableOpacity onPress={onDelete}>
-            <Text className="text-red-400 text-xs">Delete</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setConfirm(false)}>
-            <Text className="text-zinc-600 text-xs">Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity onPress={() => setConfirm(true)}>
-          <Text className="text-zinc-700 text-sm">···</Text>
-        </TouchableOpacity>
-      )}
     </View>
   )
 }
@@ -468,7 +458,7 @@ export default function BodyScreen() {
     <SafeAreaView className="flex-1 bg-black" edges={['top']}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -483,16 +473,23 @@ export default function BodyScreen() {
             <Text className="text-zinc-500 text-xs uppercase tracking-widest">{today}</Text>
             <Text className="text-white text-2xl font-bold mt-1">Body</Text>
           </View>
-          <TouchableOpacity
+          <PressableScale
+            haptic
             onPress={() => setShowLog(true)}
             className="bg-white px-4 py-2 rounded-2xl"
           >
             <Text className="text-black text-sm font-semibold">+ Log</Text>
-          </TouchableOpacity>
+          </PressableScale>
         </View>
 
         {isLoading ? (
-          <ActivityIndicator color="white" style={{ marginTop: 40 }} />
+          <View style={{ gap: 12, marginTop: 4 }}>
+            <View className="flex-row gap-3">
+              <View className="flex-1"><SkeletonCard height={96} /></View>
+              <View className="flex-1"><SkeletonCard height={96} /></View>
+            </View>
+            <SkeletonCard height={140} />
+          </View>
         ) : (
           <View style={{ gap: 12 }}>
             {/* Trend cards */}
@@ -548,7 +545,7 @@ export default function BodyScreen() {
                     {([30, 60, 90] as const).map((r) => (
                       <TouchableOpacity
                         key={r}
-                        onPress={() => setRange(r)}
+                        onPress={() => { hapticSelection(); setRange(r) }}
                         className="px-3 py-1.5 rounded-xl border"
                         style={{
                           backgroundColor: range === r ? 'white' : '#18181b',
@@ -624,12 +621,12 @@ export default function BodyScreen() {
                 </Text>
                 <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
                   {[...entries].reverse().map((metric, i) => (
-                    <HistoryRow
+                    <SwipeableRow
                       key={metric.id}
-                      metric={metric}
-                      isLast={i === entries.length - 1}
                       onDelete={() => deleteMutation.mutate(metric.id)}
-                    />
+                    >
+                      <HistoryRow metric={metric} isLast={i === entries.length - 1} />
+                    </SwipeableRow>
                   ))}
                 </View>
               </>
@@ -644,7 +641,6 @@ export default function BodyScreen() {
           currentWeight={stats?.current_weight_kg ?? null}
         />
       )}
-      <BottomNav />
     </SafeAreaView>
   )
 }

@@ -11,9 +11,14 @@ import {
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { api } from '../api/client'
-import { useRequireAuth } from '../hooks/useRequireAuth'
-import { BottomNav } from '../components/BottomNav'
+import { api } from '../../api/client'
+import { useRequireAuth } from '../../hooks/useRequireAuth'
+import { CountUp } from '../../components/CountUp'
+import { AnimatedBar } from '../../components/AnimatedBar'
+import { SkeletonCard } from '../../components/Skeleton'
+import { SwipeableRow } from '../../components/SwipeableRow'
+import { PressableScale } from '../../components/PressableScale'
+import { hapticSuccess } from '../../lib/haptics'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,9 +79,11 @@ function CalorieBar({ calories, target }: { calories: number; target: number | n
             Calories
           </Text>
           <View className="flex-row items-baseline gap-1.5">
-            <Text className="text-white text-3xl font-bold">
-              {calories.toLocaleString()}
-            </Text>
+            <CountUp
+              value={calories}
+              separator
+              className="text-white text-3xl font-bold"
+            />
             {target && (
               <Text className="text-zinc-500 text-sm">/ {target.toLocaleString()} kcal</Text>
             )}
@@ -91,15 +98,7 @@ function CalorieBar({ calories, target }: { calories: number; target: number | n
         )}
       </View>
 
-      <View className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-        <View
-          className="h-full rounded-full"
-          style={{
-            width: `${Math.min(100, p)}%`,
-            backgroundColor: over ? '#f97316' : 'white',
-          }}
-        />
-      </View>
+      <AnimatedBar percent={Math.min(100, p)} color={over ? '#f97316' : '#ffffff'} height={6} />
       {target && (
         <Text className="text-zinc-600 text-xs mt-1.5">{p}% of daily target</Text>
       )}
@@ -135,12 +134,12 @@ function MacroCard({
       </Text>
       {target && (
         <>
-          <View className="h-1 bg-zinc-800 rounded-full mt-2 overflow-hidden">
-            <View
-              className="h-full rounded-full"
-              style={{ width: `${Math.min(100, p ?? 0)}%`, backgroundColor: color }}
-            />
-          </View>
+          <AnimatedBar
+            percent={Math.min(100, p ?? 0)}
+            color={color}
+            height={4}
+            style={{ marginTop: 8 }}
+          />
           <Text className="text-zinc-600 text-xs mt-1">
             of {Math.round(target)}{unit}
           </Text>
@@ -208,6 +207,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
   const { mutate, isPending } = useMutation({
     mutationFn: (body: object) => api.post('/nutrition/log', body),
     onSuccess: () => {
+      hapticSuccess()
       qc.invalidateQueries({ queryKey: ['nutrition-today'] })
       onClose()
     },
@@ -365,18 +365,14 @@ function LogModal({ onClose }: { onClose: () => void }) {
 
 function EntryRow({
   entry,
-  onDelete,
   isLast,
 }: {
   entry: NutritionEntry
-  onDelete: () => void
   isLast: boolean
 }) {
-  const [confirm, setConfirm] = useState(false)
-
   return (
     <View
-      className="flex-row items-start gap-3 px-4 py-4"
+      className="flex-row items-start gap-3 px-4 py-4 bg-zinc-900"
       style={{ borderBottomWidth: isLast ? 0 : 1, borderBottomColor: '#27272a' }}
     >
       <View className="mt-2">
@@ -413,21 +409,6 @@ function EntryRow({
           )}
         </View>
       </View>
-
-      {confirm ? (
-        <View className="flex-row gap-3">
-          <TouchableOpacity onPress={onDelete}>
-            <Text className="text-red-400 text-xs">Delete</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setConfirm(false)}>
-            <Text className="text-zinc-600 text-xs">Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity onPress={() => setConfirm(true)}>
-          <Text className="text-zinc-700 text-sm">···</Text>
-        </TouchableOpacity>
-      )}
     </View>
   )
 }
@@ -463,7 +444,7 @@ export default function NutritionScreen() {
     <SafeAreaView className="flex-1 bg-black" edges={['top']}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -478,16 +459,25 @@ export default function NutritionScreen() {
             <Text className="text-zinc-500 text-xs uppercase tracking-widest">{today}</Text>
             <Text className="text-white text-2xl font-bold mt-1">Nutrition</Text>
           </View>
-          <TouchableOpacity
+          <PressableScale
+            haptic
             onPress={() => setShowLog(true)}
             className="bg-white px-4 py-2 rounded-2xl"
           >
             <Text className="text-black text-sm font-semibold">+ Log</Text>
-          </TouchableOpacity>
+          </PressableScale>
         </View>
 
         {isLoading ? (
-          <ActivityIndicator color="white" style={{ marginTop: 40 }} />
+          <View style={{ gap: 12, marginTop: 4 }}>
+            <SkeletonCard height={92} />
+            <View className="flex-row gap-3">
+              <View className="flex-1"><SkeletonCard height={72} /></View>
+              <View className="flex-1"><SkeletonCard height={72} /></View>
+              <View className="flex-1"><SkeletonCard height={72} /></View>
+            </View>
+            <SkeletonCard height={64} />
+          </View>
         ) : (
           <View style={{ gap: 12 }}>
             <CalorieBar calories={totals.calories} target={targets.calories} />
@@ -546,12 +536,12 @@ export default function NutritionScreen() {
             ) : (
               <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
                 {entries.map((entry, i) => (
-                  <EntryRow
+                  <SwipeableRow
                     key={entry.id}
-                    entry={entry}
-                    isLast={i === entries.length - 1}
                     onDelete={() => deleteMutation.mutate(entry.id)}
-                  />
+                  >
+                    <EntryRow entry={entry} isLast={i === entries.length - 1} />
+                  </SwipeableRow>
                 ))}
               </View>
             )}
@@ -560,7 +550,6 @@ export default function NutritionScreen() {
       </ScrollView>
 
       {showLog && <LogModal onClose={() => setShowLog(false)} />}
-      <BottomNav />
     </SafeAreaView>
   )
 }

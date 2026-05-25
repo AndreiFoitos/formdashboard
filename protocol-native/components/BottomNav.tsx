@@ -1,49 +1,113 @@
-import { View, TouchableOpacity, Text } from 'react-native'
-import { router, usePathname } from 'expo-router'
+import { useEffect, useState } from 'react'
+import { View, Pressable, Text, LayoutChangeEvent } from 'react-native'
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs'
+import { TAB_ICONS } from './TabIcons'
+import { hapticSelection } from '../lib/haptics'
 
-const items = [
-  {
-    path: '/',
-    label: 'Today',
-  },
-  {
-    path: '/training',
-    label: 'Training',
-  },
-  {
-    path: '/nutrition',
-    label: 'Nutrition',
-  },
-  {
-    path: '/body',
-    label: 'Body',
-  },
-  {
-    path: '/ask',
-    label: 'Ask',
-  },
-]
+const LABELS: Record<string, string> = {
+  index: 'Today',
+  training: 'Training',
+  nutrition: 'Nutrition',
+  body: 'Body',
+  ask: 'Ask',
+}
 
-export function BottomNav() {
-  const pathname = usePathname()
+const INDICATOR_WIDTH = 28
+const ACTIVE = '#ffffff'
+const INACTIVE = '#52525b'
+
+/**
+ * Bottom tab bar rendered by the material-top-tabs navigator. Pages swipe
+ * underneath it; this bar stays fixed. Shows an icon + label per tab and a
+ * sliding indicator that tracks the active tab.
+ */
+export function BottomNav({ state, navigation }: MaterialTopTabBarProps) {
+  const insets = useSafeAreaInsets()
+  const [width, setWidth] = useState(0)
+  const indicatorX = useSharedValue(0)
+
+  const count = state.routes.length
+  const tabWidth = width / count
+
+  useEffect(() => {
+    if (!tabWidth) return
+    const target = state.index * tabWidth + tabWidth / 2 - INDICATOR_WIDTH / 2
+    indicatorX.value = withTiming(target, {
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.index, tabWidth])
+
+  const indicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: indicatorX.value }],
+  }))
+
+  function onLayout(e: LayoutChangeEvent) {
+    setWidth(e.nativeEvent.layout.width)
+  }
 
   return (
-    <View className="absolute bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-900 flex-row py-4 px-2">
-      {items.map((item) => {
-        const active = pathname === item.path
+    <View
+      onLayout={onLayout}
+      style={{ paddingBottom: Math.max(insets.bottom, 8) }}
+      className="bg-zinc-950 border-t border-zinc-900 flex-row pt-2.5"
+    >
+      {/* Sliding active indicator */}
+      {width > 0 && (
+        <Animated.View
+          style={[
+            {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: INDICATOR_WIDTH,
+              height: 2.5,
+              borderRadius: 2,
+              backgroundColor: ACTIVE,
+            },
+            indicatorStyle,
+          ]}
+        />
+      )}
+
+      {state.routes.map((route, index) => {
+        const focused = state.index === index
+        const color = focused ? ACTIVE : INACTIVE
+        const Icon = TAB_ICONS[route.name]
+        const label = LABELS[route.name] ?? route.name
+
+        function onPress() {
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          })
+          if (!focused && !event.defaultPrevented) {
+            hapticSelection()
+            navigation.navigate(route.name)
+          }
+        }
 
         return (
-          <TouchableOpacity
-            key={item.path}
-            onPress={() => router.push(item.path as any)}
-            className="flex-1 items-center"
+          <Pressable
+            key={route.key}
+            onPress={onPress}
+            className="flex-1 items-center justify-center"
+            style={{ minHeight: 48, gap: 4 }}
           >
-            <Text
-              className={active ? 'text-white text-xs' : 'text-zinc-600 text-xs'}
-            >
-              {item.label}
+            {Icon ? <Icon color={color} size={23} /> : null}
+            <Text style={{ color, fontSize: 11, fontWeight: focused ? '600' : '400' }}>
+              {label}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         )
       })}
     </View>
