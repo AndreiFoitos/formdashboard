@@ -22,6 +22,9 @@ from routers.dashboard import router as dashboard_router
 from routers.body import router as body_router
 
 
+import socket
+socket.setdefaulttimeout(10)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Warm up DB connection pool so the first user request isn't slow

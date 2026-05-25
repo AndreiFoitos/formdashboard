@@ -28,6 +28,7 @@ engine = create_async_engine(
         "statement_cache_size": 0,
         # Set a tight connect timeout so failures surface fast
         "command_timeout": 10,
+        "ssl": "require",
     },
 )
 
