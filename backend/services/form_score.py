@@ -77,7 +77,7 @@ async def compute_form_score(day: DailySummary, user, db: AsyncSession) -> tuple
     # ── Run all independent DB queries in parallel ────────────────────────────
     hrv_task = normalize_hrv(user.id, day.hrv_score, db) if day.hrv_score else None
     training_task = days_since_last_training(user.id, day.date, db)
-    caffeine_task = estimate_caffeine_at_sleep(user.id, day.date, 23, db)
+    caffeine_task = estimate_caffeine_at_sleep(user.id, day.date, user.sleep_hour, db)
     streak_task = db.get(Streak, user.id)
 
     # Gather all at once — saves 3 sequential round trips

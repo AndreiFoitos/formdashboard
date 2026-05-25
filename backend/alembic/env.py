@@ -1,4 +1,5 @@
 ﻿import asyncio
+import uuid
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -49,6 +50,14 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        # Supabase fronts Postgres with pgbouncer in transaction-pooling mode, which
+        # reuses backend connections across clients. asyncpg's default sequential
+        # prepared-statement names then collide (DuplicatePreparedStatementError).
+        # Disable the cache and give every statement a unique name.
+        connect_args={
+            "statement_cache_size": 0,
+            "prepared_statement_name_func": lambda: f"__alembic_{uuid.uuid4()}__",
+        },
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)

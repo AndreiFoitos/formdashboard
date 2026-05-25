@@ -9,6 +9,7 @@ from models.hydration_log import HydrationLog
 from models.nutrition_log import NutritionLog
 from models.training_log import TrainingLog
 from models.body_metric import BodyMetric
+from models.device_connection import DeviceConnection
 
 __all__ = [
     "User",
@@ -22,4 +23,5 @@ __all__ = [
     "NutritionLog",
     "TrainingLog",
     "BodyMetric",
+    "DeviceConnection",
 ]

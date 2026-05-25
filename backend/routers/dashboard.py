@@ -40,7 +40,7 @@ async def get_dashboard(
     summary_result, goals_result, caffeine = await asyncio.gather(
         summary_task,
         goals_task,
-        get_caffeine_curve(current_user.id, db),
+        get_caffeine_curve(current_user.id, db, current_user.sleep_hour),
     )
 
     summary = summary_result.scalar_one_or_none()

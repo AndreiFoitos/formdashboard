@@ -18,6 +18,7 @@ class User(Base):
     weight_kg: Mapped[float] = mapped_column(nullable=True)
     goal: Mapped[str] = mapped_column(String, nullable=True)  # bulk, cut, maintain, recomp
     timezone: Mapped[str] = mapped_column(String, default="UTC")
+    sleep_hour: Mapped[int] = mapped_column(default=23, server_default="23")  # local bedtime hour, for caffeine-at-bedtime calc
     onboarding_complete: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -40,3 +41,4 @@ class User(Base):
     nutrition_logs: Mapped[list["NutritionLog"]] = relationship(back_populates="user", cascade="all, delete")
     training_logs: Mapped[list["TrainingLog"]] = relationship(back_populates="user", cascade="all, delete")
     body_metrics: Mapped[list["BodyMetric"]] = relationship(back_populates="user", cascade="all, delete")
+    device_connections: Mapped[list["DeviceConnection"]] = relationship(back_populates="user", cascade="all, delete")

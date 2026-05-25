@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 import uuid
 
@@ -13,6 +13,7 @@ class UserOut(BaseModel):
     weight_kg: float | None
     goal: str | None
     timezone: str
+    sleep_hour: int
     onboarding_complete: bool
     protein_target_g: float | None
     water_target_ml: int | None
@@ -29,6 +30,7 @@ class UserUpdate(BaseModel):
     weight_kg: float | None = None
     goal: str | None = None
     timezone: str | None = None
+    sleep_hour: int | None = Field(None, ge=0, le=23)
     onboarding_complete: bool | None = None
     protein_target_g: float | None = None
     water_target_ml: int | None = None
