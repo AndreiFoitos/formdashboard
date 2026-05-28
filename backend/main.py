@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.redis import init_redis, close_redis
 from core.database import engine, get_db
+from services.scheduler import start_scheduler, shutdown_scheduler
 
 from routers.auth import router as auth_router
 from routers.users import router as users_router
@@ -36,7 +37,10 @@ async def lifespan(app: FastAPI):
     print("DB connection pool warmed up")
 
     await init_redis()
+    # Scheduler must start AFTER Redis so prewarm_digests has a client to write to.
+    start_scheduler()
     yield
+    shutdown_scheduler()
     await close_redis()
 
 
@@ -44,8 +48,11 @@ app = FastAPI(title="Protocol API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
+    # Auth is bearer-token-only (no cookies), so we don't need a credentialed
+    # origin lock. RN clients don't trigger CORS at all; a wildcard here only
+    # affects browser-based callers and the Oura OAuth redirect.
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
