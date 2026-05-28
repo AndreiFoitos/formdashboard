@@ -83,6 +83,7 @@ export default function RootLayout() {
 
               {/* Main app — swipeable tab group, protected via useRequireAuth() */}
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="settings" />
             </Stack>
           </AuthGate>
         </QueryClientProvider>

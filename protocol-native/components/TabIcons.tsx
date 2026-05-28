@@ -104,6 +104,36 @@ export function AskIcon({ color, size = 24 }: IconProps) {
   )
 }
 
+export function SettingsIcon({ color, size = 24 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {[7, 12, 17].map((y) => (
+        <Line
+          key={y}
+          x1={4}
+          y1={y}
+          x2={20}
+          y2={y}
+          stroke={color}
+          strokeWidth={STROKE}
+          strokeLinecap="round"
+        />
+      ))}
+      {([[9, 7], [15, 12], [9, 17]] as const).map(([cx, cy]) => (
+        <Circle
+          key={`${cx}-${cy}`}
+          cx={cx}
+          cy={cy}
+          r={2.4}
+          fill="black"
+          stroke={color}
+          strokeWidth={STROKE}
+        />
+      ))}
+    </Svg>
+  )
+}
+
 export const TAB_ICONS: Record<string, ComponentType<IconProps>> = {
   index: TodayIcon,
   training: TrainingIcon,

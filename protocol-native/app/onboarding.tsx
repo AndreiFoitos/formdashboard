@@ -13,6 +13,13 @@ import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
+import {
+  isHealthKitPlatform,
+  requestHealthPermissions,
+  runHealthKitBackfill,
+} from '../lib/healthkit'
+
+type AppleHealthStatus = 'idle' | 'connecting' | 'connected' | 'error'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -301,31 +308,68 @@ function Step3Baseline({
 
 // ─── Step 4 — Device ──────────────────────────────────────────────────────────
 
-function Step4Device() {
+function Step4Device({
+  appleStatus,
+  onConnectApple,
+}: {
+  appleStatus: AppleHealthStatus
+  onConnectApple: () => void
+}) {
+  const appleSupported = isHealthKitPlatform()
+  const appleDisabled = !appleSupported || appleStatus === 'connecting' || appleStatus === 'connected'
+
   return (
     <View style={{ gap: 12 }}>
       <Text className="text-zinc-400 text-sm leading-6 mb-2">
         Connect a wearable to unlock sleep and HRV data. You can always do this later in Settings.
       </Text>
-      {[
-        { label: 'Oura Ring',     desc: 'Sleep, HRV, readiness' },
-        { label: 'Apple Health',  desc: 'Steps, sleep, heart rate' },
-      ].map((d) => (
-        <View
-          key={d.label}
-          className="flex-row items-center justify-between px-4 py-4 rounded-2xl border border-zinc-800 bg-zinc-900 opacity-50"
-        >
-          <View>
-            <Text className="text-white text-sm font-semibold">{d.label}</Text>
-            <Text className="text-zinc-500 text-xs mt-0.5">{d.desc}</Text>
-          </View>
-          <View className="border border-zinc-700 px-2 py-0.5 rounded-full">
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest">
-              Soon
-            </Text>
-          </View>
+
+      {/* Oura — not yet */}
+      <View className="flex-row items-center justify-between px-4 py-4 rounded-2xl border border-zinc-800 bg-zinc-900 opacity-50">
+        <View>
+          <Text className="text-white text-sm font-semibold">Oura Ring</Text>
+          <Text className="text-zinc-500 text-xs mt-0.5">Sleep, HRV, readiness</Text>
         </View>
-      ))}
+        <View className="border border-zinc-700 px-2 py-0.5 rounded-full">
+          <Text className="text-zinc-500 text-xs uppercase tracking-widest">Soon</Text>
+        </View>
+      </View>
+
+      {/* Apple Health */}
+      <TouchableOpacity
+        onPress={onConnectApple}
+        disabled={appleDisabled}
+        className="flex-row items-center justify-between px-4 py-4 rounded-2xl border bg-zinc-900"
+        style={{
+          borderColor: appleStatus === 'connected' ? '#22c55e' : '#3f3f46',
+          opacity: appleSupported ? 1 : 0.5,
+        }}
+      >
+        <View>
+          <Text className="text-white text-sm font-semibold">Apple Health</Text>
+          <Text className="text-zinc-500 text-xs mt-0.5">Steps, sleep, heart rate</Text>
+        </View>
+
+        {appleStatus === 'connecting' ? (
+          <ActivityIndicator color="white" />
+        ) : appleStatus === 'connected' ? (
+          <View className="bg-green-950 border border-green-800 px-2 py-0.5 rounded-full">
+            <Text className="text-green-400 text-xs uppercase tracking-widest">Connected</Text>
+          </View>
+        ) : appleSupported ? (
+          <Text className="text-zinc-300 text-sm font-medium">Connect →</Text>
+        ) : (
+          <View className="border border-zinc-700 px-2 py-0.5 rounded-full">
+            <Text className="text-zinc-500 text-xs uppercase tracking-widest">iOS only</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
+      {appleStatus === 'error' && (
+        <Text className="text-red-400 text-xs">
+          Couldn't read Apple Health. You can try again later in Settings.
+        </Text>
+      )}
     </View>
   )
 }
@@ -337,6 +381,18 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [appleStatus, setAppleStatus] = useState<AppleHealthStatus>('idle')
+
+  async function connectAppleHealth() {
+    setAppleStatus('connecting')
+    try {
+      await requestHealthPermissions()
+      await runHealthKitBackfill(14)
+      setAppleStatus('connected')
+    } catch {
+      setAppleStatus('error')
+    }
+  }
 
   const [form, setForm] = useState<FormState>({
     goal: null,
@@ -408,7 +464,7 @@ export default function OnboardingScreen() {
           training_frequency: form.training_frequency,
           caffeine_habit: form.caffeine_habit,
           energy_rating: form.energy_rating,
-          device_connected: 'none',
+          device_connected: appleStatus === 'connected' ? 'apple_health' : 'none',
         })
         updateUser({ onboarding_complete: true })
         router.replace('/')
@@ -469,7 +525,9 @@ export default function OnboardingScreen() {
             />
           )}
           {step === 2 && <Step3Baseline form={form} onChange={setField} />}
-          {step === 3 && <Step4Device />}
+          {step === 3 && (
+            <Step4Device appleStatus={appleStatus} onConnectApple={connectAppleHealth} />
+          )}
 
           {/* Error */}
           {error && (

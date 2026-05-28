@@ -9,6 +9,7 @@ interface User {
   weight_kg: number | null
   goal: string | null
   timezone: string
+  sleep_hour: number
   onboarding_complete: boolean
   protein_target_g: number | null
   water_target_ml: number | null

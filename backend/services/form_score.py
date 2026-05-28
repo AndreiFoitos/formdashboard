@@ -1,4 +1,3 @@
-import asyncio
 from datetime import date, timedelta, datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sqlfunc
@@ -25,7 +24,8 @@ async def get_30day_hrv_avg(user_id, db: AsyncSession) -> float | None:
         select(sqlfunc.avg(DailySummary.hrv_score))
         .where(DailySummary.user_id == user_id, DailySummary.date >= cutoff, DailySummary.hrv_score.isnot(None))
     )
-    return result.scalar()
+    avg = result.scalar()
+    return float(avg) if avg is not None else None  # AVG of an int column comes back as Decimal
 
 
 async def normalize_hrv(user_id, current_hrv: int, db: AsyncSession) -> int:
@@ -74,24 +74,13 @@ async def estimate_caffeine_at_sleep(user_id, target_date: date, sleep_hour: int
 async def compute_form_score(day: DailySummary, user, db: AsyncSession) -> tuple[int, dict]:
     scores = {}
 
-    # ── Run all independent DB queries in parallel ────────────────────────────
-    hrv_task = normalize_hrv(user.id, day.hrv_score, db) if day.hrv_score else None
-    training_task = days_since_last_training(user.id, day.date, db)
-    caffeine_task = estimate_caffeine_at_sleep(user.id, day.date, user.sleep_hour, db)
-    streak_task = db.get(Streak, user.id)
-
-    # Gather all at once — saves 3 sequential round trips
-    results = await asyncio.gather(
-        hrv_task if hrv_task else asyncio.sleep(0),  # no-op if no HRV
-        training_task,
-        caffeine_task,
-        streak_task,
-    )
-
-    hrv_normalized = results[0] if day.hrv_score else 50
-    days_since = results[1]
-    caffeine_at_bed = results[2]
-    streak_row = results[3]
+    # These run sequentially on purpose. AsyncSession is NOT safe for concurrent use —
+    # gathering multiple queries on one session corrupts the asyncpg connection and can
+    # leave a backend stuck "idle in transaction" holding row locks.
+    hrv_normalized = await normalize_hrv(user.id, day.hrv_score, db) if day.hrv_score else 50
+    days_since = await days_since_last_training(user.id, day.date, db)
+    caffeine_at_bed = await estimate_caffeine_at_sleep(user.id, day.date, user.sleep_hour, db)
+    streak_row = await db.get(Streak, user.id)
 
     # ── Sleep ─────────────────────────────────────────────────────────────────
     scores["sleep"] = day.sleep_score if day.sleep_score else 50

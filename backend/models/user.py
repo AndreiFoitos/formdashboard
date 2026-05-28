@@ -42,3 +42,4 @@ class User(Base):
     training_logs: Mapped[list["TrainingLog"]] = relationship(back_populates="user", cascade="all, delete")
     body_metrics: Mapped[list["BodyMetric"]] = relationship(back_populates="user", cascade="all, delete")
     device_connections: Mapped[list["DeviceConnection"]] = relationship(back_populates="user", cascade="all, delete")
+    ai_insights: Mapped[list["AIInsight"]] = relationship(back_populates="user", cascade="all, delete")

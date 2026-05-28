@@ -1,5 +1,4 @@
 from __future__ import annotations
-import asyncio
 from datetime import date
 
 from fastapi import APIRouter, Depends
@@ -24,24 +23,20 @@ async def get_dashboard(
 ):
     today = date.today()
 
-    # ── Run independent queries in parallel ───────────────────────────────────
-    summary_task = db.execute(
+    # Sequential on purpose — AsyncSession is not safe for concurrent use, so these
+    # must not be gathered on the same session (see services/form_score.py).
+    summary_result = await db.execute(
         select(DailySummary).where(
             DailySummary.user_id == current_user.id,
             DailySummary.date == today,
         )
     )
-    goals_task = db.execute(
+    goals_result = await db.execute(
         select(Goal)
         .where(Goal.user_id == current_user.id, Goal.date == today)
         .order_by(Goal.position, Goal.created_at)
     )
-
-    summary_result, goals_result, caffeine = await asyncio.gather(
-        summary_task,
-        goals_task,
-        get_caffeine_curve(current_user.id, db, current_user.sleep_hour),
-    )
+    caffeine = await get_caffeine_curve(current_user.id, db, current_user.sleep_hour)
 
     summary = summary_result.scalar_one_or_none()
 

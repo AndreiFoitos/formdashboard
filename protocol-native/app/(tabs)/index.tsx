@@ -5,9 +5,8 @@ import {
   TouchableOpacity,
   TextInput,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { api } from '../../api/client'
@@ -15,10 +14,15 @@ import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { CountUp } from '../../components/CountUp'
 import { AnimatedBar } from '../../components/AnimatedBar'
 import { SkeletonCard } from '../../components/Skeleton'
-import { SuccessCheck } from '../../components/SuccessCheck'
 import { PressableScale } from '../../components/PressableScale'
 import { SwipeableRow } from '../../components/SwipeableRow'
 import { hapticLight, hapticSuccess, hapticSelection } from '../../lib/haptics'
+import { router } from 'expo-router'
+import { SettingsIcon } from '../../components/TabIcons'
+import { AiDigest } from '../../components/AiDigest'
+import { CaffeineCurve, type CurveData } from '../../components/CaffeineCurve'
+import { UndoToast } from '../../components/UndoToast'
+import { showUndo } from '../../store/undo'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +58,7 @@ interface DashboardData {
   summary: Summary
   goals: Goal[]
   targets: Targets
+  caffeine: CurveData | undefined
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -85,6 +90,7 @@ function FormScoreCard({ summary }: { summary: Summary | undefined }) {
         <Text className="text-zinc-500 text-xs mt-1 leading-5">
           Log 5 days in a row to activate your personalized Form Score.
         </Text>
+        <AiDigest />
       </View>
     )
   }
@@ -123,6 +129,8 @@ function FormScoreCard({ summary }: { summary: Summary | undefined }) {
           </Text>
         </View>
       </View>
+
+      <AiDigest />
     </View>
   )
 }
@@ -171,46 +179,70 @@ function StatTile({
 
 // ─── Energy Check-in ──────────────────────────────────────────────────────────
 
-function EnergyCheckin() {
-  const [selected, setSelected] = useState<number | null>(null)
-  const [done, setDone] = useState(false)
-  const qc = useQueryClient()
+const ENERGY_LABELS = ['Crashed', 'Low', 'Okay', 'Good', 'Locked in']
 
-  const { mutate, isPending } = useMutation({
-    mutationFn: (level: number) => api.post('/energy/log', { level }),
-    onSuccess: () => {
-      hapticSuccess()
-      setDone(true)
-      qc.invalidateQueries({ queryKey: ['dashboard'] })
-      setTimeout(() => setDone(false), 3000)
-    },
+function EnergyCheckin() {
+  const qc = useQueryClient()
+  const [selected, setSelected] = useState<number | null>(null)
+  // The id of the most recent log this card created — used so a re-tap within
+  // a few seconds replaces it rather than stacking another entry on the avg.
+  const lastLogIdRef = useRef<string | null>(null)
+
+  const { mutateAsync, isPending } = useMutation({
+    mutationFn: (level: number) =>
+      api.post('/energy/log', { level }).then((r) => r.data as { id: string }),
   })
 
-  const labels = ['Crashed', 'Low', 'Okay', 'Good', 'Locked in']
-
-  if (done) {
-    return (
-      <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex-row items-center gap-3">
-        <SuccessCheck size={22} />
-        <Text className="text-zinc-300 text-sm">Energy logged</Text>
-      </View>
-    )
+  const handleTap = async (level: number) => {
+    hapticSelection()
+    const previousId = lastLogIdRef.current
+    setSelected(level)
+    try {
+      const entry = await mutateAsync(level)
+      lastLogIdRef.current = entry.id
+      hapticSuccess()
+      // Replace the previous in-session log so the avg reflects the latest tap.
+      if (previousId) {
+        await api.delete(`/energy/${previousId}`).catch(() => {})
+      }
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      showUndo({
+        label: `Energy logged · ${ENERGY_LABELS[level - 1]}`,
+        onUndo: async () => {
+          const idToDelete = lastLogIdRef.current
+          if (!idToDelete) return
+          await api.delete(`/energy/${idToDelete}`)
+          lastLogIdRef.current = null
+          setSelected(null)
+          qc.invalidateQueries({ queryKey: ['dashboard'] })
+        },
+      })
+    } catch {
+      setSelected(previousId ? selected : null)
+    }
   }
 
   return (
     <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-3">
-        How's your energy right now?
-      </Text>
-      <View className="flex-row gap-2 mb-3">
+      <View className="flex-row items-center justify-between mb-3">
+        <Text className="text-zinc-500 text-xs uppercase tracking-widest">
+          How's your energy?
+        </Text>
+        <Text className="text-zinc-600 text-xs">
+          {selected ? ENERGY_LABELS[selected - 1] : 'Tap to log'}
+        </Text>
+      </View>
+      <View className="flex-row gap-2">
         {[1, 2, 3, 4, 5].map((n) => (
           <PressableScale
             key={n}
-            onPress={() => { hapticSelection(); setSelected(n) }}
+            onPress={() => handleTap(n)}
+            disabled={isPending}
             className="flex-1 py-2.5 rounded-xl border items-center"
             style={{
               backgroundColor: selected === n ? 'white' : '#18181b',
               borderColor: selected === n ? 'white' : '#3f3f46',
+              opacity: isPending && selected !== n ? 0.5 : 1,
             }}
           >
             <Text
@@ -222,28 +254,13 @@ function EnergyCheckin() {
           </PressableScale>
         ))}
       </View>
-      <View className="flex-row items-center justify-between">
-        <Text className="text-zinc-600 text-xs">
-          {selected ? labels[selected - 1] : 'Tap to select'}
-        </Text>
-        <TouchableOpacity
-          onPress={() => selected && mutate(selected)}
-          disabled={!selected || isPending}
-          className="bg-zinc-700 px-3 py-1.5 rounded-lg"
-          style={{ opacity: !selected || isPending ? 0.4 : 1 }}
-        >
-          {isPending ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Text className="text-white text-xs font-medium">Log</Text>
-          )}
-        </TouchableOpacity>
-      </View>
     </View>
   )
 }
 
 // ─── Hydration Quick Log ──────────────────────────────────────────────────────
+
+const WATER_PRESETS = [250, 500, 750] as const
 
 function HydrationQuickLog({
   waterMl,
@@ -253,20 +270,42 @@ function HydrationQuickLog({
   targetMl: number | null
 }) {
   const qc = useQueryClient()
-  const [logging, setLogging] = useState(false)
 
-  const { mutate } = useMutation({
-    mutationFn: (ml: number) => api.post('/hydration/log', { amount_ml: ml }),
-    onSuccess: () => {
-      hapticSuccess()
-      qc.invalidateQueries({ queryKey: ['dashboard'] })
-      setLogging(false)
-    },
+  const { mutateAsync, isPending } = useMutation({
+    mutationFn: (ml: number) =>
+      api
+        .post('/hydration/log', { amount_ml: ml })
+        .then((r) => r.data as { id: string; amount_ml: number }),
   })
 
   const target = targetMl ?? 2500
   const current = waterMl ?? 0
   const p = Math.min(100, Math.round((current / target) * 100))
+
+  const handleLog = async (ml: number) => {
+    hapticLight()
+    // Optimistic — bump the dashboard cache so the bar moves instantly.
+    qc.setQueryData<DashboardData>(['dashboard'], (old) =>
+      old
+        ? { ...old, summary: { ...old.summary, water_ml: (old.summary.water_ml ?? 0) + ml } }
+        : old,
+    )
+    try {
+      const entry = await mutateAsync(ml)
+      hapticSuccess()
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      showUndo({
+        label: `+${ml.toLocaleString()} ml water`,
+        onUndo: async () => {
+          await api.delete(`/hydration/${entry.id}`)
+          qc.invalidateQueries({ queryKey: ['dashboard'] })
+        },
+      })
+    } catch {
+      // Rollback the optimistic bump on failure.
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+    }
+  }
 
   return (
     <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
@@ -282,29 +321,19 @@ function HydrationQuickLog({
 
       <AnimatedBar percent={p} color="#38bdf8" height={6} style={{ marginBottom: 12 }} />
 
-      {logging ? (
-        <View className="flex-row gap-2">
-          {[250, 500, 750].map((ml) => (
-            <PressableScale
-              key={ml}
-              onPress={() => mutate(ml)}
-              className="flex-1 py-2 rounded-xl bg-zinc-800 items-center"
-            >
-              <Text className="text-white text-xs font-medium">{ml}ml</Text>
-            </PressableScale>
-          ))}
-          <TouchableOpacity
-            onPress={() => setLogging(false)}
-            className="px-3 py-2 rounded-xl bg-zinc-800 items-center"
+      <View className="flex-row gap-2">
+        {WATER_PRESETS.map((ml) => (
+          <PressableScale
+            key={ml}
+            onPress={() => handleLog(ml)}
+            disabled={isPending}
+            className="flex-1 py-2.5 rounded-xl bg-zinc-800 items-center"
+            style={{ opacity: isPending ? 0.6 : 1 }}
           >
-            <Text className="text-zinc-400 text-xs">✕</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <TouchableOpacity onPress={() => setLogging(true)}>
-          <Text className="text-zinc-400 text-xs font-medium">+ Log water</Text>
-        </TouchableOpacity>
-      )}
+            <Text className="text-white text-xs font-medium">+{ml}ml</Text>
+          </PressableScale>
+        ))}
+      </View>
     </View>
   )
 }
@@ -513,13 +542,22 @@ export default function DashboardScreen() {
         }
       >
         {/* Header */}
-        <View className="pt-6 pb-5">
-          <Text className="text-zinc-500 text-xs uppercase tracking-widest">
-            {today}
-          </Text>
-          <Text className="text-white text-2xl font-bold mt-1">
-            {getGreeting()}{firstName ? `, ${firstName}` : ''}
-          </Text>
+        <View className="pt-6 pb-5 flex-row items-start justify-between">
+          <View className="flex-1">
+            <Text className="text-zinc-500 text-xs uppercase tracking-widest">
+              {today}
+            </Text>
+            <Text className="text-white text-2xl font-bold mt-1">
+              {getGreeting()}{firstName ? `, ${firstName}` : ''}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => router.push('/settings')}
+            hitSlop={8}
+            className="mt-1 p-2 -mr-2"
+          >
+            <SettingsIcon color="#a1a1aa" size={22} />
+          </TouchableOpacity>
         </View>
 
         {isLoading ? (
@@ -589,11 +627,14 @@ export default function DashboardScreen() {
               targetMl={targets?.water_target_ml ?? null}
             />
 
+            <CaffeineCurve data={data?.caffeine} isLoading={false} />
+
             <GoalsSection goals={goals} />
           </View>
         )}
       </ScrollView>
 
+      <UndoToast />
     </SafeAreaView>
   )
 }

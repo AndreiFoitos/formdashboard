@@ -79,10 +79,32 @@ async def get_caffeine_curve(user_id, db: AsyncSession, sleep_hour: int = 23) ->
         for log in logs
     )
 
+    # Most-recent log for the "repeat last" dashboard chip. Today's last, else
+    # fall back to the most-recent ever so first-of-the-day still gets a shortcut.
+    last_log_obj = logs[-1] if logs else None
+    if last_log_obj is None:
+        recent = await db.execute(
+            select(StimulantLog)
+            .where(StimulantLog.user_id == user_id)
+            .order_by(StimulantLog.logged_at.desc())
+            .limit(1)
+        )
+        last_log_obj = recent.scalar_one_or_none()
+
+    last_log = None
+    if last_log_obj is not None:
+        preset = SUBSTANCES.get(last_log_obj.substance)
+        last_log = {
+            "substance": last_log_obj.substance,
+            "label": preset["label"] if preset else "Custom",
+            "caffeine_mg": last_log_obj.caffeine_mg,
+        }
+
     return {
         "curve": curve,
         "current_mg": round(current_mg, 1),
         "caffeine_at_bedtime": round(caffeine_at_bed, 1),
         "sleep_impact": get_sleep_impact_label(caffeine_at_bed),
         "total_today_mg": sum(log.caffeine_mg for log in logs),
+        "last_log": last_log,
     }

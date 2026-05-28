@@ -10,8 +10,18 @@ import {
   TextInput,
 } from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import Svg, { Polyline, Line, Defs, LinearGradient, Stop, Polygon } from 'react-native-svg'
+import Svg, {
+  Polyline,
+  Line,
+  Defs,
+  LinearGradient,
+  Stop,
+  Polygon,
+  Text as SvgText,
+} from 'react-native-svg'
 import { api } from '../api/client'
+import { showUndo } from '../store/undo'
+import { hapticLight, hapticSuccess } from '../lib/haptics'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +39,11 @@ export interface CurveData {
   caffeine_at_bedtime: number
   sleep_impact: string
   total_today_mg: number
+  last_log: {
+    substance: string
+    label: string
+    caffeine_mg: number
+  } | null
 }
 
 interface Substance {
@@ -59,11 +74,11 @@ function zoneLabel(mg: number) {
 function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string }) {
   const screenWidth = Dimensions.get('window').width
   const chartWidth = screenWidth - 64 // card padding
-  const chartHeight = 100
-  const paddingLeft = 4
-  const paddingRight = 4
-  const paddingTop = 6
-  const paddingBottom = 18
+  const chartHeight = 132
+  const paddingLeft = 30 // room for mg labels on the y-axis
+  const paddingRight = 6
+  const paddingTop = 8
+  const paddingBottom = 22 // room for time labels on the x-axis
 
   const plotW = chartWidth - paddingLeft - paddingRight
   const plotH = chartHeight - paddingTop - paddingBottom
@@ -87,14 +102,19 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
   // Now-line index
   const nowIdx = curve.findIndex((p) => !p.in_past)
 
-  // X-axis labels: every 8 points (~4 labels)
-  const labelStep = Math.max(1, Math.floor(curve.length / 4))
-  const xLabels = curve
-    .map((p, i) => ({ p, i }))
-    .filter(({ i }) => i % labelStep === 0)
+  // X-axis time labels — every 4 hours. Curve steps are 30 min starting
+  // at 6 AM, so every 4h = every 8 indexes. Strip ":00" for compactness.
+  const xLabels: { i: number; label: string }[] = []
+  for (let i = 0; i < curve.length; i += 8) {
+    xLabels.push({ i, label: curve[i].time_label.replace(':00 ', ' ') })
+  }
 
-  // Reference lines (50, 200, 300 mg)
+  // Threshold reference lines (50 / 200 / 300 mg) keep their colour coding.
   const refLines = [50, 200, 300].filter((v) => v < maxV * 1.1)
+
+  // Y-axis tick values — every 50 mg up to the chart's max.
+  const yTicks: number[] = []
+  for (let v = 0; v <= maxV; v += 50) yTicks.push(v)
 
   return (
     <Svg width={chartWidth} height={chartHeight}>
@@ -118,6 +138,20 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
           strokeDasharray="3,3"
           opacity={0.6}
         />
+      ))}
+
+      {/* Y-axis labels */}
+      {yTicks.map((v) => (
+        <SvgText
+          key={`y-${v}`}
+          x={paddingLeft - 6}
+          y={toY(v) + 3}
+          fontSize={9}
+          fill="#71717a"
+          textAnchor="end"
+        >
+          {v}
+        </SvgText>
       ))}
 
       {/* Area fill */}
@@ -146,6 +180,20 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
           opacity={0.4}
         />
       )}
+
+      {/* X-axis labels */}
+      {xLabels.map(({ i, label }) => (
+        <SvgText
+          key={`x-${i}`}
+          x={toX(i)}
+          y={paddingTop + plotH + 14}
+          fontSize={9}
+          fill="#71717a"
+          textAnchor={i === 0 ? 'start' : 'middle'}
+        >
+          {label}
+        </SvgText>
+      ))}
     </Svg>
   )
 }
@@ -163,22 +211,35 @@ function LogModal({ onClose }: { onClose: () => void }) {
     staleTime: Infinity,
   })
 
-  const { mutate, isPending } = useMutation({
+  const { mutateAsync, isPending } = useMutation({
     mutationFn: (body: { substance: string; caffeine_mg?: number }) =>
-      api.post('/stimulants/log', body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['dashboard'] })
-      onClose()
-    },
+      api
+        .post('/stimulants/log', body)
+        .then((r) => r.data as { id: string; substance: string; caffeine_mg: number }),
   })
 
-  function handleLog() {
+  async function handleLog() {
     if (!selected) return
     const body: { substance: string; caffeine_mg?: number } = { substance: selected }
     if (selected === 'custom' && customMg) {
       body.caffeine_mg = parseInt(customMg)
     }
-    mutate(body)
+    try {
+      const entry = await mutateAsync(body)
+      const presetForLabel = substances.find((s) => s.key === selected)
+      const label = presetForLabel?.label ?? 'Stimulant'
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      onClose()
+      showUndo({
+        label: `+${label} · ${entry.caffeine_mg}mg`,
+        onUndo: async () => {
+          await api.delete(`/stimulants/${entry.id}`)
+          qc.invalidateQueries({ queryKey: ['dashboard'] })
+        },
+      })
+    } catch {
+      // Mutation errors fall through silently; modal stays open.
+    }
   }
 
   const presets = substances.filter((s) => s.key !== 'custom')
@@ -309,6 +370,14 @@ interface Props {
 
 export function CaffeineCurve({ data, isLoading }: Props) {
   const [showLog, setShowLog] = useState(false)
+  const qc = useQueryClient()
+
+  const { mutateAsync, isPending } = useMutation({
+    mutationFn: (body: { substance: string; caffeine_mg?: number }) =>
+      api
+        .post('/stimulants/log', body)
+        .then((r) => r.data as { id: string; substance: string; caffeine_mg: number }),
+  })
 
   if (isLoading) {
     return (
@@ -324,13 +393,37 @@ export function CaffeineCurve({ data, isLoading }: Props) {
   const curve = data?.curve ?? []
   const currentMg = data?.current_mg ?? 0
   const colour = zoneColour(currentMg)
+  const last = data?.last_log ?? null
+
+  const handleRepeat = async () => {
+    if (!last) return
+    hapticLight()
+    const body: { substance: string; caffeine_mg?: number } =
+      last.substance === 'custom'
+        ? { substance: 'custom', caffeine_mg: last.caffeine_mg }
+        : { substance: last.substance }
+    try {
+      const entry = await mutateAsync(body)
+      hapticSuccess()
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      showUndo({
+        label: `+${last.label} · ${last.caffeine_mg}mg`,
+        onUndo: async () => {
+          await api.delete(`/stimulants/${entry.id}`)
+          qc.invalidateQueries({ queryKey: ['dashboard'] })
+        },
+      })
+    } catch {
+      // Swallow — surface via toast in the future if needed.
+    }
+  }
 
   return (
     <>
       <View className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
         {/* Header */}
         <View className="flex-row items-start justify-between mb-3">
-          <View>
+          <View className="flex-1">
             <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1">
               Caffeine
             </Text>
@@ -347,12 +440,30 @@ export function CaffeineCurve({ data, isLoading }: Props) {
               </View>
             </View>
           </View>
-          <TouchableOpacity
-            onPress={() => setShowLog(true)}
-            className="bg-zinc-800 px-3 py-1.5 rounded-xl"
-          >
-            <Text className="text-zinc-400 text-xs font-medium">+ Log</Text>
-          </TouchableOpacity>
+
+          {/* Repeat-last chip + overflow into the full picker.
+             Long-press on the chip jumps straight to the picker too. */}
+          <View className="flex-row items-center gap-2">
+            {last ? (
+              <TouchableOpacity
+                onPress={handleRepeat}
+                onLongPress={() => setShowLog(true)}
+                disabled={isPending}
+                className="bg-zinc-800 px-3 py-1.5 rounded-xl flex-row items-center"
+                style={{ opacity: isPending ? 0.5 : 1 }}
+              >
+                <Text className="text-white text-xs font-semibold">+ {last.label}</Text>
+                <Text className="text-zinc-500 text-xs ml-1.5">{last.caffeine_mg}mg</Text>
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity
+              onPress={() => setShowLog(true)}
+              className="bg-zinc-800 w-8 h-8 rounded-xl items-center justify-center"
+              hitSlop={6}
+            >
+              <Text className="text-zinc-400 text-base">{last ? '⋯' : '+'}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Chart */}

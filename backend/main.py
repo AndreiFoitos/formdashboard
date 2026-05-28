@@ -21,6 +21,7 @@ from routers.training import router as training_router
 from routers.dashboard import router as dashboard_router
 from routers.body import router as body_router
 from routers.devices import router as devices_router
+from routers.ai import router as ai_router
 
 
 import socket
@@ -61,6 +62,7 @@ app.include_router(training_router)
 app.include_router(dashboard_router)
 app.include_router(body_router)
 app.include_router(devices_router)
+app.include_router(ai_router)
 
 
 @app.get("/health")

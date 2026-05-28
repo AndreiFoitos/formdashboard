@@ -1,6 +1,7 @@
 from __future__ import annotations
+import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sqlfunc
@@ -71,3 +72,25 @@ async def get_today_energy(
         {"id": str(l.id), "level": l.level, "note": l.note, "logged_at": l.logged_at.isoformat()}
         for l in logs
     ]
+
+
+@router.delete("/{log_id}", status_code=204)
+async def delete_energy(
+    log_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(EnergyLog).where(EnergyLog.id == log_id, EnergyLog.user_id == current_user.id)
+    )
+    entry = result.scalar_one_or_none()
+    if not entry:
+        raise HTTPException(404, "Log entry not found")
+
+    now = datetime.now(timezone.utc)
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    await db.delete(entry)
+    await db.flush()
+    await _recompute_energy_avg(current_user.id, db, day_start)
+    await db.commit()

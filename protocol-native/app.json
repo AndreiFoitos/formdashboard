@@ -3,6 +3,7 @@
     "name": "protocol-native",
     "slug": "protocol-native",
     "version": "1.0.0",
+    "scheme": "protocol",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -33,7 +34,15 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Protocol reads your sleep, HRV, heart rate, and activity to calculate your daily Form Score.",
+          "background": false
+        }
+      ],
+      "expo-web-browser"
     ],
     "extra": {
       "router": {},
