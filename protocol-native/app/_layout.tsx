@@ -1,8 +1,8 @@
 import '../global.css'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Stack, router } from 'expo-router'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { useAuthStore } from '../store/auth'
 import { getToken } from '../lib/storage'
@@ -22,7 +22,20 @@ const queryClient = new QueryClient({
 // silently exchange it for a fresh access token. This keeps users logged in
 // across app restarts without storing the access token (which is short-lived).
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { setAuth, setHydrated, hydrated } = useAuthStore()
+  const { setAuth, setHydrated, hydrated, user } = useAuthStore()
+  const qc = useQueryClient()
+  const lastUserId = useRef<string | null>(null)
+
+  // Wipe React Query cache whenever the signed-in user changes.
+  // Query keys like ['ai-digest'] / ['dashboard'] don't include user_id,
+  // so without this, data from account A leaks to account B on resignin.
+  useEffect(() => {
+    const currentId = user?.id ?? null
+    if (lastUserId.current !== null && lastUserId.current !== currentId) {
+      qc.clear()
+    }
+    lastUserId.current = currentId
+  }, [user?.id, qc])
 
   useEffect(() => {
     async function hydrate() {
@@ -84,6 +97,13 @@ export default function RootLayout() {
               {/* Main app — swipeable tab group, protected via useRequireAuth() */}
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="settings" />
+
+              {/* Photo-based calorie estimation flow */}
+              <Stack.Screen name="nutrition-snap" options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="nutrition-confirm" />
+
+              {/* Friends + leaderboard + weekly recap */}
+              <Stack.Screen name="friends" />
             </Stack>
           </AuthGate>
         </QueryClientProvider>

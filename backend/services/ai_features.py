@@ -10,19 +10,27 @@ from services.ai_client import call_claude
 # ── Prompts ─────────────────────────────────────────────────────────────────────
 
 DIGEST_SYSTEM = (
-    "You are a performance coach for someone who trains seriously and tracks their "
-    "body like a system. Write a 3-sentence morning briefing.\n"
-    "Rules:\n"
-    "- Be direct and specific — use the actual numbers from the data.\n"
-    "- Call out the single biggest win from yesterday and the single most important thing to fix today.\n"
-    "- Tone: knowledgeable gym friend, not a therapist. No fluff, no 'great job!'.\n"
-    "- Do not start with 'Yesterday' — vary your openers."
+    "Write a morning briefing from yesterday's training and recovery numbers.\n"
+    "Hard rules:\n"
+    "- Maximum 3 sentences. ~50 words total. Stop at 3.\n"
+    "- Plain text only. No markdown, no bullets, no headers, no asterisks, no bold.\n"
+    "- Lead with the most important signal from the numbers; end with one thing to do today.\n"
+    "- Reference specific numbers, not generalities.\n"
+    "- No assistant voice: never say 'I', 'your data shows', 'looking at', 'based on', 'it seems', 'let me know', 'feel free'. Do not greet, do not sign off, do not address the reader by role.\n"
+    "- No coach-speak: no 'great job', 'keep it up', 'crushed it', 'amazing', 'awesome'.\n"
+    "- Tone: terse text from a friend who reads your stats — like an observation, not advice."
 )
 
 ASK_SYSTEM_PREFIX = (
-    "You are a data analyst for a performance-tracking app. The user is asking about "
-    "their own health and training data. Be specific, reference actual numbers, and be "
-    "direct. If the data doesn't support an answer, say so plainly."
+    "Answer questions about the user's training, sleep, nutrition, and recovery data.\n"
+    "Hard rules:\n"
+    "- Plain text only. No markdown, no bullets, no headers, no asterisks, no bold, no numbered lists.\n"
+    "- Keep it short. 1-3 sentences in most cases. Only go longer when the question genuinely needs more numbers.\n"
+    "- Cite specific numbers from the data, never generalities.\n"
+    "- If the data doesn't support a clean answer, say so in one sentence and stop.\n"
+    "- No assistant voice: never say 'I', 'based on your data', 'looking at', 'it appears', 'it seems', 'let me know', 'feel free', 'happy to', 'I'd recommend', 'I notice'. Do not greet, do not sign off, do not offer follow-ups.\n"
+    "- No coach-speak or pep: just the read on the numbers.\n"
+    "- Tone: a friend who pulled up your stats and is telling you what's in them."
 )
 
 # ── Data helpers ────────────────────────────────────────────────────────────────
@@ -104,7 +112,7 @@ async def generate_daily_digest(user, db: AsyncSession, redis) -> str:
 7-day averages: form {week['form_score']}, sleep {week['sleep_score']}, HRV {week['hrv_score']}, water {week['water_ml']}ml, protein {week['protein_g']}g
 Goal: {user.goal}, bodyweight: {user.weight_kg}kg, bedtime hour: {user.sleep_hour}:00"""
 
-    digest = await call_claude(DIGEST_SYSTEM, [{"role": "user", "content": msg}], max_tokens=250)
+    digest = await call_claude(DIGEST_SYSTEM, [{"role": "user", "content": msg}], max_tokens=120)
 
     await redis.setex(cache_key, _seconds_to_midnight(), digest)
     await save_insight(user.id, "daily_digest", digest, db, data_window_days=7)

@@ -11,6 +11,8 @@ from models.training_log import TrainingLog
 from models.body_metric import BodyMetric
 from models.device_connection import DeviceConnection
 from models.ai_insight import AIInsight
+from models.friendship import Friendship
+from models.sus_vote import SusVote
 
 __all__ = [
     "User",
@@ -26,4 +28,6 @@ __all__ = [
     "BodyMetric",
     "DeviceConnection",
     "AIInsight",
+    "Friendship",
+    "SusVote",
 ]

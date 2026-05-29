@@ -42,6 +42,13 @@
           "background": false
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Protocol uses the camera to identify your meal and estimate calories.",
+          "recordAudioAndroid": false
+        }
+      ],
       "expo-web-browser"
     ],
     "extra": {

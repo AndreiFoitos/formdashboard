@@ -11,6 +11,7 @@ import {
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { router } from 'expo-router'
 import { api } from '../../api/client'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { CountUp } from '../../components/CountUp'
@@ -454,18 +455,27 @@ export default function NutritionScreen() {
         }
       >
         {/* Header */}
-        <View className="pt-6 pb-5 flex-row items-end justify-between">
-          <View>
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest">{today}</Text>
-            <Text className="text-white text-2xl font-bold mt-1">Nutrition</Text>
-          </View>
+        <View className="pt-6 pb-4">
+          <Text className="text-zinc-500 text-xs uppercase tracking-widest">{today}</Text>
+          <Text className="text-white text-2xl font-bold mt-1">Nutrition</Text>
+        </View>
+
+        {/* Primary CTA — snap a photo of your meal */}
+        <View className="mb-5">
           <PressableScale
             haptic
-            onPress={() => setShowLog(true)}
-            className="bg-white px-4 py-2 rounded-2xl"
+            onPress={() => router.push('/nutrition-snap')}
+            className="bg-white rounded-2xl py-4 px-5 flex-row items-center justify-center"
           >
-            <Text className="text-black text-sm font-semibold">+ Log</Text>
+            <Text className="text-black text-base font-semibold">Snap meal</Text>
           </PressableScale>
+          <TouchableOpacity
+            onPress={() => setShowLog(true)}
+            className="mt-3 items-center py-1"
+            hitSlop={8}
+          >
+            <Text className="text-zinc-500 text-xs">or type manually</Text>
+          </TouchableOpacity>
         </View>
 
         {isLoading ? (

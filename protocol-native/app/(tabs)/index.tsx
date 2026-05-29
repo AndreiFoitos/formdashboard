@@ -498,11 +498,72 @@ function GoalRow({
   )
 }
 
+// ─── Sunday Recap Card ────────────────────────────────────────────────────────
+
+interface RecapHeadlines {
+  top_volume?: { user: { name: string }; total_volume_kg: number } | null
+  most_consistent?: { user: { name: string }; days_trained: number } | null
+  most_pr?: { user: { name: string }; pr_count: number } | null
+  most_sus?: { user: { name: string }; votes: number; threshold: number } | null
+}
+interface RecapResponse {
+  circle_size: number
+  headlines: RecapHeadlines
+  me: { total_volume_kg: number; rank: number; days_trained: number } | null
+}
+
+function SundayRecapCard() {
+  const { data } = useQuery<RecapResponse>({
+    queryKey: ['friends-recap'],
+    queryFn: () => api.get('/friends/recap').then((r) => r.data),
+    // Only fetch when card actually renders (Sunday/Monday) — query stays cold otherwise
+  })
+
+  if (!data || data.circle_size === 0) return null
+
+  const lines = [
+    data.headlines.top_volume     && { icon: '🏋️', text: `${data.headlines.top_volume.user.name} moved ${data.headlines.top_volume.total_volume_kg.toLocaleString()} kg` },
+    data.headlines.most_consistent && { icon: '📅', text: `${data.headlines.most_consistent.user.name} trained ${data.headlines.most_consistent.days_trained} days` },
+    data.headlines.most_pr        && { icon: '📈', text: `${data.headlines.most_pr.user.name} hit ${data.headlines.most_pr.pr_count} PR${data.headlines.most_pr.pr_count === 1 ? '' : 's'}` },
+    data.headlines.most_sus       && { icon: '🤨', text: `${data.headlines.most_sus.user.name} is sus (${data.headlines.most_sus.votes} / ${data.headlines.most_sus.threshold})` },
+  ].filter(Boolean) as { icon: string; text: string }[]
+
+  if (lines.length === 0) return null
+
+  return (
+    <PressableScale
+      haptic
+      onPress={() => router.push('/friends')}
+      style={{ backgroundColor: '#18181b', borderColor: '#27272a', borderWidth: 1, borderRadius: 16, padding: 16 }}
+    >
+      <View className="flex-row items-center justify-between mb-3">
+        <Text className="text-zinc-500 text-xs uppercase tracking-widest">Sunday Recap</Text>
+        {data.me && (
+          <Text className="text-zinc-500 text-xs">Rank #{data.me.rank}</Text>
+        )}
+      </View>
+      <View style={{ gap: 6 }}>
+        {lines.map((l, i) => (
+          <View key={i} className="flex-row items-center gap-2">
+            <Text style={{ fontSize: 14 }}>{l.icon}</Text>
+            <Text className="text-zinc-200 text-sm flex-1">{l.text}</Text>
+          </View>
+        ))}
+      </View>
+      <Text className="text-zinc-500 text-xs mt-3">Tap to open friends →</Text>
+    </PressableScale>
+  )
+}
+
 // ─── Dashboard Screen ─────────────────────────────────────────────────────────
 
 export default function DashboardScreen() {
   const { user } = useRequireAuth()
   const qc = useQueryClient()
+
+  // Recap card surfaces Sun/Mon — the week that just wrapped is freshest then
+  const dow = new Date().getDay() // 0=Sun, 1=Mon
+  const showRecap = dow === 0 || dow === 1
 
   const { data, isLoading, refetch, isRefetching } = useQuery<DashboardData>({
     queryKey: ['dashboard'],
@@ -576,6 +637,8 @@ export default function DashboardScreen() {
         ) : (
           <View style={{ gap: 12 }}>
             <FormScoreCard summary={summary} />
+
+            {showRecap && <SundayRecapCard />}
 
             {/* 2-column stat grid */}
             <View className="flex-row gap-3">

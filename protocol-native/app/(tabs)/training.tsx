@@ -8,15 +8,94 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { router } from 'expo-router'
+import Svg, { Polyline, Circle, Line as SvgLine } from 'react-native-svg'
 import { api } from '../../api/client'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { SkeletonCard } from '../../components/Skeleton'
-import { SwipeableRow } from '../../components/SwipeableRow'
 import { PressableScale } from '../../components/PressableScale'
-import { hapticSuccess, hapticSelection } from '../../lib/haptics'
+import { hapticSuccess, hapticSelection, hapticLight } from '../../lib/haptics'
+
+// ─── Exercise catalogue ───────────────────────────────────────────────────────
+
+type Exercise = { key: string; name: string }
+type Group = { name: string; colour: string; exercises: Exercise[] }
+
+const GROUPS: Group[] = [
+  {
+    name: 'Chest',
+    colour: '#f87171',
+    exercises: [
+      { key: 'bench_press',     name: 'Bench Press' },
+      { key: 'incline_bench',   name: 'Incline Bench' },
+      { key: 'dumbbell_press',  name: 'Dumbbell Press' },
+      { key: 'chest_fly',       name: 'Chest Fly' },
+      { key: 'push_up',         name: 'Push-up' },
+    ],
+  },
+  {
+    name: 'Back',
+    colour: '#34d399',
+    exercises: [
+      { key: 'deadlift',       name: 'Deadlift' },
+      { key: 'barbell_row',    name: 'Barbell Row' },
+      { key: 'pull_up',        name: 'Pull-up' },
+      { key: 'lat_pulldown',   name: 'Lat Pulldown' },
+      { key: 'cable_row',      name: 'Cable Row' },
+    ],
+  },
+  {
+    name: 'Legs',
+    colour: '#f472b6',
+    exercises: [
+      { key: 'squat',           name: 'Squat' },
+      { key: 'front_squat',     name: 'Front Squat' },
+      { key: 'leg_press',       name: 'Leg Press' },
+      { key: 'romanian_dl',     name: 'Romanian Deadlift' },
+      { key: 'leg_curl',        name: 'Leg Curl' },
+      { key: 'leg_extension',   name: 'Leg Extension' },
+      { key: 'calf_raise',      name: 'Calf Raise' },
+    ],
+  },
+  {
+    name: 'Shoulders',
+    colour: '#60a5fa',
+    exercises: [
+      { key: 'overhead_press', name: 'Overhead Press' },
+      { key: 'lateral_raise',  name: 'Lateral Raise' },
+      { key: 'rear_delt_fly',  name: 'Rear Delt Fly' },
+      { key: 'face_pull',      name: 'Face Pull' },
+    ],
+  },
+  {
+    name: 'Arms',
+    colour: '#a78bfa',
+    exercises: [
+      { key: 'bicep_curl',      name: 'Bicep Curl' },
+      { key: 'hammer_curl',     name: 'Hammer Curl' },
+      { key: 'tricep_extension',name: 'Tricep Extension' },
+      { key: 'tricep_pushdown', name: 'Tricep Pushdown' },
+      { key: 'tricep_dip',      name: 'Tricep Dip' },
+    ],
+  },
+  {
+    name: 'Core',
+    colour: '#facc15',
+    exercises: [
+      { key: 'plank',             name: 'Plank' },
+      { key: 'cable_crunch',      name: 'Cable Crunch' },
+      { key: 'hanging_leg_raise', name: 'Hanging Leg Raise' },
+    ],
+  },
+]
+
+const ALL_EXERCISES: Exercise[] = GROUPS.flatMap(g => g.exercises)
+const EXERCISE_NAME: Record<string, string> = Object.fromEntries(
+  ALL_EXERCISES.map(e => [e.key, e.name]),
+)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,384 +106,521 @@ interface TrainingLog {
   duration_min: number | null
   intensity: number | null
   volume_sets: number | null
+  weight_kg: number | null
+  reps: number | null
   notes: string | null
   logged_at: string
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const TRAINING_TYPES = [
-  { key: 'push',      label: 'Push',      desc: 'Chest · Shoulders · Triceps' },
-  { key: 'pull',      label: 'Pull',      desc: 'Back · Biceps · Rear delts' },
-  { key: 'legs',      label: 'Legs',      desc: 'Quads · Hamstrings · Glutes' },
-  { key: 'upper',     label: 'Upper',     desc: 'Push + Pull combined' },
-  { key: 'lower',     label: 'Lower',     desc: 'Full lower body' },
-  { key: 'full_body', label: 'Full Body', desc: 'All muscle groups' },
-  { key: 'cardio',    label: 'Cardio',    desc: 'Conditioning · Endurance' },
-]
-
-const TYPE_COLOURS: Record<string, string> = {
-  push:      '#818cf8',
-  pull:      '#34d399',
-  legs:      '#f472b6',
-  upper:     '#60a5fa',
-  lower:     '#a78bfa',
-  full_body: '#facc15',
-  cardio:    '#fb923c',
+interface VolumeWeek {
+  week_start: string
+  week_end: string
+  total_volume_kg: number
+  days: { date: string; volume_kg: number }[]
 }
 
-function typeColour(type: string) {
-  return TYPE_COLOURS[type] ?? '#71717a'
+interface ExerciseProgress {
+  exercise: string
+  progression: {
+    date: string
+    top_weight_kg: number | null
+    top_reps: number | null
+    total_volume_kg: number
+    sets: number
+  }[]
+  logs: TrainingLog[]
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatDate(iso: string) {
-  const d = new Date(iso)
-  const today = new Date()
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-  if (d.toDateString() === today.toDateString()) return 'Today'
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday'
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10)
 }
 
-function intensityLabel(n: number) {
-  return ['', 'Easy', 'Light', 'Moderate', 'Hard', 'Max'][n] ?? ''
-}
+// ─── Volume chart ─────────────────────────────────────────────────────────────
 
-// ─── Log Modal ────────────────────────────────────────────────────────────────
-
-function LogModal({ onClose }: { onClose: () => void }) {
-  const qc = useQueryClient()
-
-  const [type,      setType]      = useState<string | null>(null)
-  const [duration,  setDuration]  = useState('')
-  const [intensity, setIntensity] = useState<number | null>(null)
-  const [sets,      setSets]      = useState('')
-  const [notes,     setNotes]     = useState('')
-  const [step,      setStep]      = useState<'type' | 'details'>('type')
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: (body: object) => api.post('/training/log', body),
-    onSuccess: () => {
-      hapticSuccess()
-      qc.invalidateQueries({ queryKey: ['training-history'] })
-      qc.invalidateQueries({ queryKey: ['dashboard'] })
-      onClose()
-    },
-  })
-
-  function handleLog() {
-    if (!type) return
-    mutate({
-      type,
-      duration_min: duration ? parseInt(duration) : null,
-      intensity:    intensity ?? null,
-      volume_sets:  sets     ? parseInt(sets)     : null,
-      notes:        notes.trim() || null,
-    })
-  }
-
-  const selectedType = TRAINING_TYPES.find(t => t.key === type)
+function VolumeChart({ data }: { data: VolumeWeek | undefined }) {
+  const days = data?.days ?? []
+  const total = data?.total_volume_kg ?? 0
+  const max = Math.max(1, ...days.map(d => d.volume_kg))
+  const today = todayISO()
 
   return (
-    <Modal
-      visible
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <View className="flex-1 bg-zinc-950">
-        {/* Handle */}
-        <View className="items-center pt-3 pb-2">
-          <View className="w-10 h-1 bg-zinc-700 rounded-full" />
-        </View>
-
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
-          <View className="flex-row items-center gap-3">
-            {step === 'details' && (
-              <TouchableOpacity onPress={() => setStep('type')}>
-                <Text className="text-zinc-400 text-sm">← Back</Text>
-              </TouchableOpacity>
-            )}
-            <Text className="text-white font-semibold">
-              {step === 'type' ? 'Log Workout' : `Log ${selectedType?.label}`}
+    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+      <View className="flex-row items-end justify-between mb-4">
+        <View>
+          <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1">
+            This Week
+          </Text>
+          <View className="flex-row items-baseline gap-1.5">
+            <Text className="text-white text-2xl font-bold">
+              {total.toLocaleString()}
             </Text>
+            <Text className="text-zinc-500 text-sm">kg moved</Text>
           </View>
-          <TouchableOpacity onPress={onClose}>
-            <Text className="text-zinc-400 text-sm">✕</Text>
-          </TouchableOpacity>
         </View>
-
-        <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
-
-          {/* Step 1 — Type */}
-          {step === 'type' && (
-            <View style={{ gap: 8 }}>
-              {TRAINING_TYPES.map(t => (
-                <TouchableOpacity
-                  key={t.key}
-                  onPress={() => { setType(t.key); setStep('details') }}
-                  className="flex-row items-center gap-3 px-4 py-4 rounded-2xl border border-zinc-800 bg-zinc-900"
-                >
-                  <View
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: typeColour(t.key) }}
-                  />
-                  <View>
-                    <Text className="text-white text-sm font-medium">{t.label}</Text>
-                    <Text className="text-zinc-500 text-xs mt-0.5">{t.desc}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* Step 2 — Details */}
-          {step === 'details' && (
-            <View style={{ gap: 20 }}>
-
-              {/* Duration */}
-              <View>
-                <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">
-                  Duration
-                </Text>
-                <View>
-                  <TextInput
-                    value={duration}
-                    onChangeText={setDuration}
-                    placeholder="60"
-                    placeholderTextColor="#52525b"
-                    keyboardType="number-pad"
-                    className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm"
-                  />
-                  <Text className="absolute right-4 top-4 text-zinc-500 text-sm">min</Text>
-                </View>
-              </View>
-
-              {/* Intensity */}
-              <View>
-                <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
-                  Intensity
-                </Text>
-                <View className="flex-row gap-2">
-                  {[1, 2, 3, 4, 5].map(n => (
-                    <TouchableOpacity
-                      key={n}
-                      onPress={() => { hapticSelection(); setIntensity(n) }}
-                      className="flex-1 py-3 rounded-2xl border items-center"
-                      style={{
-                        backgroundColor: intensity === n ? 'white' : '#18181b',
-                        borderColor: intensity === n ? 'white' : '#3f3f46',
-                      }}
-                    >
-                      <Text
-                        className="text-sm font-semibold"
-                        style={{ color: intensity === n ? 'black' : '#71717a' }}
-                      >
-                        {n}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                {intensity && (
-                  <Text className="text-zinc-500 text-xs mt-1.5">
-                    {intensityLabel(intensity)}
-                  </Text>
-                )}
-              </View>
-
-              {/* Sets */}
-              <View>
-                <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">
-                  Total Sets{' '}
-                  <Text className="text-zinc-700 normal-case">(optional)</Text>
-                </Text>
-                <TextInput
-                  value={sets}
-                  onChangeText={setSets}
-                  placeholder="e.g. 18"
-                  placeholderTextColor="#52525b"
-                  keyboardType="number-pad"
-                  className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm"
-                />
-              </View>
-
-              {/* Notes */}
-              <View>
-                <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">
-                  Notes{' '}
-                  <Text className="text-zinc-700 normal-case">(optional)</Text>
-                </Text>
-                <TextInput
-                  value={notes}
-                  onChangeText={setNotes}
-                  placeholder="Bench 100kg × 5, squat felt heavy…"
-                  placeholderTextColor="#52525b"
-                  multiline
-                  numberOfLines={3}
-                  className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm"
-                  style={{ minHeight: 80, textAlignVertical: 'top' }}
-                />
-              </View>
-
-              <TouchableOpacity
-                onPress={handleLog}
-                disabled={isPending}
-                className="bg-white rounded-2xl py-4 items-center mb-10"
-                style={{ opacity: isPending ? 0.4 : 1 }}
-              >
-                {isPending ? (
-                  <ActivityIndicator color="black" />
-                ) : (
-                  <Text className="text-black font-semibold text-base">Log Workout</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          )}
-        </ScrollView>
       </View>
-    </Modal>
+
+      <View className="flex-row items-end gap-1.5" style={{ height: 80 }}>
+        {days.map((d, i) => {
+          const h = Math.max(4, (d.volume_kg / max) * 72)
+          const isToday = d.date === today
+          const hasVol = d.volume_kg > 0
+          return (
+            <View key={d.date} className="flex-1 items-center" style={{ gap: 6 }}>
+              <View
+                style={{
+                  width: '100%',
+                  height: h,
+                  borderRadius: 4,
+                  backgroundColor: hasVol ? '#ffffff' : '#27272a',
+                  opacity: hasVol ? (isToday ? 1 : 0.7) : 1,
+                }}
+              />
+              <Text
+                style={{
+                  color: isToday ? 'white' : '#52525b',
+                  fontSize: 9,
+                  fontWeight: '500',
+                }}
+              >
+                {DAY_LABELS[i]}
+              </Text>
+            </View>
+          )
+        })}
+      </View>
+    </View>
   )
 }
 
-// ─── Session Card ─────────────────────────────────────────────────────────────
+// ─── PR progression chart ────────────────────────────────────────────────────
 
-function SessionCard({
-  log,
-  isLast,
+function PRChart({
+  data,
+  exerciseKey,
+  onPickExercise,
 }: {
-  log: TrainingLog
-  isLast: boolean
+  data: ExerciseProgress | undefined
+  exerciseKey: string
+  onPickExercise: () => void
 }) {
-  const colour = typeColour(log.type)
-  const label  = TRAINING_TYPES.find(t => t.key === log.type)?.label ?? log.type
+  const points = data?.progression.filter(p => p.top_weight_kg != null) ?? []
+  const last = points[points.length - 1]
+  const pr = points.reduce<typeof points[0] | null>(
+    (best, p) => (best == null || (p.top_weight_kg! > (best.top_weight_kg ?? 0)) ? p : best),
+    null,
+  )
+
+  const W = 300
+  const H = 80
+  const padX = 8
+  const padY = 8
+
+  const chart = useMemo(() => {
+    if (points.length < 2) return null
+    const weights = points.map(p => p.top_weight_kg!)
+    const minW = Math.min(...weights)
+    const maxW = Math.max(...weights)
+    const range = Math.max(1, maxW - minW)
+    const stepX = (W - padX * 2) / (points.length - 1)
+    return points.map((p, i) => ({
+      x: padX + i * stepX,
+      y: padY + (1 - (p.top_weight_kg! - minW) / range) * (H - padY * 2),
+      w: p.top_weight_kg!,
+    }))
+  }, [points])
 
   return (
-    <View
-      className="flex-row items-start gap-3 px-4 py-4 bg-zinc-900"
-      style={{ borderBottomWidth: isLast ? 0 : 1, borderBottomColor: '#27272a' }}
-    >
-      {/* Colour dot */}
-      <View className="mt-1.5">
-        <View className="w-2 h-2 rounded-full" style={{ backgroundColor: colour }} />
+    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+      <View className="flex-row items-center justify-between mb-3">
+        <Text className="text-zinc-500 text-xs uppercase tracking-widest">
+          PR Progression
+        </Text>
+        <TouchableOpacity
+          onPress={onPickExercise}
+          className="flex-row items-center gap-1 px-3 py-1 rounded-full border border-zinc-700"
+        >
+          <Text className="text-white text-xs font-medium">
+            {EXERCISE_NAME[exerciseKey] ?? exerciseKey}
+          </Text>
+          <Text className="text-zinc-500 text-xs">▾</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Content */}
-      <View className="flex-1">
-        <View className="flex-row items-baseline justify-between">
-          <Text className="text-white text-sm font-semibold">{label}</Text>
-          <Text className="text-zinc-500 text-xs ml-2">{formatDate(log.date)}</Text>
-        </View>
-        <View className="flex-row flex-wrap gap-x-3 mt-1">
-          {log.duration_min != null && (
-            <Text className="text-zinc-500 text-xs">{log.duration_min} min</Text>
-          )}
-          {log.intensity != null && (
-            <Text className="text-zinc-500 text-xs">
-              Intensity {log.intensity} · {intensityLabel(log.intensity)}
-            </Text>
-          )}
-          {log.volume_sets != null && (
-            <Text className="text-zinc-500 text-xs">{log.volume_sets} sets</Text>
-          )}
-        </View>
-        {log.notes && (
-          <Text className="text-zinc-600 text-xs mt-1.5 leading-5" numberOfLines={2}>
-            {log.notes}
+      {chart ? (
+        <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+          <SvgLine x1={padX} x2={W - padX} y1={H - padY} y2={H - padY} stroke="#27272a" strokeWidth={1} />
+          <Polyline
+            points={chart.map(c => `${c.x},${c.y}`).join(' ')}
+            fill="none"
+            stroke="#ffffff"
+            strokeWidth={1.5}
+          />
+          {chart.map((c, i) => (
+            <Circle key={i} cx={c.x} cy={c.y} r={2.5} fill="#ffffff" />
+          ))}
+        </Svg>
+      ) : (
+        <View style={{ height: H }} className="items-center justify-center">
+          <Text className="text-zinc-600 text-xs">
+            {points.length === 1 ? 'Log one more session to see progression' : 'No data yet'}
           </Text>
+        </View>
+      )}
+
+      <View className="flex-row gap-4 mt-3">
+        {pr && (
+          <View>
+            <Text className="text-zinc-500 text-xs">PR</Text>
+            <Text className="text-white text-sm font-semibold">
+              {pr.top_weight_kg}kg × {pr.top_reps}
+            </Text>
+          </View>
+        )}
+        {last && (
+          <View>
+            <Text className="text-zinc-500 text-xs">Last</Text>
+            <Text className="text-white text-sm font-semibold">
+              {last.top_weight_kg}kg × {last.top_reps}
+            </Text>
+          </View>
         )}
       </View>
     </View>
   )
 }
 
-// ─── Weekly Bar ───────────────────────────────────────────────────────────────
+// ─── Exercise picker modal ───────────────────────────────────────────────────
 
-function WeeklyBar({ logs }: { logs: TrainingLog[] }) {
-  const sevenDaysAgo = new Date()
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
-
-  const recent = logs.filter(l => new Date(l.date) >= sevenDaysAgo)
-
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-  const today = new Date().getDay()
-  const mondayOffset = (today + 6) % 7
-
-  const dayData = days.map((label, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - mondayOffset + i)
-    const iso = d.toISOString().slice(0, 10)
-    const session = recent.find(l => l.date === iso)
-    return { label, iso, session }
-  })
-
+function ExercisePickerModal({
+  onPick,
+  onClose,
+}: {
+  onPick: (key: string) => void
+  onClose: () => void
+}) {
   return (
-    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-4">
-        This Week
-      </Text>
-      <View className="flex-row items-end gap-1">
-        {dayData.map(({ label, iso, session }) => {
-          const isToday = iso === new Date().toISOString().slice(0, 10)
-          const colour = session ? typeColour(session.type) : null
-
-          return (
-            <View key={label} className="flex-1 items-center" style={{ gap: 6 }}>
-              <View
-                style={{
-                  width: '100%',
-                  height: session ? 32 : 8,
-                  borderRadius: 4,
-                  backgroundColor: colour ? `${colour}40` : '#27272a',
-                  borderWidth: colour ? 1 : 0,
-                  borderColor: colour ? `${colour}60` : 'transparent',
-                }}
-              />
-              <Text
-                className="text-xs font-medium"
-                style={{ color: isToday ? 'white' : '#52525b', fontSize: 9 }}
-              >
-                {label}
-              </Text>
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View className="flex-1 bg-zinc-950">
+        <View className="items-center pt-3 pb-2">
+          <View className="w-10 h-1 bg-zinc-700 rounded-full" />
+        </View>
+        <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
+          <Text className="text-white font-semibold">Pick exercise</Text>
+          <TouchableOpacity onPress={onClose}>
+            <Text className="text-zinc-400 text-sm">✕</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView className="flex-1 px-4 pt-4" contentContainerStyle={{ paddingBottom: 24 }}>
+          {GROUPS.map(g => (
+            <View key={g.name} className="mb-4">
+              <View className="flex-row items-center gap-2 mb-2">
+                <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: g.colour }} />
+                <Text className="text-zinc-500 text-xs uppercase tracking-widest">{g.name}</Text>
+              </View>
+              <View style={{ gap: 6 }}>
+                {g.exercises.map(e => (
+                  <TouchableOpacity
+                    key={e.key}
+                    onPress={() => { hapticSelection(); onPick(e.key) }}
+                    className="px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800"
+                  >
+                    <Text className="text-white text-sm">{e.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-          )
-        })}
+          ))}
+        </ScrollView>
       </View>
-      <Text className="text-zinc-600 text-xs mt-3">
-        {recent.length} session{recent.length !== 1 ? 's' : ''} this week
-      </Text>
-    </View>
+    </Modal>
   )
 }
 
-// ─── Training Screen ──────────────────────────────────────────────────────────
+// ─── Log modal ────────────────────────────────────────────────────────────────
+
+type SetRow = { reps: string; weight: string }
+
+function LogExerciseModal({
+  exerciseKey,
+  onClose,
+}: {
+  exerciseKey: string
+  onClose: () => void
+}) {
+  const qc = useQueryClient()
+
+  // Pull recent logs for this exercise so we can show "last session" and prefill.
+  const { data: history } = useQuery<ExerciseProgress>({
+    queryKey: ['exercise-history', exerciseKey],
+    queryFn: () => api.get(`/training/by-exercise/${exerciseKey}?days=30`).then(r => r.data),
+  })
+
+  const lastSession = useMemo(() => {
+    if (!history?.logs?.length) return null
+    const lastDate = history.logs[history.logs.length - 1].date
+    return history.logs.filter(l => l.date === lastDate)
+  }, [history])
+
+  const lastWeight = lastSession?.[0]?.weight_kg ?? null
+  const lastReps   = lastSession?.[0]?.reps ?? null
+
+  const [sets, setSets] = useState<SetRow[]>([
+    { reps: lastReps != null ? String(lastReps) : '', weight: lastWeight != null ? String(lastWeight) : '' },
+  ])
+  const [notes, setNotes] = useState('')
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: (body: object) => api.post('/training/log-exercise', body),
+    onSuccess: () => {
+      hapticSuccess()
+      qc.invalidateQueries({ queryKey: ['training-volume'] })
+      qc.invalidateQueries({ queryKey: ['exercise-history'] })
+      qc.invalidateQueries({ queryKey: ['training-history'] })
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      onClose()
+    },
+  })
+
+  function updateSet(i: number, field: 'reps' | 'weight', value: string) {
+    setSets(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
+  }
+
+  function addSet() {
+    hapticLight()
+    setSets(prev => [...prev, { reps: prev[prev.length - 1]?.reps ?? '', weight: prev[prev.length - 1]?.weight ?? '' }])
+  }
+
+  function removeSet(i: number) {
+    if (sets.length === 1) return
+    setSets(prev => prev.filter((_, idx) => idx !== i))
+  }
+
+  function handleSave() {
+    const cleanSets = sets
+      .map(s => ({
+        weight_kg: s.weight ? parseFloat(s.weight) : null,
+        reps:      s.reps   ? parseInt(s.reps)     : null,
+      }))
+      .filter(s => s.weight_kg != null || s.reps != null)
+
+    if (cleanSets.length === 0) return
+
+    mutate({
+      type: exerciseKey,
+      sets: cleanSets,
+      notes: notes.trim() || null,
+    })
+  }
+
+  const hasValidSet = sets.some(s => s.reps || s.weight)
+
+  return (
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View className="flex-1 bg-zinc-950">
+        <View className="items-center pt-3 pb-2">
+          <View className="w-10 h-1 bg-zinc-700 rounded-full" />
+        </View>
+
+        <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
+          <Text className="text-white font-semibold">
+            {EXERCISE_NAME[exerciseKey] ?? exerciseKey}
+          </Text>
+          <TouchableOpacity onPress={onClose}>
+            <Text className="text-zinc-400 text-sm">✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
+          {/* Last session reference */}
+          {lastSession && lastSession.length > 0 && (
+            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 mb-4">
+              <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">
+                Last session
+              </Text>
+              <Text className="text-zinc-300 text-sm">
+                {lastSession.map((s, i) =>
+                  `${s.weight_kg ?? '–'}kg × ${s.reps ?? '–'}`
+                ).join('  ·  ')}
+              </Text>
+            </View>
+          )}
+
+          {/* Sets */}
+          <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Sets</Text>
+
+          <View style={{ gap: 8 }}>
+            {sets.map((s, i) => (
+              <View key={i} className="flex-row items-center gap-2">
+                <Text className="text-zinc-500 text-xs w-8">#{i + 1}</Text>
+                <TextInput
+                  value={s.reps}
+                  onChangeText={v => updateSet(i, 'reps', v)}
+                  placeholder="reps"
+                  placeholderTextColor="#52525b"
+                  keyboardType="number-pad"
+                  className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-3 text-white text-sm"
+                />
+                <Text className="text-zinc-600 text-xs">×</Text>
+                <TextInput
+                  value={s.weight}
+                  onChangeText={v => updateSet(i, 'weight', v)}
+                  placeholder="kg"
+                  placeholderTextColor="#52525b"
+                  keyboardType="decimal-pad"
+                  className="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-3 text-white text-sm"
+                />
+                {sets.length > 1 && (
+                  <TouchableOpacity
+                    onPress={() => removeSet(i)}
+                    hitSlop={8}
+                    className="px-2"
+                  >
+                    <Text className="text-zinc-600 text-base">−</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            onPress={addSet}
+            className="mt-3 py-3 rounded-xl border border-dashed border-zinc-700 items-center"
+          >
+            <Text className="text-zinc-400 text-sm">+ Add set</Text>
+          </TouchableOpacity>
+
+          {/* Notes */}
+          <View className="mt-5">
+            <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">
+              Notes <Text className="text-zinc-700 normal-case">(optional)</Text>
+            </Text>
+            <TextInput
+              value={notes}
+              onChangeText={setNotes}
+              placeholder="Felt heavy, paused on chest…"
+              placeholderTextColor="#52525b"
+              multiline
+              className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-sm"
+              style={{ minHeight: 70, textAlignVertical: 'top' }}
+            />
+          </View>
+
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={!hasValidSet || isPending}
+            className="bg-white rounded-2xl py-4 items-center mt-5 mb-10"
+            style={{ opacity: !hasValidSet || isPending ? 0.4 : 1 }}
+          >
+            {isPending ? (
+              <ActivityIndicator color="black" />
+            ) : (
+              <Text className="text-black font-semibold text-base">Save</Text>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    </Modal>
+  )
+}
+
+// ─── Exercise row ─────────────────────────────────────────────────────────────
+
+function ExerciseRow({
+  exercise,
+  pr,
+  onPress,
+  isLast,
+}: {
+  exercise: Exercise
+  pr: { weight_kg: number; reps: number } | null
+  onPress: () => void
+  isLast: boolean
+}) {
+  return (
+    <PressableScale
+      haptic
+      onPress={onPress}
+      style={{
+        backgroundColor: '#18181b',
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: '#27272a',
+      }}
+    >
+      <View className="flex-row items-center justify-between px-4 py-4">
+        <Text className="text-white text-sm font-medium">{exercise.name}</Text>
+        {pr ? (
+          <Text className="text-zinc-500 text-xs">
+            {pr.weight_kg}kg × {pr.reps}
+          </Text>
+        ) : (
+          <Text className="text-zinc-700 text-xs">—</Text>
+        )}
+      </View>
+    </PressableScale>
+  )
+}
+
+// ─── Training screen ──────────────────────────────────────────────────────────
 
 export default function TrainingScreen() {
   const { user } = useRequireAuth()
-  const [showLog, setShowLog] = useState(false)
-  const qc = useQueryClient()
 
-  const { data: history = [], isLoading, refetch, isRefetching } = useQuery<TrainingLog[]>({
-    queryKey: ['training-history'],
-    queryFn: () => api.get('/training/history?limit=30').then(r => r.data),
+  const [selectedExercise, setSelectedExercise] = useState('bench_press')
+  const [logExercise, setLogExercise] = useState<string | null>(null)
+  const [showPicker, setShowPicker] = useState(false)
+
+  const volumeQ = useQuery<VolumeWeek>({
+    queryKey: ['training-volume'],
+    queryFn: () => api.get('/training/volume-weekly').then(r => r.data),
     enabled: !!user,
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/training/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['training-history'] }),
+  const prQ = useQuery<ExerciseProgress>({
+    queryKey: ['exercise-history', selectedExercise],
+    queryFn: () => api.get(`/training/by-exercise/${selectedExercise}?days=90`).then(r => r.data),
+    enabled: !!user,
   })
 
-  // Group by date
-  const grouped: Record<string, TrainingLog[]> = {}
-  for (const log of history) {
-    if (!grouped[log.date]) grouped[log.date] = []
-    grouped[log.date].push(log)
+  // For PR badges on each row — pull history once and compute per-exercise max.
+  const allHistoryQ = useQuery<TrainingLog[]>({
+    queryKey: ['training-history'],
+    queryFn: () => api.get('/training/history?limit=500').then(r => r.data),
+    enabled: !!user,
+  })
+
+  // Tiny query to light up the badge dot on the Friends pill when invites are waiting.
+  const friendsQ = useQuery<{ pending_in: unknown[] }>({
+    queryKey: ['friends-list'],
+    queryFn: () => api.get('/friends').then(r => r.data),
+    enabled: !!user,
+    staleTime: 30 * 1000,
+  })
+  const pendingInvites = friendsQ.data?.pending_in?.length ?? 0
+
+  const prByExercise = useMemo(() => {
+    const map: Record<string, { weight_kg: number; reps: number }> = {}
+    for (const log of allHistoryQ.data ?? []) {
+      if (log.weight_kg == null || log.reps == null) continue
+      const existing = map[log.type]
+      if (!existing || log.weight_kg > existing.weight_kg) {
+        map[log.type] = { weight_kg: log.weight_kg, reps: log.reps }
+      }
+    }
+    return map
+  }, [allHistoryQ.data])
+
+  const isLoading = volumeQ.isLoading || allHistoryQ.isLoading
+  const isRefetching = volumeQ.isRefetching || prQ.isRefetching || allHistoryQ.isRefetching
+
+  function refetchAll() {
+    volumeQ.refetch()
+    prQ.refetch()
+    allHistoryQ.refetch()
   }
-  const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a))
 
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
@@ -416,11 +632,7 @@ export default function TrainingScreen() {
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
         refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor="#ffffff"
-          />
+          <RefreshControl refreshing={isRefetching} onRefresh={refetchAll} tintColor="#ffffff" />
         }
       >
         {/* Header */}
@@ -431,68 +643,85 @@ export default function TrainingScreen() {
           </View>
           <PressableScale
             haptic
-            onPress={() => setShowLog(true)}
-            className="bg-white px-4 py-2 rounded-2xl"
+            onPress={() => router.push('/friends')}
+            className="bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-2xl"
           >
-            <Text className="text-black text-sm font-semibold">+ Log</Text>
+            <View className="flex-row items-center gap-1.5">
+              <Text className="text-white text-xs font-semibold">Friends</Text>
+              {pendingInvites > 0 && (
+                <View
+                  style={{
+                    minWidth: 16,
+                    height: 16,
+                    paddingHorizontal: 4,
+                    borderRadius: 8,
+                    backgroundColor: '#ef4444',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>
+                    {pendingInvites}
+                  </Text>
+                </View>
+              )}
+            </View>
           </PressableScale>
         </View>
 
         {isLoading ? (
-          <View style={{ gap: 12, marginTop: 4 }}>
-            <SkeletonCard height={88} />
-            <SkeletonCard height={64} />
-            <SkeletonCard height={64} />
+          <View style={{ gap: 12 }}>
+            <SkeletonCard height={140} />
+            <SkeletonCard height={160} />
+            <SkeletonCard height={240} />
           </View>
         ) : (
           <View style={{ gap: 12 }}>
-            <WeeklyBar logs={history} />
+            <VolumeChart data={volumeQ.data} />
 
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest">
-              History
-            </Text>
+            <PRChart
+              data={prQ.data}
+              exerciseKey={selectedExercise}
+              onPickExercise={() => setShowPicker(true)}
+            />
 
-            {history.length === 0 ? (
-              <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 items-center">
-                <Text className="text-zinc-400 text-sm font-medium">
-                  No sessions logged yet
-                </Text>
-                <Text className="text-zinc-600 text-xs mt-1 mb-4">
-                  Start tracking your training
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setShowLog(true)}
-                  className="bg-zinc-800 px-4 py-2 rounded-2xl"
-                >
-                  <Text className="text-white text-sm font-medium">
-                    Log your first session →
-                  </Text>
-                </TouchableOpacity>
+            {/* Exercise list grouped by muscle */}
+            {GROUPS.map(g => (
+              <View key={g.name}>
+                <View className="flex-row items-center gap-2 mt-2 mb-2">
+                  <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: g.colour }} />
+                  <Text className="text-zinc-500 text-xs uppercase tracking-widest">{g.name}</Text>
+                </View>
+                <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+                  {g.exercises.map((e, i) => (
+                    <ExerciseRow
+                      key={e.key}
+                      exercise={e}
+                      pr={prByExercise[e.key] ?? null}
+                      onPress={() => setLogExercise(e.key)}
+                      isLast={i === g.exercises.length - 1}
+                    />
+                  ))}
+                </View>
               </View>
-            ) : (
-              <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-                {sortedDates.map(date => (
-                  grouped[date].map((log, i) => {
-                    const isLast =
-                      date === sortedDates[sortedDates.length - 1] &&
-                      i === grouped[date].length - 1
-                    return (
-                      <SwipeableRow
-                        key={log.id}
-                        onDelete={() => deleteMutation.mutate(log.id)}
-                      >
-                        <SessionCard log={log} isLast={isLast} />
-                      </SwipeableRow>
-                    )
-                  })
-                ))}
-              </View>
-            )}
+            ))}
           </View>
         )}
       </ScrollView>
 
-      {showLog && <LogModal onClose={() => setShowLog(false)} />}
+      {showPicker && (
+        <ExercisePickerModal
+          onPick={(key) => { setSelectedExercise(key); setShowPicker(false) }}
+          onClose={() => setShowPicker(false)}
+        />
+      )}
+
+      {logExercise && (
+        <LogExerciseModal
+          exerciseKey={logExercise}
+          onClose={() => setLogExercise(null)}
+        />
+      )}
     </SafeAreaView>
   )
 }

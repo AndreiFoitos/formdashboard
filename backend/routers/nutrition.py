@@ -1,7 +1,7 @@
 from __future__ import annotations
 import uuid
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sqlfunc
@@ -10,9 +10,16 @@ from core.database import get_db
 from middleware.auth import get_current_user
 from models.user import User
 from models.nutrition_log import NutritionLog
+from services.ai_client import AINotConfigured
 from services.daily import increment_daily_field
+from services.nutrition_estimate import estimate_from_photo
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
+
+# Max image payload for the photo estimate endpoint (~5MB; matches typical
+# camera capture after RN-side JPEG compression).
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 
 
 class LogNutritionRequest(BaseModel):
@@ -21,6 +28,8 @@ class LogNutritionRequest(BaseModel):
     carbs_g: float | None = None
     fat_g: float | None = None
     meal_name: str | None = None
+    # How the entry was logged. Defaults to "manual" so legacy clients keep working.
+    source: str | None = "manual"
 
 
 @router.post("/log", status_code=201)
@@ -126,3 +135,31 @@ async def delete_nutrition(
 
     await db.delete(entry)
     await db.commit()
+
+
+@router.post("/estimate/photo")
+async def estimate_from_photo_endpoint(
+    image: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Identify ingredients from a food photo and return estimated macros.
+
+    The phone POSTs the captured image; we run Claude vision + USDA lookup and
+    return a structured estimate the user can review and edit before logging.
+    Nothing is persisted here — the phone calls POST /nutrition/log on confirm.
+    """
+    if image.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(415, f"Unsupported image type: {image.content_type}")
+    body = await image.read()
+    if not body:
+        raise HTTPException(400, "Empty image upload")
+    if len(body) > MAX_IMAGE_BYTES:
+        raise HTTPException(413, "Image too large (max 5MB)")
+
+    try:
+        return await estimate_from_photo(body)
+    except AINotConfigured as e:
+        raise HTTPException(503, str(e))
+    except ValueError as e:
+        # Vision model returned malformed JSON or similar parsing failure.
+        raise HTTPException(502, str(e))

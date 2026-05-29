@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     # Anthropic API (empty by default; AI endpoints return 503 until it's set).
     ANTHROPIC_API_KEY: str = ""
 
+    # USDA FoodData Central API key — looks up nutrition values for ingredients
+    # identified from food photos. Empty by default; the photo estimate endpoint
+    # falls back to Claude-only estimates when this isn't set.
+    USDA_API_KEY: str = ""
+
     # Oura OAuth2 (empty by default so the app boots without it; the connect
     # endpoint returns 503 until these are set).
     OURA_CLIENT_ID: str = ""

@@ -16,6 +16,7 @@
     "@types/react": "~19.1.10",
     "axios": "^1.16.1",
     "expo": "^54.0.5",
+    "expo-camera": "~17.0.10",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "~6.0.21",
     "expo-haptics": "~15.0.8",

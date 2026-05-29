@@ -17,6 +17,8 @@ class NutritionLog(Base):
     carbs_g: Mapped[float] = mapped_column(Float, nullable=True)
     fat_g: Mapped[float] = mapped_column(Float, nullable=True)
     meal_name: Mapped[str] = mapped_column(String, nullable=True)  # breakfast, lunch, dinner, snack
+    # How this entry was logged. Null = legacy/manual; values: manual|photo|barcode|voice.
+    source: Mapped[str | None] = mapped_column(String(20), nullable=True)
     logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="nutrition_logs")
