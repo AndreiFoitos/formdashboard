@@ -341,7 +341,7 @@ function LogModal({
             <View>
               <TextInput
                 value={weight}
-                onChangeText={setWeight}
+                onChangeText={(t) => setWeight(t.replace(',', '.'))}
                 placeholder={currentWeight ? currentWeight.toFixed(1) : '80.0'}
                 placeholderTextColor="#52525b"
                 keyboardType="decimal-pad"
@@ -363,7 +363,7 @@ function LogModal({
             <View>
               <TextInput
                 value={bodyFat}
-                onChangeText={setBodyFat}
+                onChangeText={(t) => setBodyFat(t.replace(',', '.'))}
                 placeholder="15.0"
                 placeholderTextColor="#52525b"
                 keyboardType="decimal-pad"

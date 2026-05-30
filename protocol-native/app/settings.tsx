@@ -104,6 +104,7 @@ function ProfileSection() {
   const qc = useQueryClient()
 
   const [goal, setGoal] = useState<string | null>(user?.goal ?? null)
+  const [username, setUsername] = useState(user?.username ?? '')
   const [protein, setProtein] = useState(
     user?.protein_target_g != null ? String(Math.round(user.protein_target_g)) : '',
   )
@@ -115,6 +116,10 @@ function ProfileSection() {
   )
   const [bedtime, setBedtime] = useState<number>(user?.sleep_hour ?? 23)
   const [saved, setSaved] = useState(false)
+  const [usernameError, setUsernameError] = useState<string | null>(null)
+
+  const usernameValid = /^[a-z0-9_]{3,24}$/.test(username)
+  const usernameDirty = username !== (user?.username ?? '')
 
   const save = useMutation({
     mutationFn: (payload: Record<string, unknown>) =>
@@ -122,16 +127,33 @@ function ProfileSection() {
     onSuccess: (updated) => {
       updateUser(updated)
       hapticSuccess()
+      setUsernameError(null)
       // Targets and bedtime feed the Form Score + caffeine curve — refresh them.
       qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['friends-list'] })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.detail
+      // 409 from /users/me only fires for username conflicts right now.
+      if (err?.response?.status === 409 || typeof msg === 'string' && msg.toLowerCase().includes('username')) {
+        setUsernameError(typeof msg === 'string' ? msg : 'Username already taken')
+      } else {
+        Alert.alert('Save failed', typeof msg === 'string' ? msg : 'Try again')
+      }
     },
   })
 
   function onSave() {
+    if (usernameDirty && !usernameValid) {
+      setUsernameError('3–24 chars; lowercase letters, numbers, underscores')
+      return
+    }
+    setUsernameError(null)
     save.mutate({
       goal: goal ?? undefined,
+      username: usernameDirty ? username : undefined,
       sleep_hour: bedtime,
       protein_target_g: protein.trim() ? parseFloat(protein) : null,
       water_target_ml: water.trim() ? parseInt(water) : null,
@@ -141,6 +163,31 @@ function ProfileSection() {
 
   return (
     <Section title="Profile & Targets">
+      {/* Username */}
+      <View className="px-4 py-3.5 border-b border-zinc-800">
+        <Text className="text-zinc-300 text-sm mb-1">Username</Text>
+        <Text className="text-zinc-600 text-xs mb-2">Friends invite you with this handle</Text>
+        <View className="flex-row items-center bg-zinc-950 border border-zinc-800 rounded-xl px-3">
+          <Text className="text-zinc-500 text-sm">@</Text>
+          <TextInput
+            value={username}
+            onChangeText={(v) => {
+              setUsername(v.replace(/^@/, '').toLowerCase())
+              setUsernameError(null)
+            }}
+            placeholder="your_handle"
+            placeholderTextColor="#52525b"
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={24}
+            className="flex-1 py-2.5 text-white text-sm ml-1"
+          />
+        </View>
+        {usernameError && (
+          <Text className="text-red-400 text-xs mt-1.5">{usernameError}</Text>
+        )}
+      </View>
+
       {/* Goal */}
       <View className="px-4 py-3.5 border-b border-zinc-800">
         <Text className="text-zinc-300 text-sm mb-2.5">Goal</Text>

@@ -11,7 +11,13 @@ class User(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+    # Nullable because OAuth-only users (Apple/Google) don't have a password.
+    hashed_password: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Public handle used for friend invites — stable across email changes / Apple relays.
+    username: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    # Provider-specific stable subject IDs (Apple `sub`, Google `sub`).
+    apple_sub: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    google_sub: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     name: Mapped[str] = mapped_column(String, nullable=True)
     age: Mapped[int] = mapped_column(nullable=True)
     height_cm: Mapped[float] = mapped_column(nullable=True)

@@ -24,6 +24,17 @@ class Settings(BaseSettings):
     # Where the backend OAuth callback redirects to hand control back to the app.
     OAUTH_APP_RETURN_URL: str = "protocol://oura-callback"
 
+    # Sign in with Apple — the bundle ID is also the audience claim Apple signs.
+    APPLE_BUNDLE_ID: str = ""
+
+    # Google Sign-In — Client IDs are public (they ship in app.json), but they're
+    # deployment-specific, so they go in .env rather than as code defaults. The
+    # audience varies per-platform, so we accept all three and validate against
+    # whichever one was used to mint the token.
+    GOOGLE_IOS_CLIENT_ID: str = ""
+    GOOGLE_ANDROID_CLIENT_ID: str = ""
+    GOOGLE_WEB_CLIENT_ID: str = ""
+
     model_config = SettingsConfigDict(
             env_file=".env",
             extra="ignore",

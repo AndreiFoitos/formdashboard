@@ -4,9 +4,14 @@ from datetime import datetime
 import uuid
 
 
+# Reusable constraint so the regex stays in one place.
+USERNAME_PATTERN = r"^[a-z0-9_]{3,24}$"
+
+
 class UserOut(BaseModel):
     id: uuid.UUID
     email: EmailStr
+    username: str | None
     name: str | None
     age: int | None
     height_cm: float | None
@@ -25,6 +30,7 @@ class UserOut(BaseModel):
 
 class UserUpdate(BaseModel):
     name: str | None = None
+    username: str | None = Field(None, pattern=USERNAME_PATTERN)
     age: int | None = None
     height_cm: float | None = None
     weight_kg: float | None = None
@@ -35,4 +41,3 @@ class UserUpdate(BaseModel):
     protein_target_g: float | None = None
     water_target_ml: int | None = None
     calorie_target: int | None = None
-    

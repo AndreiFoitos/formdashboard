@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, Field
 from sqlalchemy import select, or_, and_, func as sqlfunc
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -64,7 +64,8 @@ def _effective_weight(log: TrainingLog, user_weight_kg: Optional[float]) -> floa
 def _user_dict(u: User) -> dict:
     return {
         "id": str(u.id),
-        "name": u.name or u.email.split("@")[0],
+        "name": u.name or u.username or u.email.split("@")[0],
+        "username": u.username,
         "email": u.email,
         "weight_kg": u.weight_kg,
     }
@@ -89,7 +90,10 @@ async def _accepted_friend_ids(user_id: uuid.UUID, db: AsyncSession) -> list[uui
 
 
 class InviteRequest(BaseModel):
-    email: EmailStr
+    # Accept either form during the rollout but prefer username — the frontend
+    # only sends username now, but old clients may still send email.
+    username: str | None = Field(None, min_length=3, max_length=24)
+    email: str | None = None
 
 
 # ─── Friend graph ────────────────────────────────────────────────────────────
@@ -101,15 +105,25 @@ async def invite_friend(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    target_email = body.email.lower().strip()
-
-    if target_email == (current_user.email or "").lower():
-        raise HTTPException(400, "Cannot add yourself")
-
-    result = await db.execute(select(User).where(sqlfunc.lower(User.email) == target_email))
-    target = result.scalar_one_or_none()
-    if not target:
-        raise HTTPException(404, "No Protocol user with that email yet")
+    target: User | None = None
+    if body.username:
+        handle = body.username.strip().lstrip("@").lower()
+        if handle == (current_user.username or "").lower():
+            raise HTTPException(400, "Cannot add yourself")
+        result = await db.execute(select(User).where(sqlfunc.lower(User.username) == handle))
+        target = result.scalar_one_or_none()
+        if not target:
+            raise HTTPException(404, "No Protocol user with that username")
+    elif body.email:
+        target_email = body.email.strip().lower()
+        if target_email == (current_user.email or "").lower():
+            raise HTTPException(400, "Cannot add yourself")
+        result = await db.execute(select(User).where(sqlfunc.lower(User.email) == target_email))
+        target = result.scalar_one_or_none()
+        if not target:
+            raise HTTPException(404, "No Protocol user with that email")
+    else:
+        raise HTTPException(400, "Username is required")
 
     # Already friends or pending in either direction?
     existing = await db.execute(

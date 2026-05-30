@@ -36,6 +36,12 @@
       "expo-router",
       "expo-secure-store",
       [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.471688772354-9rte1ombjd7p7enmli9b0btcjb5k3v5e"
+        }
+      ],
+      [
         "@kingstinct/react-native-healthkit",
         {
           "NSHealthShareUsageDescription": "Protocol reads your sleep, HRV, heart rate, and activity to calculate your daily Form Score.",
@@ -55,6 +61,14 @@
       "router": {},
       "eas": {
         "projectId": "9035cc7e-cb5e-403b-ae10-274b0bd7f8e1"
+      },
+      "features": {
+        "appleSignIn": false,
+        "googleSignIn": true
+      },
+      "googleSignIn": {
+        "iosClientId": "471688772354-9rte1ombjd7p7enmli9b0btcjb5k3v5e.apps.googleusercontent.com",
+        "webClientId": "471688772354-c9q0begitcjad2eql335mm3jtt2ao4ft.apps.googleusercontent.com"
       }
     }
   }

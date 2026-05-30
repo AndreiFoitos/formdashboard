@@ -1,18 +1,21 @@
 from __future__ import annotations
+import re
 from datetime import date, timedelta
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func as sqlfunc
 
 from core.database import get_db
 from middleware.auth import get_current_user
 from models.user import User
 from models.daily_summary import DailySummary
 from models.onboarding import OnboardingBaseline
-from schemas.user import UserOut, UserUpdate
+from schemas.user import UserOut, UserUpdate, USERNAME_PATTERN
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+_USERNAME_RE = re.compile(USERNAME_PATTERN)
 
 
 class OnboardingStepRequest(BaseModel):
@@ -43,11 +46,42 @@ async def update_me(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    for field, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+
+    # Username uniqueness — Pydantic enforces shape; DB unique handles races,
+    # but we pre-check so the user sees a clean 409 instead of a 500.
+    new_username = updates.get("username")
+    if new_username and new_username != current_user.username:
+        existing = await db.execute(
+            select(User.id).where(sqlfunc.lower(User.username) == new_username.lower())
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(409, "Username already taken")
+
+    for field, value in updates.items():
         setattr(current_user, field, value)
     await db.commit()
     await db.refresh(current_user)
     return current_user
+
+
+@router.get("/username-available")
+async def username_available(
+    username: str = Query(..., min_length=3, max_length=24),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Tiny endpoint so the UI can debounce-check before submit."""
+    if not _USERNAME_RE.match(username):
+        return {"available": False, "reason": "format"}
+    # Lowercase the comparison since usernames are stored lowercased everywhere.
+    handle = username.lower()
+    if handle == (current_user.username or "").lower():
+        return {"available": True}
+    result = await db.execute(
+        select(User.id).where(sqlfunc.lower(User.username) == handle)
+    )
+    return {"available": result.scalar_one_or_none() is None}
 
 
 @router.put("/me/onboarding")

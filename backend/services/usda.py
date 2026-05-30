@@ -22,17 +22,47 @@ class USDANotConfigured(Exception):
     pass
 
 
-def _tokens(s: str) -> set[str]:
-    return {t for t in re.findall(r"[a-z]+", s.lower()) if len(t) > 2}
+def _stem(t: str) -> str:
+    """Crude English singular form so 'banana' matches 'Bananas'."""
+    if len(t) <= 3:
+        return t
+    if t.endswith("ies"):
+        return t[:-3] + "y"  # berries -> berry
+    if t.endswith(("ses", "xes", "zes", "ches", "shes", "oes")):
+        return t[:-2]  # tomatoes -> tomato, boxes -> box
+    if t.endswith("s") and not t.endswith("ss"):
+        return t[:-1]  # bananas -> banana
+    return t
+
+
+def _tokens(s: str) -> list[str]:
+    """Ordered, stemmed tokens; order is preserved so callers can read the head token."""
+    return [_stem(t) for t in re.findall(r"[a-z]+", s.lower()) if len(t) > 2]
 
 
 def score_match(query: str, food_name: str) -> float:
-    """Token-overlap score in [0, 1], biased toward query coverage."""
-    q = _tokens(query)
+    """Match score: query coverage, with a head-token bonus and modifier penalty.
+
+    Without this, a query like 'banana' silently picks 'Bananas, dehydrated, or
+    banana powder' over 'Bananas, raw' — the plural breaks naive overlap, and
+    ties go to USDA's first result.
+    """
+    q_list = _tokens(query)
+    q = set(q_list)
     if not q:
         return 0.0
-    f = _tokens(food_name)
-    return len(q & f) / len(q)
+    f_list = _tokens(food_name)
+    f = set(f_list)
+    if not f:
+        return 0.0
+    coverage = len(q & f) / len(q)
+    # USDA names food as "<food>, <modifier>" (e.g. "Bananas, raw"); a head-token
+    # match means the entry's primary noun is the thing we're looking for, not a
+    # qualifier on something else ("Melon, banana").
+    head_match = 1.0 if f_list[0] in q else 0.0
+    # Fewer extra tokens -> prefer canonical raw forms over modified/processed ones.
+    extras = len(f - q)
+    return coverage * 0.7 + head_match * 0.3 - extras * 0.05
 
 
 async def search_food(query: str, client: httpx.AsyncClient) -> dict | None:

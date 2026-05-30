@@ -13,6 +13,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { api } from '../api/client'
+import { useAuthStore } from '../store/auth'
 import { useRequireAuth } from '../hooks/useRequireAuth'
 import { SkeletonCard } from '../components/Skeleton'
 import { PressableScale } from '../components/PressableScale'
@@ -55,6 +56,7 @@ const EXERCISE_NAME: Record<string, string> = Object.fromEntries(EXERCISES.map(e
 interface FriendUser {
   id: string
   name: string
+  username: string | null
   email: string
   weight_kg: number | null
 }
@@ -270,7 +272,8 @@ function LeaderboardTab() {
 
 function FriendsTab() {
   const qc = useQueryClient()
-  const [inviteEmail, setInviteEmail] = useState('')
+  const myUsername = useAuthStore((s) => s.user?.username ?? null)
+  const [inviteUsername, setInviteUsername] = useState('')
 
   const { data, isLoading, refetch, isRefetching } = useQuery<FriendsList>({
     queryKey: ['friends-list'],
@@ -278,10 +281,10 @@ function FriendsTab() {
   })
 
   const inviteMutation = useMutation({
-    mutationFn: (email: string) => api.post('/friends/invite', { email }),
+    mutationFn: (username: string) => api.post('/friends/invite', { username }),
     onSuccess: () => {
       hapticSuccess()
-      setInviteEmail('')
+      setInviteUsername('')
       qc.invalidateQueries({ queryKey: ['friends-list'] })
     },
     onError: (err: any) => {
@@ -319,31 +322,38 @@ function FriendsTab() {
       keyboardShouldPersistTaps="handled"
     >
       {/* Invite */}
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Invite by email</Text>
-      <View className="flex-row gap-2 mb-5">
-        <TextInput
-          value={inviteEmail}
-          onChangeText={setInviteEmail}
-          placeholder="friend@example.com"
-          placeholderTextColor="#52525b"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-sm"
-        />
+      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Invite by username</Text>
+      <View className="flex-row gap-2 mb-2">
+        <View className="flex-1 flex-row items-center bg-zinc-900 border border-zinc-800 rounded-2xl px-4">
+          <Text className="text-zinc-500 text-sm">@</Text>
+          <TextInput
+            value={inviteUsername}
+            onChangeText={(v) => setInviteUsername(v.replace(/^@/, '').toLowerCase())}
+            placeholder="friend_handle"
+            placeholderTextColor="#52525b"
+            autoCapitalize="none"
+            autoCorrect={false}
+            className="flex-1 py-3 text-white text-sm ml-1"
+          />
+        </View>
         <PressableScale
           haptic
           onPress={() => {
-            if (!inviteEmail.trim()) return
-            inviteMutation.mutate(inviteEmail.trim())
+            const handle = inviteUsername.trim().replace(/^@/, '').toLowerCase()
+            if (!handle) return
+            inviteMutation.mutate(handle)
           }}
           className="bg-white rounded-2xl px-4 justify-center"
-          style={{ opacity: inviteEmail.trim() && !inviteMutation.isPending ? 1 : 0.4 }}
+          style={{ opacity: inviteUsername.trim() && !inviteMutation.isPending ? 1 : 0.4 }}
         >
           {inviteMutation.isPending
             ? <ActivityIndicator color="black" />
             : <Text className="text-black text-sm font-semibold">Send</Text>}
         </PressableScale>
       </View>
+      <Text className="text-zinc-600 text-xs mb-5">
+        Your handle: <Text className="text-zinc-400">@{myUsername ?? '—'}</Text>
+      </Text>
 
       {isLoading ? (
         <View style={{ gap: 8 }}>
@@ -368,7 +378,9 @@ function FriendsTab() {
                   >
                     <View className="flex-1">
                       <Text className="text-white text-sm font-medium">{r.user.name}</Text>
-                      <Text className="text-zinc-500 text-xs">{r.user.email}</Text>
+                      <Text className="text-zinc-500 text-xs">
+                        {r.user.username ? `@${r.user.username}` : r.user.email}
+                      </Text>
                     </View>
                     <TouchableOpacity
                       onPress={() => acceptMutation.mutate(r.id)}
@@ -412,7 +424,9 @@ function FriendsTab() {
                 >
                   <View className="flex-1">
                     <Text className="text-white text-sm font-medium">{r.user.name}</Text>
-                    <Text className="text-zinc-500 text-xs">{r.user.email}</Text>
+                    <Text className="text-zinc-500 text-xs">
+                      {r.user.username ? `@${r.user.username}` : r.user.email}
+                    </Text>
                   </View>
                   <TouchableOpacity
                     onPress={() => Alert.alert(
@@ -449,7 +463,9 @@ function FriendsTab() {
                   >
                     <View className="flex-1">
                       <Text className="text-white text-sm font-medium">{r.user.name}</Text>
-                      <Text className="text-zinc-500 text-xs">{r.user.email}</Text>
+                      <Text className="text-zinc-500 text-xs">
+                        {r.user.username ? `@${r.user.username}` : r.user.email}
+                      </Text>
                     </View>
                     <TouchableOpacity
                       onPress={() => deleteMutation.mutate(r.id)}

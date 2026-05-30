@@ -13,6 +13,8 @@ import { router } from 'expo-router'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { setToken } from '../lib/storage'
+import SsoButtons from '../components/SsoButtons'
+import { FEATURES } from '../lib/featureFlags'
 
 export default function RegisterScreen() {
   const { setAuth } = useAuthStore()
@@ -65,7 +67,19 @@ export default function RegisterScreen() {
         <View className="flex-1 justify-center px-6">
           {/* Logo */}
           <Text className="text-white text-4xl font-bold mb-2">Protocol</Text>
-          <Text className="text-zinc-500 text-sm mb-10">Set up your account</Text>
+          <Text className="text-zinc-500 text-sm mb-8">Set up your account</Text>
+
+          {/* SSO */}
+          {FEATURES.anySso && (
+            <>
+              <SsoButtons onError={setError} />
+              <View className="flex-row items-center my-6">
+                <View className="flex-1 h-px bg-zinc-800" />
+                <Text className="px-3 text-zinc-600 text-xs uppercase tracking-widest">or</Text>
+                <View className="flex-1 h-px bg-zinc-800" />
+              </View>
+            </>
+          )}
 
           {/* Name */}
           <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-1.5">
