@@ -8,7 +8,7 @@ interface User {
   age: number | null
   height_cm: number | null
   weight_kg: number | null
-  goal: string | null
+  sex: 'male' | 'female' | null
   timezone: string
   sleep_hour: number
   onboarding_complete: boolean

@@ -15,6 +15,7 @@ import { useAuthStore } from '../store/auth'
 import { setToken } from '../lib/storage'
 import SsoButtons from '../components/SsoButtons'
 import { FEATURES } from '../lib/featureFlags'
+import { extractErrorMessage } from '../lib/apiError'
 
 export default function LoginScreen() {
   const { setAuth } = useAuthStore()
@@ -44,7 +45,7 @@ export default function LoginScreen() {
       // Navigate based on onboarding state
       router.replace(user.onboarding_complete ? '/' : '/onboarding')
     } catch (err: any) {
-      setError(err?.response?.data?.detail ?? 'Something went wrong')
+      setError(extractErrorMessage(err))
     } finally {
       setLoading(false)
     }

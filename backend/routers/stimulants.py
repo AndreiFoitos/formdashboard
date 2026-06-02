@@ -1,7 +1,7 @@
 from __future__ import annotations
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -10,7 +10,13 @@ from middleware.auth import get_current_user
 from models.user import User
 from models.stimulant_log import StimulantLog
 from services.daily import increment_daily_field
-from services.stimulants import SUBSTANCES, get_caffeine_curve
+from services.stimulants import (
+    ADDITIONS,
+    SUBSTANCES,
+    SUBSTANCES_WITH_ADDITIONS,
+    compute_nutrition,
+    get_caffeine_curve,
+)
 
 router = APIRouter(prefix="/stimulants", tags=["stimulants"])
 
@@ -18,7 +24,17 @@ router = APIRouter(prefix="/stimulants", tags=["stimulants"])
 class LogStimulantRequest(BaseModel):
     substance: str
     caffeine_mg: int | None = None
+    additions: list[str] = Field(default_factory=list)
     note: str | None = None
+
+
+async def _apply_nutrition_delta(user_id, db: AsyncSession, entry: StimulantLog, sign: int) -> None:
+    """Increment (sign=+1) or decrement (sign=-1) today's summary by an entry's macros."""
+    await increment_daily_field(user_id, db, "caffeine_mg", sign * entry.caffeine_mg, mode="add")
+    await increment_daily_field(user_id, db, "calories_eaten", sign * entry.calories, mode="add")
+    await increment_daily_field(user_id, db, "protein_g", sign * entry.protein_g, mode="add")
+    await increment_daily_field(user_id, db, "carbs_g", sign * entry.carbs_g, mode="add")
+    await increment_daily_field(user_id, db, "fat_g", sign * entry.fat_g, mode="add")
 
 
 @router.post("/log", status_code=201)
@@ -34,17 +50,30 @@ async def log_stimulant(
     caffeine_mg = body.caffeine_mg if body.caffeine_mg is not None else preset["caffeine_mg"]
     half_life = preset["half_life"] if preset else 5.5
 
+    # Add-ons are only allowed for substances that surface them; silently drop
+    # any others so a stale client can't bypass the UI gate.
+    valid_additions = [
+        a for a in body.additions
+        if a in ADDITIONS and body.substance in SUBSTANCES_WITH_ADDITIONS
+    ]
+    macros = compute_nutrition(body.substance, valid_additions)
+
     entry = StimulantLog(
         user_id=current_user.id,
         substance=body.substance,
         caffeine_mg=caffeine_mg,
         half_life_hours=half_life,
+        calories=macros["calories"],
+        protein_g=macros["protein_g"],
+        carbs_g=macros["carbs_g"],
+        fat_g=macros["fat_g"],
+        additions=valid_additions,
         note=body.note,
     )
     db.add(entry)
+    await db.flush()
 
-    # Incrementally update today's total caffeine on the summary
-    await increment_daily_field(current_user.id, db, "caffeine_mg", caffeine_mg, mode="add")
+    await _apply_nutrition_delta(current_user.id, db, entry, sign=1)
 
     await db.commit()
     await db.refresh(entry)
@@ -52,6 +81,11 @@ async def log_stimulant(
         "id": str(entry.id),
         "substance": entry.substance,
         "caffeine_mg": entry.caffeine_mg,
+        "calories": entry.calories,
+        "protein_g": entry.protein_g,
+        "carbs_g": entry.carbs_g,
+        "fat_g": entry.fat_g,
+        "additions": list(entry.additions or []),
         "logged_at": entry.logged_at.isoformat(),
     }
 
@@ -71,7 +105,17 @@ async def get_today_stimulants(
     )
     logs = result.scalars().all()
     return [
-        {"id": str(l.id), "substance": l.substance, "caffeine_mg": l.caffeine_mg, "logged_at": l.logged_at.isoformat()}
+        {
+            "id": str(l.id),
+            "substance": l.substance,
+            "caffeine_mg": l.caffeine_mg,
+            "calories": l.calories,
+            "protein_g": l.protein_g,
+            "carbs_g": l.carbs_g,
+            "fat_g": l.fat_g,
+            "additions": list(l.additions or []),
+            "logged_at": l.logged_at.isoformat(),
+        }
         for l in logs
     ]
 
@@ -89,8 +133,8 @@ async def delete_stimulant(
     if not entry:
         raise HTTPException(404, "Log entry not found")
 
-    # Decrement summary before deleting
-    await increment_daily_field(current_user.id, db, "caffeine_mg", -entry.caffeine_mg, mode="add")
+    # Decrement summary before deleting so the totals stay consistent.
+    await _apply_nutrition_delta(current_user.id, db, entry, sign=-1)
 
     await db.delete(entry)
     await db.commit()
@@ -106,4 +150,14 @@ async def get_curve(
 
 @router.get("/substances")
 async def list_substances():
-    return [{"key": k, **v} for k, v in SUBSTANCES.items()]
+    return {
+        "substances": [
+            {
+                "key": k,
+                "supports_additions": k in SUBSTANCES_WITH_ADDITIONS,
+                **v,
+            }
+            for k, v in SUBSTANCES.items()
+        ],
+        "additions": [{"key": k, **v} for k, v in ADDITIONS.items()],
+    }

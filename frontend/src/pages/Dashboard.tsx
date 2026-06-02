@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
@@ -12,20 +12,12 @@ interface Summary {
   form_score_unlocked: boolean
   sleep_score: number | null
   hrv_score: number | null
-  energy_avg: number | null
   water_ml: number | null
   caffeine_mg: number | null
   calories_eaten: number | null
   protein_g: number | null
   trained: boolean
   training_type: string | null
-}
-
-interface Goal {
-  id: string
-  text: string
-  done: boolean
-  position: number
 }
 
 interface Targets {
@@ -37,7 +29,6 @@ interface Targets {
 interface DashboardData {
   date: string
   summary: Summary
-  goals: Goal[]
   caffeine: CurveData
   targets: Targets
 }
@@ -168,69 +159,6 @@ function StatTile({
   )
 }
 
-// ─── Energy Check-in ──────────────────────────────────────────────────────────
-
-function EnergyCheckin() {
-  const [selected, setSelected] = useState<number | null>(null)
-  const [done, setDone] = useState(false)
-  const qc = useQueryClient()
-
-  const { mutate, isPending } = useMutation({
-    mutationFn: (level: number) => api.post('/energy/log', { level }),
-    onSuccess: () => {
-      setDone(true)
-      qc.invalidateQueries({ queryKey: ['dashboard'] })
-      setTimeout(() => setDone(false), 3000)
-    },
-  })
-
-  const labels = ['Crashed', 'Low', 'Okay', 'Good', 'Locked in']
-
-  if (done) {
-    return (
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-3">
-        <span className="text-green-500 text-lg">✓</span>
-        <p className="text-sm text-zinc-300">Energy logged</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-      <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest mb-3">
-        How's your energy right now?
-      </p>
-      <div className="flex gap-2 mb-3">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            onClick={() => setSelected(n)}
-            className={`flex-1 py-2.5 rounded-lg border text-sm font-semibold transition-all duration-150 ${
-              selected === n
-                ? 'bg-white text-black border-white'
-                : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500 hover:text-white'
-            }`}
-          >
-            {n}
-          </button>
-        ))}
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-zinc-600">
-          {selected ? labels[selected - 1] : 'Tap to select'}
-        </span>
-        <button
-          onClick={() => selected && mutate(selected)}
-          disabled={!selected || isPending}
-          className="text-xs font-medium text-white bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed px-3 py-1.5 rounded-lg transition-colors"
-        >
-          {isPending ? 'Logging…' : 'Log'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
 // ─── Quick Hydration ──────────────────────────────────────────────────────────
 
 function HydrationQuickLog({ waterMl, targetMl }: { waterMl: number | null; targetMl: number | null }) {
@@ -289,149 +217,6 @@ function HydrationQuickLog({ waterMl, targetMl }: { waterMl: number | null; targ
   )
 }
 
-// ─── Goals Section ────────────────────────────────────────────────────────────
-
-function GoalsSection({ initialGoals }: { initialGoals: Goal[] }) {
-  const qc = useQueryClient()
-  const [newText, setNewText] = useState('')
-  const [adding, setAdding] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const goals = qc.getQueryData<DashboardData>(['dashboard'])?.goals ?? initialGoals
-
-  const addMutation = useMutation({
-    mutationFn: (text: string) => api.post('/goals/', { text }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['dashboard'] })
-      setNewText('')
-      setAdding(false)
-    },
-  })
-
-  const toggleMutation = useMutation({
-    mutationFn: ({ id, done }: { id: string; done: boolean }) => api.put(`/goals/${id}`, { done }),
-    onMutate: async ({ id, done }) => {
-      await qc.cancelQueries({ queryKey: ['dashboard'] })
-      const prev = qc.getQueryData<DashboardData>(['dashboard'])
-      qc.setQueryData<DashboardData>(['dashboard'], old =>
-        old ? { ...old, goals: old.goals.map(g => g.id === id ? { ...g, done } : g) } : old
-      )
-      return { prev }
-    },
-    onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(['dashboard'], ctx.prev)
-    },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['dashboard'] }),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.delete(`/goals/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['dashboard'] }),
-  })
-
-  useEffect(() => {
-    if (adding) inputRef.current?.focus()
-  }, [adding])
-
-  function handleAdd() {
-    const text = newText.trim()
-    if (text) addMutation.mutate(text)
-  }
-
-  const pending = goals.filter(g => !g.done)
-  const done    = goals.filter(g => g.done)
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[10px] font-medium text-zinc-500 uppercase tracking-widest">Today's Goals</p>
-        <button onClick={() => setAdding(true)} className="text-xs text-zinc-400 hover:text-white transition-colors">
-          + Add
-        </button>
-      </div>
-
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden divide-y divide-zinc-800">
-        {adding && (
-          <div className="flex items-center gap-2 px-4 py-3">
-            <input
-              ref={inputRef}
-              value={newText}
-              onChange={e => setNewText(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleAdd()
-                if (e.key === 'Escape') setAdding(false)
-              }}
-              placeholder="New goal…"
-              className="flex-1 bg-transparent text-sm text-white placeholder-zinc-600 focus:outline-none"
-            />
-            <button
-              onClick={handleAdd}
-              disabled={!newText.trim() || addMutation.isPending}
-              className="text-xs text-white bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 px-3 py-1.5 rounded-lg transition-colors"
-            >
-              {addMutation.isPending ? '…' : 'Add'}
-            </button>
-            <button onClick={() => { setAdding(false); setNewText('') }} className="text-zinc-500 hover:text-white text-xs transition-colors">✕</button>
-          </div>
-        )}
-
-        {goals.length === 0 && !adding && (
-          <div className="px-4 py-6 text-center">
-            <p className="text-sm text-zinc-500">No goals yet</p>
-            <button onClick={() => setAdding(true)} className="text-xs text-zinc-400 hover:text-white mt-1 transition-colors">
-              Add your first goal →
-            </button>
-          </div>
-        )}
-
-        {pending.map(goal => (
-          <GoalRow key={goal.id} goal={goal}
-            onToggle={() => toggleMutation.mutate({ id: goal.id, done: !goal.done })}
-            onDelete={() => deleteMutation.mutate(goal.id)}
-          />
-        ))}
-        {done.map(goal => (
-          <GoalRow key={goal.id} goal={goal}
-            onToggle={() => toggleMutation.mutate({ id: goal.id, done: !goal.done })}
-            onDelete={() => deleteMutation.mutate(goal.id)}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function GoalRow({ goal, onToggle, onDelete }: { goal: Goal; onToggle: () => void; onDelete: () => void }) {
-  const [hovering, setHovering] = useState(false)
-
-  return (
-    <div
-      className="flex items-center gap-3 px-4 py-3 group"
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
-    >
-      <button
-        onClick={onToggle}
-        className={`w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-all duration-150 ${
-          goal.done ? 'bg-white border-white' : 'border-zinc-600 hover:border-zinc-400'
-        }`}
-      >
-        {goal.done && (
-          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-            <path d="M1 4l2.5 2.5L9 1" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        )}
-      </button>
-      <span className={`flex-1 text-sm transition-colors ${goal.done ? 'text-zinc-600 line-through' : 'text-zinc-200'}`}>
-        {goal.text}
-      </span>
-      {hovering && (
-        <button onClick={onDelete} className="text-zinc-600 hover:text-red-400 transition-colors text-xs">✕</button>
-      )}
-    </div>
-  )
-}
-
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export function Dashboard() {
@@ -452,7 +237,6 @@ export function Dashboard() {
   }, [data, qc])
 
   const summary  = data?.summary
-  const goals    = data?.goals ?? []
   const caffeine = data?.caffeine
   const targets  = data?.targets
 
@@ -492,12 +276,6 @@ export function Dashboard() {
             target={targets?.calorie_target} unit="kcal"
             icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M2 12h20" /></svg>}
           />
-          <StatTile
-            label="Energy"
-            value={summary?.energy_avg != null ? Math.round(summary.energy_avg * 10) / 10 : null}
-            unit="/ 5"
-            icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>}
-          />
         </div>
 
         {summary?.trained && (
@@ -510,16 +288,12 @@ export function Dashboard() {
           </div>
         )}
 
-        <EnergyCheckin />
-
         <HydrationQuickLog
           waterMl={summary?.water_ml ?? null}
           targetMl={targets?.water_target_ml ?? null}
         />
 
         <CaffeineCurve data={caffeine} isLoading={isLoading} />
-
-        <GoalsSection initialGoals={goals} />
       </main>
     </div>
   )

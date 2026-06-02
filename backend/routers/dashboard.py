@@ -8,7 +8,6 @@ from sqlalchemy import select
 from core.database import get_db
 from middleware.auth import get_current_user
 from models.user import User
-from models.goal import Goal
 from models.daily_summary import DailySummary
 from services.form_score import compute_form_score, check_and_unlock_form_score
 from services.stimulants import get_caffeine_curve
@@ -23,18 +22,11 @@ async def get_dashboard(
 ):
     today = date.today()
 
-    # Sequential on purpose — AsyncSession is not safe for concurrent use, so these
-    # must not be gathered on the same session (see services/form_score.py).
     summary_result = await db.execute(
         select(DailySummary).where(
             DailySummary.user_id == current_user.id,
             DailySummary.date == today,
         )
-    )
-    goals_result = await db.execute(
-        select(Goal)
-        .where(Goal.user_id == current_user.id, Goal.date == today)
-        .order_by(Goal.position, Goal.created_at)
     )
     caffeine = await get_caffeine_curve(current_user.id, db, current_user.sleep_hour)
 
@@ -45,8 +37,6 @@ async def get_dashboard(
         summary = DailySummary(user_id=current_user.id, date=today)
         db.add(summary)
         await db.flush()
-
-    goals = goals_result.scalars().all()
 
     # ── Form score (only when unlocked) ───────────────────────────────────────
     score_breakdown = None
@@ -67,7 +57,6 @@ async def get_dashboard(
             "score_breakdown": score_breakdown,
             "sleep_score": summary.sleep_score,
             "hrv_score": summary.hrv_score,
-            "energy_avg": summary.energy_avg,
             "water_ml": summary.water_ml,
             "caffeine_mg": summary.caffeine_mg,
             "calories_eaten": summary.calories_eaten,
@@ -75,15 +64,6 @@ async def get_dashboard(
             "trained": summary.trained,
             "training_type": summary.training_type,
         },
-        "goals": [
-            {
-                "id": str(g.id),
-                "text": g.text,
-                "done": g.done,
-                "position": g.position,
-            }
-            for g in goals
-        ],
         "caffeine": caffeine,
         "targets": {
             "water_target_ml": current_user.water_target_ml,

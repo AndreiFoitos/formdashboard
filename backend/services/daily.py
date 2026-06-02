@@ -4,7 +4,6 @@ from sqlalchemy import select, func as sqlfunc, exists
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.daily_summary import DailySummary
-from models.energy_log import EnergyLog
 from models.hydration_log import HydrationLog
 from models.nutrition_log import NutritionLog
 from models.training_log import TrainingLog
@@ -114,15 +113,6 @@ async def aggregate_today(
         )
     )
 
-    energy_result = await db.execute(
-        select(
-            sqlfunc.avg(EnergyLog.level)
-        ).where(
-            EnergyLog.user_id == user_id,
-            EnergyLog.logged_at >= day_start,
-        )
-    )
-
     training_result = await db.execute(
         select(
             exists().where(
@@ -143,7 +133,6 @@ async def aggregate_today(
 
     water_ml = hydration_result.scalar()
     cal, protein, carbs, fat = nutrition_result.one()
-    energy_avg = energy_result.scalar()
     trained = training_result.scalar()
     training_type = training_type_result.scalar()
 
@@ -153,9 +142,6 @@ async def aggregate_today(
         "protein_g": protein,
         "carbs_g": carbs,
         "fat_g": fat,
-        "energy_avg": round(float(energy_avg), 2)
-        if energy_avg is not None
-        else None,
         "trained": trained,
         "training_type": training_type,
     }

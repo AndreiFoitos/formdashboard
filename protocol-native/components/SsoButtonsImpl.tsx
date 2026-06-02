@@ -4,6 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication'
 
 import { FEATURES } from '../lib/featureFlags'
 import { isAppleSignInSupported, signInWithApple, signInWithGoogle } from '../lib/sso'
+import { extractErrorMessage } from '../lib/apiError'
 
 interface Props {
   onError: (msg: string) => void
@@ -13,7 +14,6 @@ interface Props {
 // Order matters: the backend's 503 "not configured" trumps the generic detail.
 function humanizeSsoError(err: any, provider: 'Apple' | 'Google'): string {
   const status = err?.response?.status
-  const detail = err?.response?.data?.detail
 
   if (status === 503) {
     return `${provider} sign-in isn't set up on the server yet. Try email or the other provider.`
@@ -24,7 +24,7 @@ function humanizeSsoError(err: any, provider: 'Apple' | 'Google'): string {
   if (!err?.response && err?.message?.includes?.('Network')) {
     return "Can't reach the server. Check your connection and try again."
   }
-  return detail ?? err?.message ?? `${provider} sign-in failed`
+  return extractErrorMessage(err, `${provider} sign-in failed`)
 }
 
 // ── Apple + Google sign-in buttons (real implementation) ─────────────────────

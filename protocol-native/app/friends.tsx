@@ -7,17 +7,21 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
+import { Award, HelpCircle, Trophy } from 'lucide-react-native'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { useRequireAuth } from '../hooks/useRequireAuth'
 import { SkeletonCard } from '../components/Skeleton'
 import { PressableScale } from '../components/PressableScale'
 import { hapticSuccess, hapticLight, hapticSelection } from '../lib/haptics'
+import { TrustedShield } from '../components/icons/TrustedShield'
+import { SusFace } from '../components/icons/SusFace'
 
 // ─── Exercise catalogue (mirror of training.tsx for the picker) ──────────────
 
@@ -57,8 +61,6 @@ interface FriendUser {
   id: string
   name: string
   username: string | null
-  email: string
-  weight_kg: number | null
 }
 
 interface FriendshipRow {
@@ -77,10 +79,17 @@ interface FriendsList {
 interface LeaderboardRow {
   user: FriendUser
   total_volume_kg: number
+  dots_volume: number | null    // bodyweight-adjusted, null if missing sex/weight
   days_trained: number
-  sus_votes: number
+  sus_votes: number             // weekly votes count
+  sus_per_lift_votes: number    // count of per-lift votes against target
+  sus_score: number             // weekly + per_lift × 2
   sus_threshold: number
   is_sus: boolean
+  vouches: number
+  is_trusted: boolean
+  i_sus_weekly: boolean         // did the viewer cast a weekly sus this week
+  i_vouched: boolean            // did the viewer vouch this week
   is_me: boolean
   rank: number
 }
@@ -89,29 +98,304 @@ interface LeaderboardResponse {
   week_start: string
   week_end: string
   exercise: string | null
+  sort: 'raw' | 'dots'
   sus_threshold: number
   rows: LeaderboardRow[]
 }
 
-interface Recap {
-  week_start: string
-  week_end: string
-  circle_size: number
-  headlines: {
-    top_volume?: { user: FriendUser; total_volume_kg: number } | null
-    most_consistent?: { user: FriendUser; days_trained: number } | null
-    most_pr?: { user: FriendUser; pr_count: number } | null
-    most_sus?: { user: FriendUser; votes: number; threshold: number } | null
+interface FriendLift {
+  id: string
+  date: string
+  type: string
+  weight_kg: number | null
+  reps: number | null
+  already_sus: boolean
+  already_vouched: boolean
+}
+
+// ─── Sus + Vouch bottom sheet ────────────────────────────────────────────────
+//
+// Symmetric voting model: every scope is binary — Approve (TrustedShield) or
+// Sus (SusFace).
+// - Weekly scope acts on the friend's weight-moved total for the week.
+// - Per-lift scope acts on one specific TrainingLog (last 7 days).
+//
+// Approve = one-tap vouch (instant, toggleable).
+// Sus     = one-tap (instant, toggleable) — symmetric with Approve.
+
+function SusVouchSheet({
+  target,
+  onClose,
+}: {
+  target: LeaderboardRow
+  onClose: () => void
+}) {
+  const qc = useQueryClient()
+  const [mode, setMode] = useState<'weekly' | 'per_lift'>('weekly')
+
+  // Lifts only fetched when needed.
+  const liftsQuery = useQuery<{ lifts: FriendLift[] }>({
+    queryKey: ['friend-lifts', target.user.id],
+    queryFn: () => api.get(`/friends/friend-lifts/${target.user.id}`).then((r) => r.data),
+    enabled: mode === 'per_lift',
+  })
+
+  function invalidateAll() {
+    qc.invalidateQueries({ queryKey: ['friends-leaderboard'] })
+    qc.invalidateQueries({ queryKey: ['friend-lifts', target.user.id] })
   }
-  me: LeaderboardRow | null
+
+  // Sus is now a one-tap toggle, symmetric with vouch — no reason picker.
+  // Posting again with the same scope clears the vote (handled server-side).
+  const susMutation = useMutation({
+    mutationFn: (training_log_id: string | null) =>
+      api.post(`/friends/vote-sus/${target.user.id}`, { training_log_id }),
+    onSuccess: (_data, training_log_id) => {
+      hapticSuccess()
+      invalidateAll()
+      // Weekly vote → drop back to the leaderboard. Per-lift stays open so the
+      // voter can rattle through several lifts without reopening the sheet.
+      if (training_log_id === null) onClose()
+    },
+  })
+
+  const vouchMutation = useMutation({
+    mutationFn: (training_log_id: string | null) =>
+      api.post(`/friends/vouch/${target.user.id}`, { training_log_id }),
+    onSuccess: (_data, training_log_id) => {
+      hapticSuccess()
+      invalidateAll()
+      if (training_log_id === null) onClose()
+    },
+  })
+
+  return (
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View className="flex-1 bg-zinc-950">
+        <View className="items-center pt-3 pb-2">
+          <View className="w-10 h-1 bg-zinc-700 rounded-full" />
+        </View>
+        <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
+          <View>
+            <Text className="text-white font-semibold">{target.user.name}</Text>
+            <Text className="text-zinc-500 text-xs mt-0.5">
+              {target.total_volume_kg.toLocaleString()} kg this week
+            </Text>
+          </View>
+          <TouchableOpacity onPress={onClose}>
+            <Text className="text-zinc-400 text-sm">✕</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          className="flex-1 px-4 pt-4"
+          contentContainerStyle={{ paddingBottom: 32 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Scope toggle */}
+          <View className="flex-row bg-zinc-900 border border-zinc-800 rounded-2xl p-1 mb-4">
+            {(['weekly', 'per_lift'] as const).map((m) => {
+              const active = mode === m
+              return (
+                <TouchableOpacity
+                  key={m}
+                  onPress={() => {
+                    hapticSelection()
+                    setMode(m)
+                  }}
+                  className="flex-1 py-2 items-center rounded-xl"
+                  style={{ backgroundColor: active ? '#27272a' : 'transparent' }}
+                >
+                  <Text
+                    className="text-xs font-medium"
+                    style={{ color: active ? 'white' : '#71717a' }}
+                  >
+                    {m === 'weekly' ? 'Whole week' : 'A specific lift'}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+
+          {/* Weekly scope — two big action buttons. */}
+          {mode === 'weekly' && (
+            <View style={{ gap: 10 }}>
+              <ActionButton
+                kind="approve"
+                active={target.i_vouched}
+                label={target.i_vouched ? 'Approved this week' : 'Approve the week'}
+                sub="Endorse their weight moved total"
+                onPress={() => { hapticLight(); vouchMutation.mutate(null) }}
+                busy={vouchMutation.isPending}
+              />
+              <ActionButton
+                kind="sus"
+                active={target.i_sus_weekly}
+                label={target.i_sus_weekly ? "Sus'd this week" : 'Sus the week'}
+                sub={target.i_sus_weekly ? 'Tap to take it back' : 'Flag their weight moved as sus'}
+                onPress={() => { hapticLight(); susMutation.mutate(null) }}
+                busy={susMutation.isPending}
+              />
+            </View>
+          )}
+
+          {/* Per-lift scope — list with both actions per lift. */}
+          {mode === 'per_lift' && (
+            <View>
+              <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+                Last 7 days
+              </Text>
+              {liftsQuery.isLoading ? (
+                <ActivityIndicator color="#71717a" />
+              ) : (liftsQuery.data?.lifts.length ?? 0) === 0 ? (
+                <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 items-center">
+                  <Text className="text-zinc-500 text-xs">No lifts in the last 7 days</Text>
+                </View>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {(liftsQuery.data?.lifts ?? []).map((lift) => (
+                    <LiftRowSusVouch
+                      key={lift.id}
+                      lift={lift}
+                      onApprove={() => { hapticLight(); vouchMutation.mutate(lift.id) }}
+                      onSus={() => { hapticLight(); susMutation.mutate(lift.id) }}
+                      busy={vouchMutation.isPending || susMutation.isPending}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+        </ScrollView>
+
+      </View>
+    </Modal>
+  )
+}
+
+function ActionButton({
+  kind,
+  active,
+  label,
+  sub,
+  onPress,
+  busy,
+}: {
+  kind: 'approve' | 'sus'
+  active: boolean
+  label: string
+  sub: string
+  onPress: () => void
+  busy?: boolean
+}) {
+  const isApprove = kind === 'approve'
+  // Active = the viewer has already cast this action in this scope.
+  const bg = active ? (isApprove ? '#052e16' : 'rgba(120,53,15,0.4)') : '#18181b'
+  const border = active ? (isApprove ? '#14532d' : 'rgba(180,83,9,0.4)') : '#3f3f46'
+  const fg = active ? (isApprove ? '#86efac' : '#fbbf24') : 'white'
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={busy}
+      className="rounded-2xl px-4 py-4 flex-row items-center justify-between"
+      style={{ backgroundColor: bg, borderWidth: 1, borderColor: border }}
+    >
+      <View className="flex-1 pr-3">
+        <View className="flex-row items-center" style={{ gap: 6 }}>
+          {isApprove ? <TrustedShield size={14} /> : <SusFace size={14} />}
+          <Text className="text-sm font-semibold" style={{ color: fg }}>
+            {label}
+          </Text>
+        </View>
+        <Text className="text-zinc-500 text-xs mt-0.5">{sub}</Text>
+      </View>
+      {busy && <ActivityIndicator color="#a1a1aa" />}
+    </TouchableOpacity>
+  )
+}
+
+function LiftRowSusVouch({
+  lift,
+  onApprove,
+  onSus,
+  busy,
+}: {
+  lift: FriendLift
+  onApprove: () => void
+  onSus: () => void
+  busy?: boolean
+}) {
+  return (
+    <View className="rounded-2xl bg-zinc-900 border border-zinc-800 px-4 py-3 flex-row items-center">
+      <View className="flex-1 pr-2">
+        <Text className="text-white text-sm font-semibold">
+          {EXERCISE_NAME[lift.type] ?? lift.type}
+        </Text>
+        <Text className="text-zinc-500 text-xs mt-0.5">
+          {new Date(lift.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+          {' · '}
+          {lift.weight_kg ?? '–'}kg × {lift.reps ?? '–'}
+        </Text>
+      </View>
+      <View className="flex-row" style={{ gap: 6 }}>
+        <PillButton
+          active={lift.already_vouched}
+          kind="trusted"
+          tintActive="#14532d"
+          fgActive="#86efac"
+          onPress={onApprove}
+          disabled={busy}
+        />
+        <PillButton
+          active={lift.already_sus}
+          kind="sus"
+          tintActive="rgba(180,83,9,0.5)"
+          fgActive="#fbbf24"
+          onPress={onSus}
+        />
+      </View>
+    </View>
+  )
+}
+
+function PillButton({
+  active,
+  kind,
+  tintActive,
+  fgActive,
+  onPress,
+  disabled,
+}: {
+  active: boolean
+  kind: 'trusted' | 'sus'
+  tintActive: string
+  fgActive: string
+  onPress: () => void
+  disabled?: boolean
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      className="px-3 py-1.5 rounded-full"
+      style={{
+        backgroundColor: active ? tintActive : '#27272a',
+        borderWidth: 1,
+        borderColor: active ? fgActive : '#3f3f46',
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      {kind === 'trusted' ? <TrustedShield size={14} /> : <SusFace size={14} />}
+    </TouchableOpacity>
+  )
 }
 
 // ─── Leaderboard tab ─────────────────────────────────────────────────────────
 
 function LeaderboardTab() {
-  const qc = useQueryClient()
   const [exercise, setExercise] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [sheetFor, setSheetFor] = useState<LeaderboardRow | null>(null)
 
   const path = exercise
     ? `/friends/leaderboard?exercise=${encodeURIComponent(exercise)}`
@@ -120,15 +404,6 @@ function LeaderboardTab() {
   const { data, isLoading, refetch, isRefetching } = useQuery<LeaderboardResponse>({
     queryKey: ['friends-leaderboard', exercise],
     queryFn: () => api.get(path).then(r => r.data),
-  })
-
-  const voteMutation = useMutation({
-    mutationFn: (userId: string) => api.post(`/friends/vote-sus/${userId}`),
-    onSuccess: () => {
-      hapticSuccess()
-      qc.invalidateQueries({ queryKey: ['friends-leaderboard'] })
-      qc.invalidateQueries({ queryKey: ['friends-recap'] })
-    },
   })
 
   const rows = data?.rows ?? []
@@ -156,6 +431,7 @@ function LeaderboardTab() {
         </TouchableOpacity>
       </View>
 
+
       {isLoading ? (
         <View style={{ gap: 8 }}>
           <SkeletonCard height={64} />
@@ -173,7 +449,10 @@ function LeaderboardTab() {
         <View style={{ gap: 8 }}>
           {rows.map(row => {
             const pct = (row.total_volume_kg / maxVol) * 100
-            const medal = row.rank === 1 ? '🥇' : row.rank === 2 ? '🥈' : row.rank === 3 ? '🥉' : null
+            const medal = row.rank === 1 ? { Icon: Trophy, color: '#FCD34D' }
+                        : row.rank === 2 ? { Icon: Award,  color: '#D1D5DB' }
+                        : row.rank === 3 ? { Icon: Award,  color: '#B45309' }
+                        : null
             return (
               <View
                 key={row.user.id}
@@ -183,7 +462,7 @@ function LeaderboardTab() {
                 <View className="flex-row items-center gap-3">
                   <View className="w-7 items-center">
                     {medal
-                      ? <Text style={{ fontSize: 16 }}>{medal}</Text>
+                      ? <medal.Icon size={18} color={medal.color} strokeWidth={2} />
                       : <Text className="text-zinc-500 text-sm">{row.rank}</Text>}
                   </View>
                   <View className="flex-1">
@@ -191,50 +470,68 @@ function LeaderboardTab() {
                       <Text className="text-white text-sm font-semibold">
                         {row.user.name}{row.is_me ? ' (you)' : ''}
                       </Text>
-                      {row.sus_votes > 0 && (
+                      {row.is_trusted && (
                         <View
-                          className="px-1.5 py-0.5 rounded-full"
+                          className="px-1.5 py-0.5 rounded-full flex-row items-center"
+                          style={{
+                            backgroundColor: 'rgba(20,83,45,0.4)',
+                            borderWidth: 1,
+                            borderColor: 'rgba(34,197,94,0.4)',
+                            gap: 4,
+                          }}
+                        >
+                          <TrustedShield size={12} />
+                          <Text className="text-xs" style={{ color: '#86efac' }}>
+                            {row.vouches}
+                          </Text>
+                        </View>
+                      )}
+                      {(row.sus_score > 0 || row.is_sus) && (
+                        <View
+                          className="px-1.5 py-0.5 rounded-full flex-row items-center"
                           style={{
                             backgroundColor: row.is_sus ? 'rgba(120,53,15,0.4)' : '#27272a',
                             borderWidth: 1,
                             borderColor: row.is_sus ? 'rgba(180,83,9,0.4)' : '#3f3f46',
+                            gap: 4,
                           }}
                         >
+                          <SusFace size={12} />
                           <Text
                             className="text-xs"
                             style={{ color: row.is_sus ? '#fbbf24' : '#a1a1aa' }}
                           >
-                            🤨 {row.sus_votes} / {row.sus_threshold}
+                            {row.sus_score} / {row.sus_threshold}
                           </Text>
                         </View>
                       )}
                     </View>
                     <Text className="text-zinc-500 text-xs mt-0.5">
                       {row.days_trained} day{row.days_trained === 1 ? '' : 's'} this week
+                      {row.sus_per_lift_votes > 0 && ` · ${row.sus_per_lift_votes} lift${row.sus_per_lift_votes === 1 ? '' : 's'} sus'd`}
                     </Text>
                   </View>
-                  <View className="items-end">
+                  <View className="items-end" style={{ minWidth: 76 }}>
                     <Text className="text-white text-sm font-bold">
                       {row.total_volume_kg.toLocaleString()}
+                      <Text className="text-zinc-500 text-[10px] font-normal"> kg</Text>
                     </Text>
-                    <Text className="text-zinc-500 text-xs">kg</Text>
+                    <Text className="text-zinc-500 text-[11px] font-semibold mt-0.5">
+                      {row.dots_volume != null ? row.dots_volume.toLocaleString() : '—'}
+                      <Text className="text-zinc-600 text-[10px] font-normal"> DOTS</Text>
+                    </Text>
                   </View>
                   {!row.is_me && (
                     <TouchableOpacity
-                      onPress={() => {
-                        Alert.alert(
-                          'Vote sus?',
-                          `Flag ${row.user.name}'s logs as suspicious this week. ${row.sus_threshold}+ votes light up the 🤨 badge. Resets Monday.`,
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Vote', onPress: () => voteMutation.mutate(row.user.id) },
-                          ],
-                        )
-                      }}
+                      onPress={() => { hapticLight(); setSheetFor(row) }}
                       hitSlop={8}
                       className="ml-1 px-2"
                     >
-                      <Text className="text-zinc-600 text-base">🤨</Text>
+                      {row.i_vouched
+                        ? <TrustedShield size={18} />
+                        : row.i_sus_weekly
+                          ? <SusFace size={18} />
+                          : <HelpCircle size={18} color="#71717a" strokeWidth={2} />}
                     </TouchableOpacity>
                   )}
                 </View>
@@ -262,6 +559,13 @@ function LeaderboardTab() {
           onClose={() => setPickerOpen(false)}
           onPick={(key) => { setExercise(key); setPickerOpen(false) }}
           onClear={() => { setExercise(null); setPickerOpen(false) }}
+        />
+      )}
+
+      {sheetFor && (
+        <SusVouchSheet
+          target={sheetFor}
+          onClose={() => setSheetFor(null)}
         />
       )}
     </ScrollView>
@@ -379,7 +683,7 @@ function FriendsTab() {
                     <View className="flex-1">
                       <Text className="text-white text-sm font-medium">{r.user.name}</Text>
                       <Text className="text-zinc-500 text-xs">
-                        {r.user.username ? `@${r.user.username}` : r.user.email}
+                        {r.user.username ? `@${r.user.username}` : r.user.name}
                       </Text>
                     </View>
                     <TouchableOpacity
@@ -425,7 +729,7 @@ function FriendsTab() {
                   <View className="flex-1">
                     <Text className="text-white text-sm font-medium">{r.user.name}</Text>
                     <Text className="text-zinc-500 text-xs">
-                      {r.user.username ? `@${r.user.username}` : r.user.email}
+                      {r.user.username ? `@${r.user.username}` : r.user.name}
                     </Text>
                   </View>
                   <TouchableOpacity
@@ -464,7 +768,7 @@ function FriendsTab() {
                     <View className="flex-1">
                       <Text className="text-white text-sm font-medium">{r.user.name}</Text>
                       <Text className="text-zinc-500 text-xs">
-                        {r.user.username ? `@${r.user.username}` : r.user.email}
+                        {r.user.username ? `@${r.user.username}` : r.user.name}
                       </Text>
                     </View>
                     <TouchableOpacity
@@ -481,113 +785,6 @@ function FriendsTab() {
         </>
       )}
     </ScrollView>
-  )
-}
-
-// ─── Recap tab ───────────────────────────────────────────────────────────────
-
-function RecapTab() {
-  const { data, isLoading, refetch, isRefetching } = useQuery<Recap>({
-    queryKey: ['friends-recap'],
-    queryFn: () => api.get('/friends/recap').then(r => r.data),
-  })
-
-  return (
-    <ScrollView
-      className="flex-1"
-      contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#ffffff" />}
-    >
-      {isLoading ? (
-        <View style={{ gap: 12 }}>
-          <SkeletonCard height={92} />
-          <SkeletonCard height={92} />
-        </View>
-      ) : !data || data.circle_size === 0 ? (
-        <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 items-center">
-          <Text className="text-zinc-400 text-sm font-medium">Nothing to recap yet</Text>
-          <Text className="text-zinc-600 text-xs mt-1 text-center">
-            Add friends and log a few workouts. Recap refreshes Monday.
-          </Text>
-        </View>
-      ) : (
-        <View style={{ gap: 12 }}>
-          <Text className="text-zinc-500 text-xs uppercase tracking-widest">
-            Week of {data.week_start}
-          </Text>
-
-          {data.headlines.top_volume && (
-            <Headline
-              icon="🏋️"
-              label="Most volume"
-              user={data.headlines.top_volume.user}
-              value={`${data.headlines.top_volume.total_volume_kg.toLocaleString()} kg`}
-            />
-          )}
-          {data.headlines.most_consistent && (
-            <Headline
-              icon="📅"
-              label="Most consistent"
-              user={data.headlines.most_consistent.user}
-              value={`${data.headlines.most_consistent.days_trained} days`}
-            />
-          )}
-          {data.headlines.most_pr && (
-            <Headline
-              icon="📈"
-              label="Most PRs"
-              user={data.headlines.most_pr.user}
-              value={`${data.headlines.most_pr.pr_count} PR${data.headlines.most_pr.pr_count === 1 ? '' : 's'}`}
-            />
-          )}
-          {data.headlines.most_sus && (
-            <Headline
-              icon="🤨"
-              label="Most sus"
-              user={data.headlines.most_sus.user}
-              value={`${data.headlines.most_sus.votes} / ${data.headlines.most_sus.threshold}`}
-            />
-          )}
-
-          {data.me && (
-            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mt-2">
-              <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Your week</Text>
-              <View className="flex-row items-baseline gap-3 flex-wrap">
-                <Text className="text-white text-2xl font-bold">{data.me.total_volume_kg.toLocaleString()}</Text>
-                <Text className="text-zinc-500 text-sm">kg moved</Text>
-                <Text className="text-zinc-500 text-sm">·</Text>
-                <Text className="text-zinc-300 text-sm">Rank #{data.me.rank} of {data.circle_size}</Text>
-                <Text className="text-zinc-500 text-sm">·</Text>
-                <Text className="text-zinc-300 text-sm">{data.me.days_trained} days trained</Text>
-              </View>
-            </View>
-          )}
-        </View>
-      )}
-    </ScrollView>
-  )
-}
-
-function Headline({
-  icon,
-  label,
-  user,
-  value,
-}: {
-  icon: string
-  label: string
-  user: FriendUser
-  value: string
-}) {
-  return (
-    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex-row items-center gap-3">
-      <Text style={{ fontSize: 24 }}>{icon}</Text>
-      <View className="flex-1">
-        <Text className="text-zinc-500 text-xs uppercase tracking-widest">{label}</Text>
-        <Text className="text-white text-sm font-semibold mt-0.5">{user.name}</Text>
-      </View>
-      <Text className="text-white text-base font-bold">{value}</Text>
-    </View>
   )
 }
 
@@ -640,7 +837,7 @@ function ExercisePickerSheet({
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
-type Tab = 'leaderboard' | 'friends' | 'recap'
+type Tab = 'leaderboard' | 'friends'
 
 export default function FriendsScreen() {
   const { user } = useRequireAuth()
@@ -661,7 +858,7 @@ export default function FriendsScreen() {
 
       {/* Tabs */}
       <View className="flex-row mx-4 mt-1 p-1 bg-zinc-900 border border-zinc-800 rounded-2xl">
-        {(['leaderboard', 'friends', 'recap'] as Tab[]).map(t => (
+        {(['leaderboard', 'friends'] as Tab[]).map(t => (
           <TouchableOpacity
             key={t}
             onPress={() => { hapticLight(); setTab(t) }}
@@ -680,7 +877,6 @@ export default function FriendsScreen() {
 
       {tab === 'leaderboard' && <LeaderboardTab />}
       {tab === 'friends'     && <FriendsTab />}
-      {tab === 'recap'       && <RecapTab />}
     </SafeAreaView>
   )
 }

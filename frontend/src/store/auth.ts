@@ -3,12 +3,14 @@ import { create } from 'zustand'
 interface User {
   id: string
   email: string
+  username: string | null
   name: string | null
   age: number | null
   height_cm: number | null
   weight_kg: number | null
-  goal: string | null
+  sex: 'male' | 'female' | null
   timezone: string
+  sleep_hour: number
   onboarding_complete: boolean
   protein_target_g: number | null
   water_target_ml: number | null

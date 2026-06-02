@@ -7,6 +7,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { useAuthStore } from '../store/auth'
 import { getToken } from '../lib/storage'
 import { api } from '../api/client'
+import {
+  enablePredictiveNudges,
+  handleQuickLogResponse,
+  setupNotificationHandlers,
+} from '../lib/notifications'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +41,41 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
     lastUserId.current = currentId
   }, [user?.id, qc])
+
+  // Once a user is authed, make sure notifications are wired and the push
+  // token is registered with the backend. Idempotent — no-ops if already set up.
+  useEffect(() => {
+    if (!user) return
+    enablePredictiveNudges().catch(() => {})
+  }, [user?.id])
+
+  // Cold-start case: app launched from a notification tap. Handle the queued
+  // response once auth has hydrated so we have a bearer token to POST with.
+  useEffect(() => {
+    if (!hydrated || !user) return
+    let cancelled = false
+    ;(async () => {
+      const N = await import('expo-notifications')
+      const initial = await N.getLastNotificationResponseAsync()
+      if (initial && !cancelled) await handleQuickLogResponse(initial, qc)
+    })().catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [hydrated, user?.id])
+
+  // Warm-start case: notification tapped while the app is alive.
+  useEffect(() => {
+    let sub: { remove: () => void } | undefined
+    ;(async () => {
+      await setupNotificationHandlers()
+      const N = await import('expo-notifications')
+      sub = N.addNotificationResponseReceivedListener((resp) => {
+        handleQuickLogResponse(resp, qc).catch(() => {})
+      })
+    })().catch(() => {})
+    return () => sub?.remove()
+  }, [qc])
 
   useEffect(() => {
     async function hydrate() {
@@ -104,6 +144,15 @@ export default function RootLayout() {
 
               {/* Friends + leaderboard + weekly recap */}
               <Stack.Screen name="friends" />
+              {/* Cinematic full-screen Weekly Race recap (Sun-Mon hero card → modal) */}
+              <Stack.Screen
+                name="weekly-recap"
+                options={{
+                  presentation: 'fullScreenModal',
+                  animation: 'fade',
+                  contentStyle: { backgroundColor: '#000' },
+                }}
+              />
             </Stack>
           </AuthGate>
         </QueryClientProvider>

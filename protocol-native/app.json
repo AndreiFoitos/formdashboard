@@ -27,7 +27,8 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.asky12346272.protocolnative"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -42,17 +43,17 @@
         }
       ],
       [
-        "@kingstinct/react-native-healthkit",
-        {
-          "NSHealthShareUsageDescription": "Protocol reads your sleep, HRV, heart rate, and activity to calculate your daily Form Score.",
-          "background": false
-        }
-      ],
-      [
         "expo-camera",
         {
           "cameraPermission": "Protocol uses the camera to identify your meal and estimate calories.",
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ffffff"
         }
       ],
       "expo-web-browser"
@@ -64,7 +65,7 @@
       },
       "features": {
         "appleSignIn": false,
-        "googleSignIn": true
+        "googleSignIn": false
       },
       "googleSignIn": {
         "iosClientId": "471688772354-9rte1ombjd7p7enmli9b0btcjb5k3v5e.apps.googleusercontent.com",

@@ -22,7 +22,8 @@ class User(Base):
     age: Mapped[int] = mapped_column(nullable=True)
     height_cm: Mapped[float] = mapped_column(nullable=True)
     weight_kg: Mapped[float] = mapped_column(nullable=True)
-    goal: Mapped[str] = mapped_column(String, nullable=True)  # bulk, cut, maintain, recomp
+    # Biological sex used for Mifflin-St Jeor BMR calc. "male" or "female".
+    sex: Mapped[str | None] = mapped_column(String, nullable=True)
     timezone: Mapped[str] = mapped_column(String, default="UTC")
     sleep_hour: Mapped[int] = mapped_column(default=23, server_default="23")  # local bedtime hour, for caffeine-at-bedtime calc
     onboarding_complete: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -38,14 +39,12 @@ class User(Base):
 
     # Relationships
     daily_summaries: Mapped[list["DailySummary"]] = relationship(back_populates="user", cascade="all, delete")
-    goals: Mapped[list["Goal"]] = relationship(back_populates="user", cascade="all, delete")
     streak: Mapped["Streak"] = relationship(back_populates="user", cascade="all, delete", uselist=False)
     onboarding_baseline: Mapped["OnboardingBaseline"] = relationship(back_populates="user", cascade="all, delete", uselist=False)
-    energy_logs: Mapped[list["EnergyLog"]] = relationship(back_populates="user", cascade="all, delete")
     stimulant_logs: Mapped[list["StimulantLog"]] = relationship(back_populates="user", cascade="all, delete")
     hydration_logs: Mapped[list["HydrationLog"]] = relationship(back_populates="user", cascade="all, delete")
     nutrition_logs: Mapped[list["NutritionLog"]] = relationship(back_populates="user", cascade="all, delete")
     training_logs: Mapped[list["TrainingLog"]] = relationship(back_populates="user", cascade="all, delete")
     body_metrics: Mapped[list["BodyMetric"]] = relationship(back_populates="user", cascade="all, delete")
-    device_connections: Mapped[list["DeviceConnection"]] = relationship(back_populates="user", cascade="all, delete")
     ai_insights: Mapped[list["AIInsight"]] = relationship(back_populates="user", cascade="all, delete")
+    push_tokens: Mapped[list["PushToken"]] = relationship(back_populates="user", cascade="all, delete")

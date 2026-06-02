@@ -25,7 +25,6 @@ def _summary_dict(s: DailySummary, score_breakdown: dict | None = None) -> dict:
         "readiness_score": s.readiness_score,
         "steps": s.steps,
         "active_calories": s.active_calories,
-        "energy_avg": s.energy_avg,
         "water_ml": s.water_ml,
         "caffeine_mg": s.caffeine_mg,
         "calories_eaten": s.calories_eaten,

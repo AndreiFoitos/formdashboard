@@ -13,17 +13,15 @@ from services.scheduler import start_scheduler, shutdown_scheduler
 from routers.auth import router as auth_router
 from routers.users import router as users_router
 from routers.daily import router as daily_router
-from routers.goals import router as goals_router
-from routers.energy import router as energy_router
 from routers.hydration import router as hydration_router
 from routers.nutrition import router as nutrition_router
 from routers.stimulants import router as stimulants_router
 from routers.training import router as training_router
 from routers.dashboard import router as dashboard_router
 from routers.body import router as body_router
-from routers.devices import router as devices_router
 from routers.ai import router as ai_router
 from routers.friends import router as friends_router
+from routers.notifications import notif_router, quick_log_router
 
 
 import socket
@@ -51,7 +49,7 @@ app.add_middleware(
     CORSMiddleware,
     # Auth is bearer-token-only (no cookies), so we don't need a credentialed
     # origin lock. RN clients don't trigger CORS at all; a wildcard here only
-    # affects browser-based callers and the Oura OAuth redirect.
+    # affects browser-based callers.
     allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
@@ -61,17 +59,16 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(daily_router)
-app.include_router(goals_router)
-app.include_router(energy_router)
 app.include_router(hydration_router)
 app.include_router(nutrition_router)
 app.include_router(stimulants_router)
 app.include_router(training_router)
 app.include_router(dashboard_router)
 app.include_router(body_router)
-app.include_router(devices_router)
 app.include_router(ai_router)
 app.include_router(friends_router)
+app.include_router(notif_router)
+app.include_router(quick_log_router)
 
 
 @app.get("/health")

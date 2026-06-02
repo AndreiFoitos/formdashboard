@@ -16,28 +16,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { removeToken } from '../lib/storage'
-import {
-  fetchConnectedDevices,
-  disconnectDevice,
-  requestHealthPermissions,
-  runHealthKitBackfill,
-  isHealthKitPlatform,
-  type ConnectedDevice,
-} from '../lib/healthkit'
-import { connectOura, syncOura } from '../lib/oura'
 import { hapticSuccess } from '../lib/haptics'
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return 'never'
-  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.round(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.round(hrs / 24)}d ago`
-}
+import {
+  disableNudges,
+  enablePredictiveNudges,
+  getNudgeStatus,
+} from '../lib/notifications'
 
 // ─── Section wrapper ────────────────────────────────────────────────────────────
 
@@ -53,13 +37,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 // ─── Profile & targets ─────────────────────────────────────────────────────────
-
-const GOALS = [
-  { key: 'bulk', label: 'Bulk' },
-  { key: 'cut', label: 'Cut' },
-  { key: 'maintain', label: 'Maintain' },
-  { key: 'recomp', label: 'Recomp' },
-]
 
 function hourLabel(h: number): string {
   const period = h < 12 ? 'AM' : 'PM'
@@ -103,7 +80,6 @@ function ProfileSection() {
   const { user, updateUser } = useAuthStore()
   const qc = useQueryClient()
 
-  const [goal, setGoal] = useState<string | null>(user?.goal ?? null)
   const [username, setUsername] = useState(user?.username ?? '')
   const [protein, setProtein] = useState(
     user?.protein_target_g != null ? String(Math.round(user.protein_target_g)) : '',
@@ -152,7 +128,6 @@ function ProfileSection() {
     }
     setUsernameError(null)
     save.mutate({
-      goal: goal ?? undefined,
       username: usernameDirty ? username : undefined,
       sleep_hour: bedtime,
       protein_target_g: protein.trim() ? parseFloat(protein) : null,
@@ -188,31 +163,6 @@ function ProfileSection() {
         )}
       </View>
 
-      {/* Goal */}
-      <View className="px-4 py-3.5 border-b border-zinc-800">
-        <Text className="text-zinc-300 text-sm mb-2.5">Goal</Text>
-        <View className="flex-row flex-wrap gap-2">
-          {GOALS.map((g) => (
-            <TouchableOpacity
-              key={g.key}
-              onPress={() => setGoal(g.key)}
-              className="px-3 py-1.5 rounded-full border"
-              style={{
-                backgroundColor: goal === g.key ? 'white' : '#18181b',
-                borderColor: goal === g.key ? 'white' : '#3f3f46',
-              }}
-            >
-              <Text
-                className="text-xs font-medium"
-                style={{ color: goal === g.key ? 'black' : '#a1a1aa' }}
-              >
-                {g.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
       <TargetRow label="Protein target" value={protein} onChangeText={setProtein} unit="g" placeholder="160" />
       <TargetRow label="Water target" value={water} onChangeText={setWater} unit="ml" placeholder="2800" />
       <TargetRow label="Calorie target" value={calories} onChangeText={setCalories} unit="kcal" placeholder="2400" />
@@ -225,7 +175,7 @@ function ProfileSection() {
         </View>
         <View className="flex-row items-center" style={{ gap: 10 }}>
           <TouchableOpacity
-            onPress={() => setBedtime((h) => Math.max(0, h - 1))}
+            onPress={() => setBedtime((h) => (h + 23) % 24)}
             className="w-8 h-8 rounded-full bg-zinc-800 items-center justify-center"
           >
             <Text className="text-white text-lg leading-5">−</Text>
@@ -234,7 +184,7 @@ function ProfileSection() {
             {hourLabel(bedtime)}
           </Text>
           <TouchableOpacity
-            onPress={() => setBedtime((h) => Math.min(23, h + 1))}
+            onPress={() => setBedtime((h) => (h + 1) % 24)}
             className="w-8 h-8 rounded-full bg-zinc-800 items-center justify-center"
           >
             <Text className="text-white text-lg leading-5">+</Text>
@@ -263,147 +213,140 @@ function ProfileSection() {
   )
 }
 
-// ─── Device rows ────────────────────────────────────────────────────────────────
+// ─── Smart nudges ──────────────────────────────────────────────────────────────
 
-function AppleHealthRow({ device }: { device: ConnectedDevice | undefined }) {
-  const qc = useQueryClient()
-  const supported = isHealthKitPlatform()
-  const connected = !!device
-
-  const connect = useMutation({
-    mutationFn: async () => {
-      await requestHealthPermissions()
-      await runHealthKitBackfill(14)
-    },
-    onSuccess: () => {
-      hapticSuccess()
-      qc.invalidateQueries({ queryKey: ['devices'] })
-      qc.invalidateQueries({ queryKey: ['dashboard'] })
-    },
-  })
-
-  const disconnect = useMutation({
-    mutationFn: () => disconnectDevice('apple_health'),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['devices'] }),
-  })
-
-  function confirmDisconnect() {
-    Alert.alert(
-      'Disconnect Apple Health',
-      'Protocol will stop syncing sleep, HRV, and activity. Your past data stays. You can reconnect anytime.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Disconnect', style: 'destructive', onPress: () => disconnect.mutate() },
-      ],
-    )
-  }
-
-  const busy = connect.isPending || disconnect.isPending
-
-  return (
-    <View className="flex-row items-center justify-between px-4 py-4 border-b border-zinc-800">
-      <View className="flex-1 pr-3">
-        <Text className="text-white text-sm font-semibold">Apple Health</Text>
-        <Text className="text-zinc-500 text-xs mt-0.5">
-          {connected
-            ? `Synced ${timeAgo(device!.last_sync_at)}`
-            : 'Steps, sleep, heart rate'}
-        </Text>
-      </View>
-
-      {busy ? (
-        <ActivityIndicator color="white" />
-      ) : connected ? (
-        <TouchableOpacity onPress={confirmDisconnect}>
-          <Text className="text-red-400 text-sm font-medium">Disconnect</Text>
-        </TouchableOpacity>
-      ) : supported ? (
-        <TouchableOpacity
-          onPress={() => connect.mutate()}
-          className="bg-white px-3 py-1.5 rounded-lg"
-        >
-          <Text className="text-black text-xs font-semibold">Connect</Text>
-        </TouchableOpacity>
-      ) : (
-        <View className="border border-zinc-700 px-2 py-0.5 rounded-full">
-          <Text className="text-zinc-500 text-xs uppercase tracking-widest">iOS only</Text>
-        </View>
-      )}
-    </View>
-  )
+interface PatternSlot {
+  log_type: 'hydration' | 'stimulant'
+  weekday: number
+  slot_minute: number
+  time_label: string
+  confidence: number
+  sample_count: number
+  suggested_amount_ml: number | null
+  suggested_substance: string | null
+  suggested_caffeine_mg: number | null
 }
 
-function OuraRow({ device }: { device: ConnectedDevice | undefined }) {
+const WEEKDAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+function formatTime12h(slotMin: number): string {
+  const h = Math.floor(slotMin / 60)
+  const m = slotMin % 60
+  const period = h < 12 ? 'AM' : 'PM'
+  const display = h % 12 === 0 ? 12 : h % 12
+  return `${display}:${m.toString().padStart(2, '0')} ${period}`
+}
+
+function slotSummary(s: PatternSlot): string {
+  if (s.log_type === 'hydration') {
+    return s.suggested_amount_ml ? `${s.suggested_amount_ml} ml water` : 'Water'
+  }
+  const label = s.suggested_substance
+    ? s.suggested_substance.charAt(0).toUpperCase() + s.suggested_substance.slice(1)
+    : 'Coffee'
+  return s.suggested_caffeine_mg ? `${label} (${s.suggested_caffeine_mg} mg)` : label
+}
+
+function NudgesSection() {
   const qc = useQueryClient()
-  const connected = !!device
 
-  const refresh = () => {
-    qc.invalidateQueries({ queryKey: ['devices'] })
-    qc.invalidateQueries({ queryKey: ['dashboard'] })
-  }
+  const { data: status, refetch: refetchStatus } = useQuery({
+    queryKey: ['nudge-status'],
+    queryFn: getNudgeStatus,
+  })
 
-  const connect = useMutation({
-    mutationFn: connectOura,
+  // Only fetch patterns when nudges are enabled — saves a roundtrip.
+  const { data: slots, isLoading: slotsLoading } = useQuery<PatternSlot[]>({
+    queryKey: ['notif-patterns'],
+    queryFn: () => api.get('/notifications/patterns').then((r) => r.data),
+    enabled: !!status?.granted,
+  })
+
+  const enable = useMutation({
+    mutationFn: enablePredictiveNudges,
     onSuccess: (result) => {
-      if (result === 'success') {
+      if (result.enabled) {
         hapticSuccess()
-        refresh()
-      } else if (result === 'error') {
-        Alert.alert('Connection failed', 'Could not connect your Oura account. Please try again.')
+        qc.invalidateQueries({ queryKey: ['notif-patterns'] })
+      } else if (result.reason === 'permission_denied') {
+        Alert.alert(
+          'Notifications blocked',
+          'Open Settings and allow notifications for Protocol to turn this on.',
+        )
       }
+      refetchStatus()
     },
-    onError: () => Alert.alert('Connection failed', 'Could not start the Oura connection.'),
   })
 
-  const sync = useMutation({ mutationFn: syncOura, onSuccess: refresh })
-
-  const disconnect = useMutation({
-    mutationFn: () => disconnectDevice('oura'),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['devices'] }),
+  const disable = useMutation({
+    mutationFn: disableNudges,
+    onSuccess: () => {
+      refetchStatus()
+      qc.removeQueries({ queryKey: ['notif-patterns'] })
+    },
   })
 
-  function confirmDisconnect() {
-    Alert.alert(
-      'Disconnect Oura',
-      'Protocol will stop syncing from Oura. Your past data stays. You can reconnect anytime.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Disconnect', style: 'destructive', onPress: () => disconnect.mutate() },
-      ],
-    )
-  }
+  const enabled = !!status?.granted
+  const busy = enable.isPending || disable.isPending
 
-  const busy = connect.isPending || disconnect.isPending || sync.isPending
+  // Show at most 6 slots in the preview — the rest is in the full list
+  // (which we don't surface yet; this is just a "what we'd nudge" preview).
+  const previewSlots = (slots ?? []).slice(0, 6)
 
   return (
-    <View className="flex-row items-center justify-between px-4 py-4">
-      <View className="flex-1 pr-3">
-        <Text className="text-white text-sm font-semibold">Oura Ring</Text>
-        <Text className="text-zinc-500 text-xs mt-0.5">
-          {connected ? `Synced ${timeAgo(device!.last_sync_at)}` : 'Sleep, HRV, readiness'}
-        </Text>
+    <Section title="Smart nudges">
+      <View className="flex-row items-center justify-between px-4 py-4 border-b border-zinc-800">
+        <View className="flex-1 pr-3">
+          <Text className="text-white text-sm font-semibold">Predictive log reminders</Text>
+          <Text className="text-zinc-500 text-xs mt-0.5">
+            Notifies you when you usually log water or coffee. Tap the notification
+            action to log it without opening the app.
+          </Text>
+        </View>
+        {busy ? (
+          <ActivityIndicator color="white" />
+        ) : enabled ? (
+          <TouchableOpacity onPress={() => disable.mutate()}>
+            <Text className="text-red-400 text-sm font-medium">Turn off</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            onPress={() => enable.mutate()}
+            className="bg-white px-3 py-1.5 rounded-lg"
+          >
+            <Text className="text-black text-xs font-semibold">Turn on</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {busy ? (
-        <ActivityIndicator color="white" />
-      ) : connected ? (
-        <View className="flex-row items-center" style={{ gap: 14 }}>
-          <TouchableOpacity onPress={() => sync.mutate()}>
-            <Text className="text-zinc-300 text-sm font-medium">Sync</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={confirmDisconnect}>
-            <Text className="text-red-400 text-sm font-medium">Disconnect</Text>
-          </TouchableOpacity>
+      {enabled && (
+        <View className="px-4 py-3.5">
+          <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+            Detected patterns
+          </Text>
+          {slotsLoading ? (
+            <ActivityIndicator color="#71717a" />
+          ) : previewSlots.length === 0 ? (
+            <Text className="text-zinc-500 text-xs">
+              Not enough log history yet. Patterns appear after ~3 weeks of consistent logging.
+            </Text>
+          ) : (
+            previewSlots.map((s, i) => (
+              <View
+                key={`${s.log_type}-${s.weekday}-${s.slot_minute}`}
+                className="flex-row items-center justify-between py-1.5"
+                style={{ borderTopWidth: i === 0 ? 0 : 0.5, borderColor: '#27272a' }}
+              >
+                <Text className="text-zinc-300 text-sm">
+                  {WEEKDAY_SHORT[s.weekday]} {formatTime12h(s.slot_minute)}
+                </Text>
+                <Text className="text-zinc-500 text-xs">{slotSummary(s)}</Text>
+              </View>
+            ))
+          )}
         </View>
-      ) : (
-        <TouchableOpacity
-          onPress={() => connect.mutate()}
-          className="bg-white px-3 py-1.5 rounded-lg"
-        >
-          <Text className="text-black text-xs font-semibold">Connect</Text>
-        </TouchableOpacity>
       )}
-    </View>
+    </Section>
   )
 }
 
@@ -411,14 +354,6 @@ function OuraRow({ device }: { device: ConnectedDevice | undefined }) {
 
 export default function SettingsScreen() {
   const { user, clearAuth } = useAuthStore()
-
-  const { data: devices = [], isLoading } = useQuery<ConnectedDevice[]>({
-    queryKey: ['devices'],
-    queryFn: fetchConnectedDevices,
-  })
-
-  const apple = devices.find((d) => d.provider === 'apple_health')
-  const oura = devices.find((d) => d.provider === 'oura')
 
   function signOut() {
     Alert.alert('Sign out', 'You can sign back in anytime.', [
@@ -456,18 +391,7 @@ export default function SettingsScreen() {
       >
         <ProfileSection />
 
-        <Section title="Devices">
-          {isLoading ? (
-            <View className="px-4 py-6 items-center">
-              <ActivityIndicator color="#71717a" />
-            </View>
-          ) : (
-            <>
-              <AppleHealthRow device={apple} />
-              <OuraRow device={oura} />
-            </>
-          )}
-        </Section>
+        <NudgesSection />
 
         <Section title="Account">
           <View className="px-4 py-4 border-b border-zinc-800">

@@ -16,14 +16,6 @@ class Settings(BaseSettings):
     # falls back to Claude-only estimates when this isn't set.
     USDA_API_KEY: str = ""
 
-    # Oura OAuth2 (empty by default so the app boots without it; the connect
-    # endpoint returns 503 until these are set).
-    OURA_CLIENT_ID: str = ""
-    OURA_CLIENT_SECRET: str = ""
-    OURA_REDIRECT_URI: str = ""  # must exactly match the URI registered with Oura
-    # Where the backend OAuth callback redirects to hand control back to the app.
-    OAUTH_APP_RETURN_URL: str = "protocol://oura-callback"
-
     # Sign in with Apple — the bundle ID is also the audience claim Apple signs.
     APPLE_BUNDLE_ID: str = ""
 

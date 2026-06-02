@@ -12,6 +12,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera'
 import { api } from '../api/client'
 import { PressableScale } from '../components/PressableScale'
 import { hapticSuccess } from '../lib/haptics'
+import { extractErrorMessage } from '../lib/apiError'
 
 // ─── Permission Gate ──────────────────────────────────────────────────────────
 
@@ -104,9 +105,10 @@ export default function NutritionSnapScreen() {
       const msg =
         err?.response?.status === 503
           ? 'AI service is not configured. Add ANTHROPIC_API_KEY to backend/.env.'
-          : err?.response?.data?.detail ||
-            err?.message ||
-            'Could not analyze the photo. Try again or type the meal in manually.'
+          : extractErrorMessage(
+              err,
+              'Could not analyze the photo. Try again or type the meal in manually.',
+            )
       Alert.alert("Couldn't analyze meal", msg)
       setBusy(false)
     }

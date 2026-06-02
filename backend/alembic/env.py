@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 # Import all models so Alembic can detect them
-from models import User, DailySummary, Goal, Streak, OnboardingBaseline
+from models import User, DailySummary, Streak, OnboardingBaseline
 from core.database import Base
 from core.config import settings
 

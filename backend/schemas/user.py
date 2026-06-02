@@ -16,7 +16,7 @@ class UserOut(BaseModel):
     age: int | None
     height_cm: float | None
     weight_kg: float | None
-    goal: str | None
+    sex: str | None
     timezone: str
     sleep_hour: int
     onboarding_complete: bool
@@ -34,7 +34,7 @@ class UserUpdate(BaseModel):
     age: int | None = None
     height_cm: float | None = None
     weight_kg: float | None = None
-    goal: str | None = None
+    sex: str | None = Field(None, pattern=r"^(male|female)$")
     timezone: str | None = None
     sleep_hour: int | None = Field(None, ge=0, le=23)
     onboarding_complete: bool | None = None

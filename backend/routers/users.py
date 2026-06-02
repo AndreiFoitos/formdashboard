@@ -11,6 +11,7 @@ from middleware.auth import get_current_user
 from models.user import User
 from models.daily_summary import DailySummary
 from models.onboarding import OnboardingBaseline
+from models.body_metric import BodyMetric
 from schemas.user import UserOut, UserUpdate, USERNAME_PATTERN
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -24,15 +25,12 @@ class OnboardingStepRequest(BaseModel):
 
 
 class BaselineRequest(BaseModel):
-    goal: str | None = None
     age: int | None = None
     height_cm: float | None = None
     weight_kg: float | None = None
     avg_sleep_hours: float | None = None
     training_frequency: str | None = None
     caffeine_habit: str | None = None
-    energy_rating: int | None = None
-    device_connected: str | None = None
 
 
 @router.get("/me", response_model=UserOut)
@@ -91,12 +89,13 @@ async def save_onboarding_step(
     db: AsyncSession = Depends(get_db),
 ):
     data = body.data
-    if body.step == "goal":
-        current_user.goal = data.get("goal")
-    elif body.step == "stats":
+    if body.step == "stats":
         current_user.age = data.get("age")
         current_user.height_cm = data.get("height_cm")
         current_user.weight_kg = data.get("weight_kg")
+        sex = data.get("sex")
+        if sex in ("male", "female"):
+            current_user.sex = sex
         if current_user.weight_kg:
             current_user.protein_target_g = round(current_user.weight_kg * 2)
             current_user.water_target_ml = int(current_user.weight_kg * 35)
@@ -104,6 +103,22 @@ async def save_onboarding_step(
         current_user.protein_target_g = data.get("protein_target_g", current_user.protein_target_g)
         current_user.water_target_ml = data.get("water_target_ml", current_user.water_target_ml)
         current_user.calorie_target = data.get("calorie_target", current_user.calorie_target)
+        sleep_hour = data.get("sleep_hour")
+        if sleep_hour is not None:
+            current_user.sleep_hour = sleep_hour
+    elif body.step == "username":
+        new_username = data.get("username")
+        if new_username:
+            # Pre-check so the user gets a clean 409 instead of a unique-violation 500.
+            existing = await db.execute(
+                select(User.id).where(
+                    sqlfunc.lower(User.username) == new_username.lower(),
+                    User.id != current_user.id,
+                )
+            )
+            if existing.scalar_one_or_none():
+                raise HTTPException(409, "Username already taken")
+            current_user.username = new_username
     await db.commit()
     return {"ok": True}
 
@@ -114,7 +129,7 @@ async def submit_baseline(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    for field in ("goal", "age", "height_cm", "weight_kg"):
+    for field in ("age", "height_cm", "weight_kg"):
         val = getattr(body, field, None)
         if val is not None:
             setattr(current_user, field, val)
@@ -129,21 +144,42 @@ async def submit_baseline(
     baseline.avg_sleep_hours = body.avg_sleep_hours
     baseline.training_frequency = body.training_frequency
     baseline.caffeine_habit = body.caffeine_habit
-    baseline.energy_rating = body.energy_rating
-    baseline.device_connected = body.device_connected
     db.add(baseline)
 
     await _seed_estimated_summaries(current_user, body, db)
+    await _seed_first_body_metric(current_user, db)
 
     current_user.onboarding_complete = True
     await db.commit()
     return {"ok": True}
 
 
+async def _seed_first_body_metric(user: User, db: AsyncSession):
+    """Seed the body page with today's weight so it isn't empty for new users."""
+    if user.weight_kg is None:
+        return
+    today = date.today()
+    existing = await db.execute(
+        select(BodyMetric).where(
+            BodyMetric.user_id == user.id,
+            BodyMetric.date == today,
+            BodyMetric.source == "manual",
+        )
+    )
+    if existing.scalar_one_or_none():
+        return
+    db.add(
+        BodyMetric(
+            user_id=user.id,
+            date=today,
+            weight_kg=user.weight_kg,
+            source="manual",
+        )
+    )
+
+
 async def _seed_estimated_summaries(user: User, baseline: BaselineRequest, db: AsyncSession):
     sleep_score = min(100, round(((baseline.avg_sleep_hours or 7.5) / 8) * 100))
-    energy_map = {1: 30, 2: 45, 3: 60, 4: 75, 5: 90}
-    energy_score = energy_map.get(baseline.energy_rating or 3, 60)
     training_map = {"0-1x": 1, "2-3x": 2, "4-5x": 4, "6x+": 6}
     sessions_per_week = training_map.get(baseline.training_frequency or "2-3x", 2)
 
@@ -160,7 +196,6 @@ async def _seed_estimated_summaries(user: User, baseline: BaselineRequest, db: A
             user_id=user.id,
             date=target_date,
             sleep_score=sleep_score,
-            energy_avg=round(energy_score / 20, 1),
             trained=trained,
             water_ml=user.water_target_ml or 2000,
             protein_g=user.protein_target_g,

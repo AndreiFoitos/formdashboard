@@ -7,7 +7,6 @@ import {
 import type { ParamListBase, TabNavigationState } from '@react-navigation/native'
 import { BottomNav } from '../../components/BottomNav'
 import { OfflineBanner } from '../../components/OfflineBanner'
-import { useDeviceDailySync } from '../../hooks/useDeviceDailySync'
 
 const { Navigator } = createMaterialTopTabNavigator()
 
@@ -21,8 +20,6 @@ const MaterialTopTabs = withLayoutContext<
 >(Navigator)
 
 export default function TabsLayout() {
-  useDeviceDailySync()
-
   return (
     <View className="flex-1 bg-black">
       <MaterialTopTabs

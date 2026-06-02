@@ -17,6 +17,8 @@ from models.user import User
 from models.training_log import TrainingLog
 from models.friendship import Friendship
 from models.sus_vote import SusVote
+from models.vouch import Vouch
+from services.dots import dots_score
 
 router = APIRouter(prefix="/friends", tags=["friends"])
 
@@ -62,12 +64,15 @@ def _effective_weight(log: TrainingLog, user_weight_kg: Optional[float]) -> floa
 
 
 def _user_dict(u: User) -> dict:
+    # Email and weight_kg are intentionally NOT exposed to friends.
+    # - email: most apps hide this from accepted friends; not needed once
+    #   username is required at registration.
+    # - weight_kg: needed server-side for DOTS / bodyweight-exercise volume,
+    #   but the raw number stays on the server. Friends see DOTS output only.
     return {
         "id": str(u.id),
-        "name": u.name or u.username or u.email.split("@")[0],
+        "name": u.name or u.username or "User",
         "username": u.username,
-        "email": u.email,
-        "weight_kg": u.weight_kg,
     }
 
 
@@ -250,12 +255,19 @@ async def remove_friend(
     await db.commit()
 
 
-# ─── Sus vote ────────────────────────────────────────────────────────────────
+# ─── Sus + Vouch ─────────────────────────────────────────────────────────────
+
+
+class SusVoteRequest(BaseModel):
+    # Weekly (training_log_id null) or per-lift. Sus is a one-tap toggle now,
+    # no reason — posting the same scope again clears the vote.
+    training_log_id: uuid.UUID | None = None
 
 
 @router.post("/vote-sus/{target_user_id}")
 async def vote_sus(
     target_user_id: uuid.UUID,
+    body: SusVoteRequest | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -266,39 +278,236 @@ async def vote_sus(
     if target_user_id not in friend_ids:
         raise HTTPException(403, "Can only vote on friends")
 
+    body = body or SusVoteRequest()
     monday, _ = _week_bounds()
 
-    # Idempotent: if already voted this week, return current tally
-    existing = await db.execute(
-        select(SusVote).where(
-            SusVote.voter_id == current_user.id,
-            SusVote.target_user_id == target_user_id,
-            SusVote.week_start == monday,
+    if body.training_log_id is not None:
+        # Verify the target actually owns that log — prevents cross-targeting.
+        log_check = await db.execute(
+            select(TrainingLog).where(
+                TrainingLog.id == body.training_log_id,
+                TrainingLog.user_id == target_user_id,
+            )
         )
-    )
-    if not existing.scalar_one_or_none():
+        if not log_check.scalar_one_or_none():
+            raise HTTPException(404, "That lift isn't on the target's log")
+
+        existing = await db.execute(
+            select(SusVote).where(
+                SusVote.voter_id == current_user.id,
+                SusVote.training_log_id == body.training_log_id,
+            )
+        )
+    else:
+        existing = await db.execute(
+            select(SusVote).where(
+                SusVote.voter_id == current_user.id,
+                SusVote.target_user_id == target_user_id,
+                SusVote.week_start == monday,
+                SusVote.training_log_id.is_(None),
+            )
+        )
+
+    # One-tap toggle, symmetric with vouch: a second tap on the same scope
+    # clears the vote.
+    row = existing.scalar_one_or_none()
+    if row:
+        await db.delete(row)
+        await db.commit()
+    else:
         db.add(SusVote(
             voter_id=current_user.id,
             target_user_id=target_user_id,
             week_start=monday,
+            training_log_id=body.training_log_id,
         ))
         await db.commit()
 
-    count_result = await db.execute(
+    # All sus votes against the target this week (weekly + per-log) count
+    # toward the badge. Per-log votes are a stronger signal so they pull
+    # double weight when computing the tally.
+    weekly_count_result = await db.execute(
         select(sqlfunc.count(SusVote.id)).where(
             SusVote.target_user_id == target_user_id,
             SusVote.week_start == monday,
+            SusVote.training_log_id.is_(None),
         )
     )
-    count = count_result.scalar() or 0
+    per_log_count_result = await db.execute(
+        select(sqlfunc.count(SusVote.id)).where(
+            SusVote.target_user_id == target_user_id,
+            SusVote.week_start == monday,
+            SusVote.training_log_id.is_not(None),
+        )
+    )
+    weekly_count = weekly_count_result.scalar() or 0
+    per_log_count = per_log_count_result.scalar() or 0
+    total_sus = weekly_count + per_log_count * 2
+
     threshold = _sus_threshold(len(friend_ids) + 1)
 
     return {
         "target_user_id": str(target_user_id),
-        "week_votes": count,
+        "week_votes": weekly_count,
+        "per_lift_votes": per_log_count,
+        "sus_score": total_sus,
         "sus_threshold": threshold,
-        "is_sus": count >= threshold,
+        "is_sus": total_sus >= threshold,
     }
+
+
+class VouchRequest(BaseModel):
+    # Same shape as SusVoteRequest minus the reason — vouches don't need a
+    # justification, they're just kudos.
+    training_log_id: uuid.UUID | None = None
+
+
+@router.post("/vouch/{target_user_id}")
+async def vouch(
+    target_user_id: uuid.UUID,
+    body: VouchRequest | None = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggleable one-tap vouch. Two modes:
+      - Weekly  (no training_log_id) — endorses the week's weight-moved total
+      - Per-lift (with training_log_id) — endorses one specific lift
+
+    POSTing again with the same scope removes the vouch."""
+    if target_user_id == current_user.id:
+        raise HTTPException(400, "Cannot vouch yourself")
+
+    friend_ids = await _accepted_friend_ids(current_user.id, db)
+    if target_user_id not in friend_ids:
+        raise HTTPException(403, "Can only vouch for friends")
+
+    body = body or VouchRequest()
+    monday, _ = _week_bounds()
+
+    if body.training_log_id is not None:
+        # Verify the target owns that lift before we touch the table.
+        log_check = await db.execute(
+            select(TrainingLog).where(
+                TrainingLog.id == body.training_log_id,
+                TrainingLog.user_id == target_user_id,
+            )
+        )
+        if not log_check.scalar_one_or_none():
+            raise HTTPException(404, "That lift isn't on the target's log")
+
+        existing = await db.execute(
+            select(Vouch).where(
+                Vouch.voter_id == current_user.id,
+                Vouch.training_log_id == body.training_log_id,
+            )
+        )
+    else:
+        existing = await db.execute(
+            select(Vouch).where(
+                Vouch.voter_id == current_user.id,
+                Vouch.target_user_id == target_user_id,
+                Vouch.week_start == monday,
+                Vouch.training_log_id.is_(None),
+            )
+        )
+
+    row = existing.scalar_one_or_none()
+    if row:
+        await db.delete(row)
+        await db.commit()
+        toggled = False
+    else:
+        db.add(Vouch(
+            voter_id=current_user.id,
+            target_user_id=target_user_id,
+            week_start=monday,
+            training_log_id=body.training_log_id,
+        ))
+        await db.commit()
+        toggled = True
+
+    # Total vouches for this week, both modes combined.
+    count_result = await db.execute(
+        select(sqlfunc.count(Vouch.id)).where(
+            Vouch.target_user_id == target_user_id,
+            Vouch.week_start == monday,
+        )
+    )
+    count = count_result.scalar() or 0
+    return {
+        "target_user_id": str(target_user_id),
+        "vouches": count,
+        "active": toggled,
+    }
+
+
+@router.get("/friend-lifts/{target_user_id}")
+async def friend_recent_lifts(
+    target_user_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Last 7 days of a friend's training logs (top set per exercise per day).
+    Used as the picker source for per-lift sus voting. Only data already
+    visible on the leaderboard — no nutrition, no body metrics."""
+    friend_ids = await _accepted_friend_ids(current_user.id, db)
+    if target_user_id not in friend_ids:
+        raise HTTPException(403, "Not friends")
+
+    cutoff = date.today() - timedelta(days=7)
+    result = await db.execute(
+        select(TrainingLog).where(
+            TrainingLog.user_id == target_user_id,
+            TrainingLog.date >= cutoff,
+        ).order_by(TrainingLog.date.desc())
+    )
+    logs = result.scalars().all()
+
+    # Reduce noise: keep the heaviest set per (date, exercise) so the picker
+    # doesn't show 6 rows for one exercise. Voter sees the lift, not the rep
+    # scheme.
+    top_by_key: dict[tuple, TrainingLog] = {}
+    for log in logs:
+        key = (log.date, log.type)
+        existing = top_by_key.get(key)
+        if existing is None or (
+            (log.weight_kg or 0) > (existing.weight_kg or 0)
+        ):
+            top_by_key[key] = log
+
+    # Track this viewer's existing sus + vouch state per lift, so the picker
+    # can disable buttons they've already used.
+    log_ids = [log.id for log in top_by_key.values()]
+    sus_ids: set[uuid.UUID] = set()
+    vouch_ids: set[uuid.UUID] = set()
+    if log_ids:
+        sus_result = await db.execute(
+            select(SusVote.training_log_id).where(
+                SusVote.voter_id == current_user.id,
+                SusVote.training_log_id.in_(log_ids),
+            )
+        )
+        sus_ids = {row[0] for row in sus_result.all()}
+        vouch_result = await db.execute(
+            select(Vouch.training_log_id).where(
+                Vouch.voter_id == current_user.id,
+                Vouch.training_log_id.in_(log_ids),
+            )
+        )
+        vouch_ids = {row[0] for row in vouch_result.all()}
+
+    rows = []
+    for log in sorted(top_by_key.values(), key=lambda l: l.date, reverse=True):
+        rows.append({
+            "id": str(log.id),
+            "date": log.date.isoformat(),
+            "type": log.type,
+            "weight_kg": log.weight_kg,
+            "reps": log.reps,
+            "already_sus": log.id in sus_ids,
+            "already_vouched": log.id in vouch_ids,
+        })
+    return {"lifts": rows}
 
 
 # ─── Leaderboard ─────────────────────────────────────────────────────────────
@@ -308,6 +517,7 @@ async def _build_volume_leaderboard(
     current_user: User,
     db: AsyncSession,
     exercise_key: Optional[str] = None,
+    sort_by: str = "raw",
 ) -> list[dict]:
     """
     Compute weekly Σ weight × reps for current user + all accepted friends.
@@ -348,36 +558,108 @@ async def _build_volume_leaderboard(
         volume_by_user[log.user_id] += w * (log.reps or 0)
         days_by_user[log.user_id].add(log.date)
 
-    # Sus vote tally
-    sus_result = await db.execute(
+    # Sus tally — split weekly vs per-lift so the badge weighting can value
+    # per-lift votes more heavily (they require picking a specific lift;
+    # weekly is a single tap).
+    sus_weekly_result = await db.execute(
         select(SusVote.target_user_id, sqlfunc.count(SusVote.id))
         .where(
             SusVote.target_user_id.in_(circle_ids),
             SusVote.week_start == monday,
+            SusVote.training_log_id.is_(None),
         )
         .group_by(SusVote.target_user_id)
     )
-    sus_by_user = {uid: cnt for uid, cnt in sus_result.all()}
+    sus_weekly_by_user = {uid: cnt for uid, cnt in sus_weekly_result.all()}
+
+    sus_log_result = await db.execute(
+        select(SusVote.target_user_id, sqlfunc.count(SusVote.id))
+        .where(
+            SusVote.target_user_id.in_(circle_ids),
+            SusVote.week_start == monday,
+            SusVote.training_log_id.is_not(None),
+        )
+        .group_by(SusVote.target_user_id)
+    )
+    sus_log_by_user = {uid: cnt for uid, cnt in sus_log_result.all()}
+
+    # Did *I* sus / vouch on each target this week? Powers UI button state.
+    my_sus_weekly_result = await db.execute(
+        select(SusVote.target_user_id).where(
+            SusVote.voter_id == current_user.id,
+            SusVote.week_start == monday,
+            SusVote.training_log_id.is_(None),
+        )
+    )
+    my_sus_weekly = {row[0] for row in my_sus_weekly_result.all()}
+
+    # Vouches
+    vouch_result = await db.execute(
+        select(Vouch.target_user_id, sqlfunc.count(Vouch.id))
+        .where(
+            Vouch.target_user_id.in_(circle_ids),
+            Vouch.week_start == monday,
+        )
+        .group_by(Vouch.target_user_id)
+    )
+    vouch_by_user = {uid: cnt for uid, cnt in vouch_result.all()}
+
+    my_vouch_result = await db.execute(
+        select(Vouch.target_user_id).where(
+            Vouch.voter_id == current_user.id,
+            Vouch.week_start == monday,
+        )
+    )
+    my_vouches = {row[0] for row in my_vouch_result.all()}
 
     threshold = _sus_threshold(len(circle_ids))
+    TRUSTED_MIN_VOUCHES = 2  # >= this many vouches + no sus badge → 🛡️
 
     rows = []
     for uid in circle_ids:
         user = users_by_id.get(uid)
         if not user:
             continue
-        sus = sus_by_user.get(uid, 0)
+        sus_weekly = sus_weekly_by_user.get(uid, 0)
+        sus_log = sus_log_by_user.get(uid, 0)
+        sus_score = sus_weekly + sus_log * 2  # per-lift counts double
+        vouches = vouch_by_user.get(uid, 0)
+        is_sus = sus_score >= threshold
+        is_trusted = (not is_sus) and vouches >= TRUSTED_MIN_VOUCHES
+        volume_kg = volume_by_user.get(uid, 0.0)
+        # DOTS-adjusted volume — bodyweight-normalised version of total kg
+        # moved, so a 60 kg lifter and a 100 kg lifter compete on the same
+        # axis. None when we lack sex or bodyweight; UI shows "—".
+        dots_volume = dots_score(volume_kg, user.weight_kg, user.sex) if volume_kg else None
         rows.append({
             "user": _user_dict(user),
-            "total_volume_kg": round(volume_by_user.get(uid, 0.0), 1),
+            "total_volume_kg": round(volume_kg, 1),
+            "dots_volume": dots_volume,
             "days_trained": len(days_by_user.get(uid, set())),
-            "sus_votes": sus,
+            "sus_votes": sus_weekly,
+            "sus_per_lift_votes": sus_log,
+            "sus_score": sus_score,
             "sus_threshold": threshold,
-            "is_sus": sus >= threshold,
+            "is_sus": is_sus,
+            "vouches": vouches,
+            "is_trusted": is_trusted,
+            "i_sus_weekly": uid in my_sus_weekly,
+            "i_vouched": uid in my_vouches,
             "is_me": uid == current_user.id,
         })
 
-    rows.sort(key=lambda r: r["total_volume_kg"], reverse=True)
+    # Two sort orders, surfaced by ?sort= on the endpoint.
+    # - "raw": total kg moved (default; matches what the dashboard race shows)
+    # - "dots": DOTS-adjusted, with raw kg as tiebreaker. Rows missing DOTS
+    #          (no sex / no bodyweight) sink to the bottom so they don't game
+    #          the ranking by simply not setting those fields.
+    if sort_by == "dots":
+        rows.sort(
+            key=lambda r: (r["dots_volume"] is not None, r["dots_volume"] or 0, r["total_volume_kg"]),
+            reverse=True,
+        )
+    else:
+        rows.sort(key=lambda r: r["total_volume_kg"], reverse=True)
     for i, r in enumerate(rows, start=1):
         r["rank"] = i
     return rows
@@ -386,15 +668,19 @@ async def _build_volume_leaderboard(
 @router.get("/leaderboard")
 async def leaderboard(
     exercise: Optional[str] = None,
+    sort: str = "raw",   # "raw" | "dots"
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     monday, sunday = _week_bounds()
-    rows = await _build_volume_leaderboard(current_user, db, exercise_key=exercise)
+    rows = await _build_volume_leaderboard(
+        current_user, db, exercise_key=exercise, sort_by=sort,
+    )
     return {
         "week_start": monday.isoformat(),
         "week_end": sunday.isoformat(),
         "exercise": exercise,
+        "sort": sort,
         "sus_threshold": rows[0]["sus_threshold"] if rows else 2,
         "rows": rows,
     }
@@ -430,7 +716,8 @@ async def weekly_recap(
 
     top_volume = max(rows, key=lambda r: r["total_volume_kg"])
     most_consistent = max(rows, key=lambda r: r["days_trained"])
-    most_sus = max(rows, key=lambda r: r["sus_votes"])
+    most_sus = max(rows, key=lambda r: r["sus_score"])
+    most_vouched = max(rows, key=lambda r: r["vouches"])
     threshold = rows[0]["sus_threshold"]
 
     # PR count: compare this week's top set per exercise vs the 90 days before
@@ -498,9 +785,15 @@ async def weekly_recap(
         "most_pr": most_pr,
         "most_sus": {
             "user": most_sus["user"],
-            "votes": most_sus["sus_votes"],
+            "votes": most_sus["sus_score"],
+            "weekly_votes": most_sus["sus_votes"],
+            "per_lift_votes": most_sus["sus_per_lift_votes"],
             "threshold": threshold,
-        } if most_sus["sus_votes"] >= threshold else None,
+        } if most_sus["is_sus"] else None,
+        "most_trusted": {
+            "user": most_vouched["user"],
+            "vouches": most_vouched["vouches"],
+        } if most_vouched["is_trusted"] else None,
     }
 
     me_row = next((r for r in rows if r["is_me"]), None)
@@ -511,4 +804,192 @@ async def weekly_recap(
         "circle_size": len(rows),
         "headlines": headlines,
         "me": me_row,
+    }
+
+
+# ─── Weekly race (animated recap) ────────────────────────────────────────────
+
+
+def _recap_week_bounds(today: date, week_offset: int = 0) -> tuple[date, date]:
+    """
+    The recap shows the ISO Mon-Sun week ending on the most recent Sunday.
+    - today is Sunday  → recap = this week (Mon-Sun, today is Sun)
+    - today is Mon-Sat → recap = the prior Mon-Sun (last completed week)
+
+    `week_offset` shifts further back: 0 = current visible week, 1 = the week
+    before that, etc. Frontend uses 0 for the dashboard card.
+    """
+    weekday = today.weekday()  # Mon=0 ... Sun=6
+    days_to_recent_sunday = 0 if weekday == 6 else weekday + 1
+    week_end = today - timedelta(days=days_to_recent_sunday) - timedelta(weeks=week_offset)
+    week_start = week_end - timedelta(days=6)
+    return week_start, week_end
+
+
+@router.get("/recap/race")
+async def weekly_recap_race(
+    week_offset: int = 0,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Per-day cumulative weight moved for every crew member across the prior
+    ISO week (Mon-Sun ending on the most recent Sunday). Drives the animated
+    Weekly Race recap on the dashboard.
+
+    `daily_cumulative_kg` is a length-7 array indexed Mon=0..Sun=6, where
+    [i] = Σ (weight × reps) on days 0..i inclusive. The line graph plots
+    these directly.
+
+    `trusted_crossed_on_day` / `sus_crossed_on_day` are ISO weekday integers
+    (1=Mon..7=Sun) — the day on which the user crossed the threshold for
+    their END-STATE badge. Only set if their final state has that badge;
+    otherwise null. Frontend uses this to time the badge fade-in mid-race.
+    """
+    week_start, week_end = _recap_week_bounds(date.today(), week_offset)
+
+    friend_ids = await _accepted_friend_ids(current_user.id, db)
+    circle_ids = [current_user.id, *friend_ids]
+
+    if not circle_ids:
+        return {
+            "week_start": week_start.isoformat(),
+            "week_end": week_end.isoformat(),
+            "crew": [],
+        }
+
+    users_result = await db.execute(select(User).where(User.id.in_(circle_ids)))
+    users_by_id = {u.id: u for u in users_result.scalars().all()}
+
+    # Training logs in the week
+    logs_result = await db.execute(
+        select(TrainingLog).where(
+            TrainingLog.user_id.in_(circle_ids),
+            TrainingLog.date >= week_start,
+            TrainingLog.date <= week_end,
+        )
+    )
+    logs = logs_result.scalars().all()
+
+    # Per-day non-cumulative kg by user (index 0..6 = Mon..Sun)
+    daily_kg: dict[uuid.UUID, list[float]] = defaultdict(lambda: [0.0] * 7)
+    days_trained: dict[uuid.UUID, set[date]] = defaultdict(set)
+    for log in logs:
+        user = users_by_id.get(log.user_id)
+        if not user:
+            continue
+        w = _effective_weight(log, user.weight_kg)
+        day_idx = (log.date - week_start).days
+        if 0 <= day_idx <= 6:
+            daily_kg[log.user_id][day_idx] += w * (log.reps or 0)
+            days_trained[log.user_id].add(log.date)
+
+    # Cumulative kg by user (rounded once at the end so JSON stays tidy)
+    cumulative_by_user: dict[uuid.UUID, list[float]] = {}
+    for uid in circle_ids:
+        daily = daily_kg.get(uid, [0.0] * 7)
+        cum = []
+        running = 0.0
+        for d in daily:
+            running += d
+            cum.append(round(running, 1))
+        cumulative_by_user[uid] = cum
+
+    # All week's vouches + sus votes against anyone in the circle, ordered
+    # so we can walk them in time order when computing crossing days.
+    vouches_result = await db.execute(
+        select(Vouch)
+        .where(
+            Vouch.target_user_id.in_(circle_ids),
+            Vouch.week_start == week_start,
+        )
+        .order_by(Vouch.created_at.asc())
+    )
+    vouches = vouches_result.scalars().all()
+
+    sus_result = await db.execute(
+        select(SusVote)
+        .where(
+            SusVote.target_user_id.in_(circle_ids),
+            SusVote.week_start == week_start,
+        )
+        .order_by(SusVote.created_at.asc())
+    )
+    sus_votes = sus_result.scalars().all()
+
+    threshold = _sus_threshold(len(circle_ids))
+    TRUSTED_MIN_VOUCHES = 2
+
+    # Bucket once per user so we don't filter the full lists per crew member.
+    vouches_by_target: dict[uuid.UUID, list[Vouch]] = defaultdict(list)
+    for v in vouches:
+        vouches_by_target[v.target_user_id].append(v)
+    sus_by_target: dict[uuid.UUID, list[SusVote]] = defaultdict(list)
+    for s in sus_votes:
+        sus_by_target[s.target_user_id].append(s)
+
+    def _iso_day_in_week(d: date) -> int | None:
+        """Returns ISO weekday (1=Mon..7=Sun) if `d` falls within the recap
+        week, otherwise None."""
+        if week_start <= d <= week_end:
+            return d.isoweekday()
+        return None
+
+    crew = []
+    for uid in circle_ids:
+        user = users_by_id.get(uid)
+        if not user:
+            continue
+
+        user_vouches = vouches_by_target.get(uid, [])
+        user_sus = sus_by_target.get(uid, [])
+
+        # Crossing day for vouches: first time cumulative count >= threshold.
+        vc = 0
+        trusted_day: int | None = None
+        for v in user_vouches:
+            vc += 1
+            if vc >= TRUSTED_MIN_VOUCHES and trusted_day is None:
+                trusted_day = _iso_day_in_week(v.created_at.date())
+
+        # Crossing day for sus: first time weighted sus_score >= threshold.
+        # Per-lift sus votes count double, matching _build_volume_leaderboard.
+        score = 0
+        sus_day: int | None = None
+        for s in user_sus:
+            score += 2 if s.training_log_id is not None else 1
+            if score >= threshold and sus_day is None:
+                sus_day = _iso_day_in_week(s.created_at.date())
+
+        # End-of-week state — sus wins over trusted if both happened.
+        final_vouches = len(user_vouches)
+        final_sus_score = sum(
+            2 if s.training_log_id is not None else 1 for s in user_sus
+        )
+        is_sus = final_sus_score >= threshold
+        is_trusted = (not is_sus) and final_vouches >= TRUSTED_MIN_VOUCHES
+
+        cum = cumulative_by_user[uid]
+        crew.append({
+            "user_id": str(uid),
+            "name": user.name or user.username or "User",
+            "username": user.username,
+            "daily_cumulative_kg": cum,
+            "days_trained": len(days_trained.get(uid, set())),
+            "total_kg": cum[-1],
+            "is_trusted": is_trusted,
+            "is_sus": is_sus,
+            # Only surface the crossing day for the badge they actually earned.
+            "trusted_crossed_on_day": trusted_day if is_trusted else None,
+            "sus_crossed_on_day": sus_day if is_sus else None,
+            "is_me": uid == current_user.id,
+        })
+
+    # Sort by final total so frontend can pull podium top-3 without resorting.
+    crew.sort(key=lambda c: c["total_kg"], reverse=True)
+
+    return {
+        "week_start": week_start.isoformat(),
+        "week_end": week_end.isoformat(),
+        "crew": crew,
     }

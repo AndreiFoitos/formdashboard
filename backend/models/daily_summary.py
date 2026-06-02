@@ -75,11 +75,6 @@ class DailySummary(Base):
         nullable=True,
     )
 
-    energy_avg: Mapped[float] = mapped_column(
-        Float,
-        nullable=True,
-    )
-
     water_ml: Mapped[int] = mapped_column(
         Integer,
         nullable=True,

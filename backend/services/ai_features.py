@@ -95,7 +95,7 @@ async def generate_daily_digest(user, db: AsyncSession, redis) -> str:
     summary = await _get_summary(user.id, yesterday, db)
     has_data = summary and any([
         summary.sleep_score, summary.hrv_score, summary.water_ml,
-        summary.protein_g, summary.trained, summary.energy_avg,
+        summary.protein_g, summary.trained,
     ])
     if not has_data:
         return "No data from yesterday yet — log a full day and your first briefing lands tomorrow morning."
@@ -108,9 +108,8 @@ async def generate_daily_digest(user, db: AsyncSession, redis) -> str:
 - Protein: {summary.protein_g}g of {user.protein_target_g}g target
 - Caffeine: {summary.caffeine_mg}mg
 - Trained: {('Yes — ' + summary.training_type) if summary.trained else 'No'}
-- Avg energy: {summary.energy_avg}/5
 7-day averages: form {week['form_score']}, sleep {week['sleep_score']}, HRV {week['hrv_score']}, water {week['water_ml']}ml, protein {week['protein_g']}g
-Goal: {user.goal}, bodyweight: {user.weight_kg}kg, bedtime hour: {user.sleep_hour}:00"""
+Bodyweight: {user.weight_kg}kg, bedtime hour: {user.sleep_hour}:00"""
 
     digest = await call_claude(DIGEST_SYSTEM, [{"role": "user", "content": msg}], max_tokens=120)
 
@@ -123,16 +122,16 @@ Goal: {user.goal}, bodyweight: {user.weight_kg}kg, bedtime hour: {user.sleep_hou
 
 def _build_context(rows: list[DailySummary], user) -> str:
     lines = [
-        f"User: goal={user.goal}, bodyweight={user.weight_kg}kg, "
+        f"User: bodyweight={user.weight_kg}kg, "
         f"targets: protein={user.protein_target_g}g water={user.water_target_ml}ml, bedtime={user.sleep_hour}:00",
         "",
-        "Last 30 days (date | form | sleep | hrv | water_ml | protein_g | caffeine_mg | trained | energy | estimated):",
+        "Last 30 days (date | form | sleep | hrv | water_ml | protein_g | caffeine_mg | trained | estimated):",
     ]
     for r in rows:
         lines.append(
             f"{r.date} | {r.form_score} | {r.sleep_score} | {r.hrv_score} | {r.water_ml} | "
             f"{round(r.protein_g) if r.protein_g else None} | {r.caffeine_mg} | "
-            f"{'Y' if r.trained else 'N'} | {r.energy_avg} | {'est' if r.is_estimated else ''}"
+            f"{'Y' if r.trained else 'N'} | {'est' if r.is_estimated else ''}"
         )
     return "\n".join(lines)
 

@@ -13,11 +13,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import Svg, { Polyline, Circle, Line as SvgLine } from 'react-native-svg'
+import { Award, Trophy } from 'lucide-react-native'
 import { api } from '../../api/client'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { SkeletonCard } from '../../components/Skeleton'
 import { PressableScale } from '../../components/PressableScale'
 import { hapticSuccess, hapticSelection, hapticLight } from '../../lib/haptics'
+import { TrustedShield } from '../../components/icons/TrustedShield'
+import { SusFace } from '../../components/icons/SusFace'
 
 // ─── Exercise catalogue ───────────────────────────────────────────────────────
 
@@ -564,6 +567,148 @@ function ExerciseRow({
   )
 }
 
+// ─── Weekly Race card (always-on crew leaderboard) ──────────────────────────
+
+interface RaceRow {
+  user: { id: string; name: string; username: string | null }
+  total_volume_kg: number
+  dots_volume: number | null
+  days_trained: number
+  is_trusted: boolean
+  is_sus: boolean
+  is_me: boolean
+  rank: number
+}
+interface LeaderboardPayload {
+  week_start: string
+  week_end: string
+  rows: RaceRow[]
+}
+
+function WeeklyRaceCard() {
+  const { data, isLoading } = useQuery<LeaderboardPayload>({
+    queryKey: ['friends-leaderboard', null],
+    queryFn: () => api.get('/friends/leaderboard').then((r) => r.data),
+  })
+
+  if (isLoading) return <SkeletonCard height={140} />
+
+  const rows = data?.rows ?? []
+  const meRow = rows.find((r) => r.is_me) ?? null
+  // Empty / solo state — surface the social pull without the full UI.
+  if (rows.length <= 1) {
+    return (
+      <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+        <View className="flex-row items-center justify-between mb-2">
+          <Text className="text-zinc-500 text-xs uppercase tracking-widest">Weekly Race</Text>
+        </View>
+        <Text className="text-zinc-300 text-sm">
+          {meRow ? `You've moved ${meRow.total_volume_kg.toLocaleString()} kg this week.` : 'No volume logged yet this week.'}
+        </Text>
+        <Text className="text-zinc-600 text-xs mt-1">
+          Add friends to race them on weekly weight moved.
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.push('/friends')}
+          className="mt-3 self-start bg-zinc-800 px-3 py-1.5 rounded-xl"
+        >
+          <Text className="text-white text-xs font-medium">+ Invite friends</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  // Show the top 3 always, then append "you" if you're not already in the top 3.
+  const topThree = rows.slice(0, 3)
+  const meBelowFold = meRow && !topThree.some((r) => r.is_me)
+  const maxVol = Math.max(1, rows[0].total_volume_kg)
+
+  return (
+    <PressableScale
+      haptic
+      onPress={() => router.push('/friends')}
+      style={{
+        backgroundColor: '#18181b',
+        borderWidth: 1,
+        borderColor: '#27272a',
+        borderRadius: 16,
+        padding: 16,
+      }}
+    >
+      <View className="flex-row items-center justify-between mb-3">
+        <Text className="text-zinc-500 text-xs uppercase tracking-widest">Weekly Race</Text>
+        <Text className="text-zinc-600 text-[10px]">
+          Crew of {rows.length} · resets Sunday →
+        </Text>
+      </View>
+
+      <View style={{ gap: 6 }}>
+        {topThree.map((row) => (
+          <RaceRowView key={row.user.id} row={row} maxVol={maxVol} />
+        ))}
+        {meBelowFold && meRow && (
+          <>
+            <View className="flex-row items-center my-1">
+              <View className="flex-1 h-px bg-zinc-800" />
+              <Text className="text-zinc-700 text-[10px] mx-2">···</Text>
+              <View className="flex-1 h-px bg-zinc-800" />
+            </View>
+            <RaceRowView row={meRow} maxVol={maxVol} />
+          </>
+        )}
+      </View>
+    </PressableScale>
+  )
+}
+
+function RaceRowView({ row, maxVol }: { row: RaceRow; maxVol: number }) {
+  const medal = row.rank === 1 ? { Icon: Trophy, color: '#FCD34D' }
+              : row.rank === 2 ? { Icon: Award,  color: '#D1D5DB' }
+              : row.rank === 3 ? { Icon: Award,  color: '#B45309' }
+              : null
+  const pct = (row.total_volume_kg / maxVol) * 100
+  return (
+    <View>
+      <View className="flex-row items-center gap-2">
+        <View className="w-6 items-center">
+          {medal
+            ? <medal.Icon size={14} color={medal.color} strokeWidth={2} />
+            : <Text className="text-zinc-500 text-xs">{row.rank}</Text>}
+        </View>
+        <View className="flex-row items-center flex-1" style={{ gap: 6 }}>
+          <Text className="text-sm flex-shrink" style={{ color: row.is_me ? 'white' : '#d4d4d8', fontWeight: row.is_me ? '700' : '500' }} numberOfLines={1}>
+            {row.user.name}{row.is_me ? ' (you)' : ''}
+          </Text>
+          {row.is_trusted && <TrustedShield size={12} />}
+          {row.is_sus && <SusFace size={12} />}
+        </View>
+        <View className="items-end" style={{ minWidth: 68 }}>
+          <Text className="text-xs tabular-nums" style={{ color: row.is_me ? 'white' : '#a1a1aa', fontWeight: '600' }}>
+            {row.total_volume_kg.toLocaleString()}
+            <Text className="text-zinc-600 text-[9px] font-normal"> kg</Text>
+          </Text>
+          <Text className="text-[10px] tabular-nums mt-0.5" style={{ color: row.is_me ? '#d4d4d8' : '#71717a' }}>
+            {row.dots_volume != null ? row.dots_volume.toLocaleString() : '—'}
+            <Text className="text-zinc-700 text-[9px]"> DOTS</Text>
+          </Text>
+        </View>
+      </View>
+      <View
+        className="mt-1 rounded-full overflow-hidden"
+        style={{ height: 3, backgroundColor: '#27272a' }}
+      >
+        <View
+          style={{
+            width: `${pct}%`,
+            height: '100%',
+            backgroundColor: row.is_me ? '#ffffff' : '#52525b',
+          }}
+        />
+      </View>
+    </View>
+  )
+}
+
 // ─── Training screen ──────────────────────────────────────────────────────────
 
 export default function TrainingScreen() {
@@ -677,6 +822,10 @@ export default function TrainingScreen() {
           </View>
         ) : (
           <View style={{ gap: 12 }}>
+            {/* Weekly race — the social hook for the tab. Sits above your
+                personal volume so the comparison frames the rest. */}
+            <WeeklyRaceCard />
+
             <VolumeChart data={volumeQ.data} />
 
             <PRChart

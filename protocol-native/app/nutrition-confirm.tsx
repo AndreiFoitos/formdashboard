@@ -16,6 +16,7 @@ import { CountUp } from '../components/CountUp'
 import { SwipeableRow } from '../components/SwipeableRow'
 import { PressableScale } from '../components/PressableScale'
 import { hapticSuccess } from '../lib/haptics'
+import { extractErrorMessage } from '../lib/apiError'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -174,10 +175,7 @@ function ConfirmContent({ raw }: { raw: string }) {
       router.back()
     },
     onError: (err: any) => {
-      Alert.alert(
-        "Couldn't log meal",
-        err?.response?.data?.detail || err?.message || 'Please try again.',
-      )
+      Alert.alert("Couldn't log meal", extractErrorMessage(err, 'Please try again.'))
     },
   })
 

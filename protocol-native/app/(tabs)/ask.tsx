@@ -20,8 +20,9 @@ interface Turn {
 }
 
 const SUGGESTIONS = [
-  'How has my sleep trended this week?',
-  'Is my caffeine affecting my sleep?',
+  'Am I hitting my protein target consistently?',
+  'How has my training volume trended this week?',
+  'Is my weight moving in the right direction?',
   "What's my biggest lever to raise my Form Score?",
 ]
 
@@ -85,7 +86,7 @@ export default function AskScreen() {
           {turns.length === 0 ? (
             <View style={{ gap: 10, marginTop: 8 }}>
               <Text className="text-zinc-500 text-sm leading-6 mb-1">
-                Ask anything about your sleep, training, nutrition, or Form Score over the
+                Ask anything about your training, nutrition, body, or Form Score over the
                 last 30 days.
               </Text>
               {SUGGESTIONS.map((s) => (

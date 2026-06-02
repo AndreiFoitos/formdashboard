@@ -1,17 +1,14 @@
 """Background jobs that need to run on a fixed schedule.
 
-Two jobs are registered:
-
 - prewarm_digests (05:00 UTC): generate today's AI digest for every user so
   the first dashboard fetch of the day hits the Redis cache instead of waiting
   on Anthropic. Silently skips users that error out, and the whole job no-ops
   when the API key isn't set.
 
-- nightly_oura_sync (02:00 UTC): pulls the previous 2 days of Oura data for
-  every user with an active connection. Without this, Oura only syncs on
-  app-open / a manual button tap.
+- dispatch_predictive_nudges (every 15 min): pushes log-reminder notifications
+  to users at the slots where they typically log water / coffee.
 
-Both jobs isolate failures per-user so one bad user can't kill the run.
+Failures are isolated per-user so one bad user can't kill the run.
 """
 from __future__ import annotations
 
@@ -23,10 +20,9 @@ from sqlalchemy import select
 from core.database import AsyncSessionLocal
 from core import redis as redis_mod
 from models.user import User
-from models.device_connection import DeviceConnection
 from services.ai_client import AINotConfigured
 from services.ai_features import generate_daily_digest
-from services.oura import OuraNotConfigured, _sync as _oura_sync
+from services.notifier import dispatch_predictive_nudges
 
 logger = logging.getLogger(__name__)
 
@@ -61,48 +57,6 @@ async def prewarm_digests() -> None:
     logger.info("prewarm_digests: success=%d skipped=%d total=%d", success, skipped, len(user_ids))
 
 
-async def nightly_oura_sync() -> None:
-    """Pull the last 2 days of Oura data for every user with an active connection."""
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(
-            select(DeviceConnection).where(
-                DeviceConnection.provider == "oura",
-                DeviceConnection.sync_enabled == True,  # noqa: E712
-            )
-        )
-        connections = result.scalars().all()
-        # Capture (user_id, conn_id) up front so each user gets a fresh session.
-        targets = [(c.user_id, c.id) for c in connections]
-
-    success = 0
-    skipped = 0
-    for user_id, _ in targets:
-        async with AsyncSessionLocal() as db:
-            user = await db.get(User, user_id)
-            if user is None:
-                continue
-            result = await db.execute(
-                select(DeviceConnection).where(
-                    DeviceConnection.user_id == user_id,
-                    DeviceConnection.provider == "oura",
-                )
-            )
-            conn = result.scalar_one_or_none()
-            if conn is None or not conn.sync_enabled:
-                continue
-            try:
-                await _oura_sync(conn, user, db, days_back=2)
-                await db.commit()
-                success += 1
-            except OuraNotConfigured:
-                logger.info("nightly_oura_sync: Oura OAuth not configured, skipping job")
-                return
-            except Exception as e:  # noqa: BLE001
-                skipped += 1
-                logger.warning("nightly_oura_sync: user=%s failed: %s", user_id, e)
-    logger.info("nightly_oura_sync: success=%d skipped=%d total=%d", success, skipped, len(targets))
-
-
 def start_scheduler() -> AsyncIOScheduler:
     """Idempotent — calling twice returns the existing scheduler instead of crashing."""
     global _scheduler
@@ -120,19 +74,23 @@ def start_scheduler() -> AsyncIOScheduler:
         coalesce=True,
         max_instances=1,
     )
+    # Predictive nudges run on a 15-min cadence so we can catch the start of
+    # any 30-min pattern slot. coalesce=True means missed runs (worker restart)
+    # collapse to a single backfill instead of bursting.
     sched.add_job(
-        nightly_oura_sync,
+        dispatch_predictive_nudges,
         trigger="cron",
-        hour=2,
-        minute=0,
-        id="nightly_oura_sync",
+        minute="*/15",
+        id="dispatch_predictive_nudges",
         replace_existing=True,
         coalesce=True,
         max_instances=1,
     )
     sched.start()
     _scheduler = sched
-    logger.info("Scheduler started: prewarm_digests@05:00 UTC, nightly_oura_sync@02:00 UTC")
+    logger.info(
+        "Scheduler started: prewarm_digests@05:00 UTC, dispatch_predictive_nudges@*/15min"
+    )
     return sched
 
 
