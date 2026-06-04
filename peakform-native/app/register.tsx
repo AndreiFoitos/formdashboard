@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -69,7 +70,11 @@ export default function RegisterScreen() {
       >
         <View className="flex-1 justify-center px-6">
           {/* Logo */}
-          <Text className="text-white text-4xl font-bold mb-2">PeakForm</Text>
+          <Image
+            source={require('../assets/logo-dark.png')}
+            style={{ width: 200, height: 60, marginBottom: 8 }}
+            resizeMode="contain"
+          />
           <Text className="text-zinc-500 text-sm mb-8">Set up your account</Text>
 
           {/* SSO */}
