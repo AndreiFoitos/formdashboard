@@ -15,14 +15,14 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.protocolapp.com",
+        "EXPO_PUBLIC_API_URL": "https://api.peakformapp.com",
         "EXPO_PUBLIC_SENTRY_DSN": ""
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.protocolapp.com",
+        "EXPO_PUBLIC_API_URL": "https://api.peakformapp.com",
         "EXPO_PUBLIC_SENTRY_DSN": ""
       }
     }

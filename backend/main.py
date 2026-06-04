@@ -70,7 +70,7 @@ async def lifespan(app: FastAPI):
     await close_redis()
 
 
-app = FastAPI(title="Protocol API", lifespan=lifespan)
+app = FastAPI(title="PeakForm API", lifespan=lifespan)
 
 # slowapi requires the limiter on app.state so its middleware/decorators can
 # find it. The exception handler turns RateLimitExceeded into a 429 with the

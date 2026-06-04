@@ -23,7 +23,7 @@ function inviterLabel(u: { name: string; username: string | null }): string {
   return u.username ? `@${u.username}` : u.name
 }
 
-// Deep-link target for protocol://invite/<token>. Behaviour:
+// Deep-link target for peakform://invite/<token>. Behaviour:
 // - logged out:   stash token + bounce to /login (login screen handles redeem)
 // - logged in:    POST /redeem then surface a small success/error screen
 // - hydration not done yet: wait for auth state to settle before deciding

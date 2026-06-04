@@ -120,7 +120,7 @@ async def invite_friend(
         result = await db.execute(select(User).where(sqlfunc.lower(User.username) == handle))
         target = result.scalar_one_or_none()
         if not target:
-            raise HTTPException(404, "No Protocol user with that username")
+            raise HTTPException(404, "No PeakForm user with that username")
     elif body.email:
         target_email = body.email.strip().lower()
         if target_email == (current_user.email or "").lower():
@@ -128,7 +128,7 @@ async def invite_friend(
         result = await db.execute(select(User).where(sqlfunc.lower(User.email) == target_email))
         target = result.scalar_one_or_none()
         if not target:
-            raise HTTPException(404, "No Protocol user with that email")
+            raise HTTPException(404, "No PeakForm user with that email")
     else:
         raise HTTPException(400, "Username is required")
 
@@ -260,7 +260,7 @@ async def remove_friend(
 # ─── Invite links ────────────────────────────────────────────────────────────
 #
 # Per-invite shareable link. Multi-use until revoked or expired. Deep-link
-# format is protocol://invite/<token>; the new-user case (no app installed)
+# format is peakform://invite/<token>; the new-user case (no app installed)
 # is intentionally unsupported — the recipient just falls back to manual
 # @username invite once they install. See the spec on the Friends UI for
 # why we don't run a web landing.
@@ -278,7 +278,7 @@ def _generate_invite_token() -> str:
 
 
 def _deep_link_for(token: str) -> str:
-    return f"protocol://invite/{token}"
+    return f"peakform://invite/{token}"
 
 
 async def _active_invite_count(user_id: uuid.UUID, db: AsyncSession) -> int:

@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "protocol-native",
-    "slug": "protocol-native",
+    "name": "PeakForm",
+    "slug": "peakform-native",
     "version": "1.0.0",
-    "scheme": "protocol",
+    "scheme": "peakform",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.protocolapp.protocol",
+      "bundleIdentifier": "com.peakformapp.peakform",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -116,7 +116,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.protocolapp.protocol"
+      "package": "com.peakformapp.peakform"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -133,7 +133,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Protocol uses the camera to identify your meal and estimate calories.",
+          "cameraPermission": "PeakForm uses the camera to identify your meal and estimate calories.",
           "recordAudioAndroid": false
         }
       ],

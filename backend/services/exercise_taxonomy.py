@@ -1,5 +1,5 @@
 """Server-side mirror of the frontend GROUPS catalogue in
-protocol-native/app/(tabs)/training.tsx. Lets routers + detection services
+peakform-native/app/(tabs)/training.tsx. Lets routers + detection services
 ask 'what muscle group does this exercise belong to?' without depending on
 the client.
 
@@ -19,7 +19,7 @@ from models.custom_exercise import CustomExercise
 
 
 # Valid muscle-group buckets. Must match the GROUPS array in
-# protocol-native/app/(tabs)/training.tsx plus an 'Other' fallback for
+# peakform-native/app/(tabs)/training.tsx plus an 'Other' fallback for
 # custom exercises whose owner didn't pick a group.
 VALID_GROUPS: set[str] = {
     "Chest",

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -13,33 +13,66 @@ import {
 import { router } from 'expo-router'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
+import { usePendingInviteStore } from '../store/pendingInvite'
 import { setToken } from '../lib/storage'
 import SsoButtons from '../components/SsoButtons'
 import { FEATURES } from '../lib/featureFlags'
 import { extractErrorMessage } from '../lib/apiError'
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '../lib/legal'
 
-export default function RegisterScreen() {
-  const { setAuth } = useAuthStore()
+interface InviterPreview {
+  name: string
+  username: string | null
+}
 
-  const [name, setName] = useState('')
+export default function LoginScreen() {
+  const { setAuth } = useAuthStore()
+  const pendingInviteToken = usePendingInviteStore((s) => s.token)
+  const clearPendingInvite = usePendingInviteStore((s) => s.clear)
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [inviterPreview, setInviterPreview] = useState<InviterPreview | null>(null)
 
-  async function handleRegister() {
+  // Pull the inviter's public name/username so we can render
+  // "Log in to accept @andrei's invite". Drops the pending token on the floor
+  // if the link is revoked or expired — silently, no banner shown.
+  useEffect(() => {
+    if (!pendingInviteToken) {
+      setInviterPreview(null)
+      return
+    }
+    let cancelled = false
+    api
+      .get(`/friends/invites/${pendingInviteToken}/preview`)
+      .then((r) => {
+        if (cancelled) return
+        const data = r.data as { inviter: InviterPreview; revoked: boolean; expired: boolean }
+        if (data.revoked || data.expired) {
+          clearPendingInvite()
+          return
+        }
+        setInviterPreview(data.inviter)
+      })
+      .catch(() => {
+        if (cancelled) return
+        clearPendingInvite()
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [pendingInviteToken])
+
+  async function handleLogin() {
     setError(null)
     setLoading(true)
 
     try {
-      const { data: tokens } = await api.post('/auth/register', {
-        email,
-        password,
-        name: name.trim() || null,
-      })
+      const { data: tokens } = await api.post('/auth/login', { email, password })
 
-      // Persist refresh token in SecureStore
+      // Persist refresh token in SecureStore (survives app restarts)
       await setToken('refresh_token', tokens.refresh_token)
 
       // Fetch the user profile with the fresh access token
@@ -49,8 +82,25 @@ export default function RegisterScreen() {
 
       setAuth(user, tokens.access_token)
 
-      // New users always go to onboarding
-      router.replace('/onboarding')
+      // Pending invite from a deep-link tap? Redeem now and route to Friends.
+      // Best-effort: swallow errors so a flaky invite never blocks login.
+      if (pendingInviteToken) {
+        try {
+          await api.post(`/friends/invites/${pendingInviteToken}/redeem`, undefined, {
+            headers: { Authorization: `Bearer ${tokens.access_token}` },
+          })
+        } catch {
+          // Token may have been revoked between preview and login. Continue.
+        }
+        clearPendingInvite()
+        // Onboarding still takes priority — accepting an invite from your inbox
+        // can wait until after you've finished signup.
+        router.replace(user.onboarding_complete ? '/friends' : '/onboarding')
+        return
+      }
+
+      // Navigate based on onboarding state
+      router.replace(user.onboarding_complete ? '/' : '/onboarding')
     } catch (err: any) {
       setError(extractErrorMessage(err))
     } finally {
@@ -59,6 +109,7 @@ export default function RegisterScreen() {
   }
 
   return (
+    // KeyboardAvoidingView pushes content up when the keyboard appears
     <KeyboardAvoidingView
       className="flex-1 bg-black"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -69,8 +120,27 @@ export default function RegisterScreen() {
       >
         <View className="flex-1 justify-center px-6">
           {/* Logo */}
-          <Text className="text-white text-4xl font-bold mb-2">Protocol</Text>
-          <Text className="text-zinc-500 text-sm mb-8">Set up your account</Text>
+          <Text className="text-white text-4xl font-bold mb-2">PeakForm</Text>
+          <Text className="text-zinc-500 text-sm mb-8">
+            Your performance operating system
+          </Text>
+
+          {/* Pending invite banner — shown if user tapped peakform://invite/<token>
+              while logged out. After successful login we auto-redeem. */}
+          {inviterPreview && (
+            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 mb-6">
+              <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1">
+                Pending invite
+              </Text>
+              <Text className="text-white text-sm">
+                Log in to accept{' '}
+                <Text className="font-semibold">
+                  {inviterPreview.username ? `@${inviterPreview.username}` : inviterPreview.name}
+                </Text>
+                ’s invite
+              </Text>
+            </View>
+          )}
 
           {/* SSO */}
           {FEATURES.anySso && (
@@ -83,21 +153,6 @@ export default function RegisterScreen() {
               </View>
             </>
           )}
-
-          {/* Name */}
-          <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-1.5">
-            Name{' '}
-            <Text className="text-zinc-600 normal-case">(optional)</Text>
-          </Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="Alex"
-            placeholderTextColor="#52525b"
-            autoCorrect={false}
-            textContentType="name"
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm mb-4"
-          />
 
           {/* Email */}
           <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-1.5">
@@ -122,10 +177,10 @@ export default function RegisterScreen() {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Min. 8 characters"
+            placeholder="••••••••"
             placeholderTextColor="#52525b"
             secureTextEntry
-            textContentType="newPassword"
+            textContentType="password"
             className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm mb-4"
           />
 
@@ -138,31 +193,29 @@ export default function RegisterScreen() {
 
           {/* Submit */}
           <TouchableOpacity
-            onPress={handleRegister}
-            disabled={loading || !email || password.length < 8}
+            onPress={handleLogin}
+            disabled={loading}
             className="bg-white rounded-2xl py-4 items-center mb-4"
-            style={{ opacity: loading || !email || password.length < 8 ? 0.4 : 1 }}
+            style={{ opacity: loading ? 0.5 : 1 }}
           >
             {loading ? (
               <ActivityIndicator color="black" />
             ) : (
-              <Text className="text-black font-semibold text-base">
-                Create account
-              </Text>
+              <Text className="text-black font-semibold text-base">Sign in</Text>
             )}
           </TouchableOpacity>
 
-          {/* Login link */}
-          <TouchableOpacity onPress={() => router.push('/login')}>
+          {/* Register link */}
+          <TouchableOpacity onPress={() => router.push('/register')}>
             <Text className="text-zinc-500 text-sm text-center">
-              Already have an account?{' '}
-              <Text className="text-white">Sign in</Text>
+              No account?{' '}
+              <Text className="text-white">Create one</Text>
             </Text>
           </TouchableOpacity>
 
           {/* Legal — Apple wants the link above-the-fold from the auth screens */}
           <Text className="text-zinc-600 text-xs text-center mt-6 px-2">
-            By creating an account you agree to our{' '}
+            By signing in you agree to our{' '}
             <Text
               className="text-zinc-400 underline"
               onPress={() => Linking.openURL(TERMS_OF_SERVICE_URL)}

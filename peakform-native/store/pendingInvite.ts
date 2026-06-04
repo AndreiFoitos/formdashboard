@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 // Carries an invite token across the login flow when a logged-out user taps
-// protocol://invite/<token>. The deep-link route stashes the token here and
+// peakform://invite/<token>. The deep-link route stashes the token here and
 // routes to /login; the login screen reads it, shows the inviter preview,
 // and redeems after successful auth.
 //

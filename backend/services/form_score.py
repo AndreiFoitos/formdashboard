@@ -1,6 +1,6 @@
 """
 Form Score = a daily "Habits Score" derived entirely from data the user logs
-in Protocol. We dropped sleep_score and hrv_score from the previous formula
+in PeakForm. We dropped sleep_score and hrv_score from the previous formula
 because the app no longer integrates with wearables — leaving them in would
 have collapsed 45% of the weighting to a flat 50% constant.
 

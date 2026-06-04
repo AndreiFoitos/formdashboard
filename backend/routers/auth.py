@@ -70,7 +70,7 @@ async def _generate_username(seed: str | None, db: AsyncSession) -> str:
     if len(base) < 3:
         base = f"{base}_{secrets.token_hex(2)}"
     # Reserved bases get a random suffix so we never seed an OAuth user with
-    # `@admin` or `@protocol`. MEDIUM-31.
+    # `@admin` or `@peakform`. MEDIUM-31.
     if base in RESERVED_USERNAMES:
         base = f"{base}_{secrets.token_hex(2)}"
 

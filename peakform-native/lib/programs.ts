@@ -7,7 +7,7 @@
 // of scope — it adds a non-trivial schema for a feature whose value is mostly
 // the structure itself.
 //
-// Exercise keys here MUST match the keys in protocol-native/app/(tabs)/training.tsx
+// Exercise keys here MUST match the keys in peakform-native/app/(tabs)/training.tsx
 // GROUPS so tapping an exercise can navigate / pre-fill the log modal later.
 
 export interface ProgramSet {

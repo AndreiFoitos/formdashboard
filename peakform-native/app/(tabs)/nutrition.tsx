@@ -1175,12 +1175,12 @@ function LogModal({
                       </>
                     )}
 
-                    {/* Suggested by Protocol — auto-detected. Hidden when empty
+                    {/* Suggested by PeakForm — auto-detected. Hidden when empty
                         so a brand-new user only sees the manual section. */}
                     {suggested.length > 0 && (
                       <>
                         <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2 mt-5">
-                          Suggested by Protocol
+                          Suggested by PeakForm
                         </Text>
                         <View style={{ gap: 8 }}>
                           {suggested.map((meal) => (

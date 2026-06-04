@@ -42,7 +42,7 @@ export function Login() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-white">Protocol</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white">PeakForm</h1>
           <p className="mt-1 text-sm text-zinc-500">Your performance operating system</p>
         </div>
 
