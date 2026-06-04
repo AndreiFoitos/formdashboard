@@ -8,12 +8,13 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Share,
 } from 'react-native'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { Award, HelpCircle, Trophy } from 'lucide-react-native'
+import { Award, ChevronLeft, HelpCircle, MoreHorizontal, Trophy, X } from 'lucide-react-native'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { useRequireAuth } from '../hooks/useRequireAuth'
@@ -113,6 +114,26 @@ interface FriendLift {
   already_vouched: boolean
 }
 
+interface InviteLink {
+  id: string
+  token: string
+  deep_link: string
+  created_at: string
+  expires_at: string
+  joined_count: number
+}
+
+interface InvitesResponse {
+  invites: InviteLink[]
+  active_count: number
+  cap: number
+}
+
+function daysUntil(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now()
+  return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)))
+}
+
 // ─── Sus + Vouch bottom sheet ────────────────────────────────────────────────
 //
 // Symmetric voting model: every scope is binary — Approve (TrustedShield) or
@@ -182,8 +203,12 @@ function SusVouchSheet({
               {target.total_volume_kg.toLocaleString()} kg this week
             </Text>
           </View>
-          <TouchableOpacity onPress={onClose}>
-            <Text className="text-zinc-400 text-sm">✕</Text>
+          <TouchableOpacity
+            onPress={onClose}
+            hitSlop={12}
+            className="w-10 h-10 -mr-1 rounded-full bg-zinc-900 border border-zinc-800 items-center justify-center"
+          >
+            <X size={20} color="#e4e4e7" strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
 
@@ -416,37 +441,38 @@ function LeaderboardTab() {
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#ffffff" />}
     >
       {/* Exercise filter */}
-      <View className="mb-3 flex-row items-center gap-2">
-        <Text className="text-zinc-500 text-xs uppercase tracking-widest flex-1">
+      <View className="mb-4 flex-row items-center gap-2">
+        <Text className="text-zinc-400 text-xs uppercase tracking-widest flex-1 font-semibold">
           {exercise ? `By Exercise` : `Total Weekly Volume`}
         </Text>
         <TouchableOpacity
           onPress={() => setPickerOpen(true)}
-          className="flex-row items-center gap-1 px-3 py-1 rounded-full border border-zinc-700"
+          hitSlop={8}
+          className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-full border border-zinc-700"
         >
-          <Text className="text-white text-xs font-medium">
+          <Text className="text-white text-sm font-medium">
             {exercise ? EXERCISE_NAME[exercise] : 'All exercises'}
           </Text>
-          <Text className="text-zinc-500 text-xs">▾</Text>
+          <Text className="text-zinc-400 text-sm">▾</Text>
         </TouchableOpacity>
       </View>
 
 
       {isLoading ? (
-        <View style={{ gap: 8 }}>
-          <SkeletonCard height={64} />
-          <SkeletonCard height={64} />
-          <SkeletonCard height={64} />
+        <View style={{ gap: 10 }}>
+          <SkeletonCard height={88} />
+          <SkeletonCard height={88} />
+          <SkeletonCard height={88} />
         </View>
       ) : rows.length === 0 ? (
         <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 items-center">
-          <Text className="text-zinc-400 text-sm font-medium">No data yet</Text>
-          <Text className="text-zinc-600 text-xs mt-1 text-center">
+          <Text className="text-zinc-300 text-base font-medium">No data yet</Text>
+          <Text className="text-zinc-500 text-sm mt-1 text-center">
             Add friends and log workouts to see the leaderboard
           </Text>
         </View>
       ) : (
-        <View style={{ gap: 8 }}>
+        <View style={{ gap: 10 }}>
           {rows.map(row => {
             const pct = (row.total_volume_kg / maxVol) * 100
             const medal = row.rank === 1 ? { Icon: Trophy, color: '#FCD34D' }
@@ -456,23 +482,23 @@ function LeaderboardTab() {
             return (
               <View
                 key={row.user.id}
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3"
-                style={row.is_me ? { borderColor: '#52525b' } : undefined}
+                className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
+                style={row.is_me ? { borderColor: '#71717a', borderWidth: 1.5 } : undefined}
               >
-                <View className="flex-row items-center gap-3">
-                  <View className="w-7 items-center">
+                <View className="flex-row items-center" style={{ gap: 14 }}>
+                  <View className="w-9 items-center">
                     {medal
-                      ? <medal.Icon size={18} color={medal.color} strokeWidth={2} />
-                      : <Text className="text-zinc-500 text-sm">{row.rank}</Text>}
+                      ? <medal.Icon size={26} color={medal.color} strokeWidth={2} />
+                      : <Text className="text-zinc-400 text-lg font-semibold">{row.rank}</Text>}
                   </View>
                   <View className="flex-1">
                     <View className="flex-row items-center gap-2 flex-wrap">
-                      <Text className="text-white text-sm font-semibold">
+                      <Text className="text-white text-base font-semibold">
                         {row.user.name}{row.is_me ? ' (you)' : ''}
                       </Text>
                       {row.is_trusted && (
                         <View
-                          className="px-1.5 py-0.5 rounded-full flex-row items-center"
+                          className="px-2 py-0.5 rounded-full flex-row items-center"
                           style={{
                             backgroundColor: 'rgba(20,83,45,0.4)',
                             borderWidth: 1,
@@ -480,15 +506,15 @@ function LeaderboardTab() {
                             gap: 4,
                           }}
                         >
-                          <TrustedShield size={12} />
-                          <Text className="text-xs" style={{ color: '#86efac' }}>
+                          <TrustedShield size={14} />
+                          <Text className="text-xs font-semibold" style={{ color: '#86efac' }}>
                             {row.vouches}
                           </Text>
                         </View>
                       )}
                       {(row.sus_score > 0 || row.is_sus) && (
                         <View
-                          className="px-1.5 py-0.5 rounded-full flex-row items-center"
+                          className="px-2 py-0.5 rounded-full flex-row items-center"
                           style={{
                             backgroundColor: row.is_sus ? 'rgba(120,53,15,0.4)' : '#27272a',
                             borderWidth: 1,
@@ -496,9 +522,9 @@ function LeaderboardTab() {
                             gap: 4,
                           }}
                         >
-                          <SusFace size={12} />
+                          <SusFace size={14} />
                           <Text
-                            className="text-xs"
+                            className="text-xs font-semibold"
                             style={{ color: row.is_sus ? '#fbbf24' : '#a1a1aa' }}
                           >
                             {row.sus_score} / {row.sus_threshold}
@@ -506,45 +532,46 @@ function LeaderboardTab() {
                         </View>
                       )}
                     </View>
-                    <Text className="text-zinc-500 text-xs mt-0.5">
+                    <Text className="text-zinc-500 text-sm mt-1">
                       {row.days_trained} day{row.days_trained === 1 ? '' : 's'} this week
                       {row.sus_per_lift_votes > 0 && ` · ${row.sus_per_lift_votes} lift${row.sus_per_lift_votes === 1 ? '' : 's'} sus'd`}
                     </Text>
                   </View>
-                  <View className="items-end" style={{ minWidth: 76 }}>
-                    <Text className="text-white text-sm font-bold">
+                  <View className="items-end" style={{ minWidth: 88 }}>
+                    <Text className="text-white text-lg font-bold">
                       {row.total_volume_kg.toLocaleString()}
-                      <Text className="text-zinc-500 text-[10px] font-normal"> kg</Text>
+                      <Text className="text-zinc-500 text-xs font-normal"> kg</Text>
                     </Text>
-                    <Text className="text-zinc-500 text-[11px] font-semibold mt-0.5">
+                    <Text className="text-zinc-400 text-sm font-semibold mt-0.5">
                       {row.dots_volume != null ? row.dots_volume.toLocaleString() : '—'}
-                      <Text className="text-zinc-600 text-[10px] font-normal"> DOTS</Text>
+                      <Text className="text-zinc-600 text-xs font-normal"> DOTS</Text>
                     </Text>
                   </View>
                   {!row.is_me && (
                     <TouchableOpacity
                       onPress={() => { hapticLight(); setSheetFor(row) }}
-                      hitSlop={8}
-                      className="ml-1 px-2"
+                      hitSlop={12}
+                      className="ml-1 w-10 h-10 rounded-full items-center justify-center"
+                      style={{ backgroundColor: '#18181b', borderWidth: 1, borderColor: '#3f3f46' }}
                     >
                       {row.i_vouched
-                        ? <TrustedShield size={18} />
+                        ? <TrustedShield size={22} />
                         : row.i_sus_weekly
-                          ? <SusFace size={18} />
-                          : <HelpCircle size={18} color="#71717a" strokeWidth={2} />}
+                          ? <SusFace size={22} />
+                          : <HelpCircle size={22} color="#a1a1aa" strokeWidth={2} />}
                     </TouchableOpacity>
                   )}
                 </View>
                 <View
-                  className="mt-2 rounded-full overflow-hidden"
-                  style={{ height: 4, backgroundColor: '#27272a' }}
+                  className="mt-3 rounded-full overflow-hidden"
+                  style={{ height: 6, backgroundColor: '#27272a' }}
                 >
                   <View
                     style={{
                       width: `${pct}%`,
                       height: '100%',
-                      backgroundColor: row.is_me ? '#ffffff' : '#71717a',
-                      borderRadius: 2,
+                      backgroundColor: row.is_me ? '#ffffff' : '#a1a1aa',
+                      borderRadius: 3,
                     }}
                   />
                 </View>
@@ -583,6 +610,65 @@ function FriendsTab() {
     queryKey: ['friends-list'],
     queryFn: () => api.get('/friends').then(r => r.data),
   })
+
+  const invitesQuery = useQuery<InvitesResponse>({
+    queryKey: ['invite-links'],
+    queryFn: () => api.get('/friends/invites').then(r => r.data),
+  })
+
+  // Generate + immediately open the native Share sheet. The list refetch is
+  // fire-and-forget; we don't block the share sheet on it.
+  const createInviteMutation = useMutation({
+    mutationFn: () => api.post('/friends/invites').then(r => r.data as InviteLink),
+    onSuccess: async (invite) => {
+      hapticSuccess()
+      qc.invalidateQueries({ queryKey: ['invite-links'] })
+      try {
+        await Share.share({
+          url: invite.deep_link,
+          message: `Join me on Protocol: ${invite.deep_link}`,
+        })
+      } catch {
+        // User dismissed the share sheet — link is still created, fine.
+      }
+    },
+    onError: (err: any) => {
+      Alert.alert('Could not generate link', err.response?.data?.detail ?? 'Try again')
+    },
+  })
+
+  const revokeInviteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/friends/invites/${id}`),
+    onSuccess: () => {
+      hapticSuccess()
+      qc.invalidateQueries({ queryKey: ['invite-links'] })
+    },
+  })
+
+  async function reshareInvite(link: InviteLink) {
+    try {
+      await Share.share({
+        url: link.deep_link,
+        message: `Join me on Protocol: ${link.deep_link}`,
+      })
+    } catch {}
+  }
+
+  function confirmRevoke(link: InviteLink) {
+    const joined = link.joined_count
+    Alert.alert(
+      'Revoke invite link?',
+      `${link.token} will stop working.${joined > 0 ? ` Friends who already joined will stay.` : ''}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Revoke', style: 'destructive', onPress: () => revokeInviteMutation.mutate(link.id) },
+      ],
+    )
+  }
+
+  const invites = invitesQuery.data?.invites ?? []
+  const cap = invitesQuery.data?.cap ?? 20
+  const atCap = invites.length >= cap
 
   const inviteMutation = useMutation({
     mutationFn: (username: string) => api.post('/friends/invite', { username }),
@@ -625,6 +711,58 @@ function FriendsTab() {
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#ffffff" />}
       keyboardShouldPersistTaps="handled"
     >
+      {/* Invite link — primary CTA. Generates a token server-side and pops
+          the native Share sheet immediately, so the common flow is one tap. */}
+      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Invite link</Text>
+      <PressableScale
+        haptic
+        onPress={() => createInviteMutation.mutate()}
+        disabled={atCap || createInviteMutation.isPending}
+        className="bg-white rounded-2xl py-3 mb-2 items-center"
+        style={{ opacity: atCap || createInviteMutation.isPending ? 0.4 : 1 }}
+      >
+        {createInviteMutation.isPending
+          ? <ActivityIndicator color="black" />
+          : <Text className="text-black text-sm font-semibold">Share invite link</Text>}
+      </PressableScale>
+      {atCap && (
+        <Text className="text-zinc-600 text-xs mb-2">
+          You have {cap} active links — revoke one to share a new one.
+        </Text>
+      )}
+      {invites.length > 0 && (
+        <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-5">
+          {invites.map((link, i) => (
+            <View
+              key={link.id}
+              className="flex-row items-center justify-between px-4 py-3"
+              style={{
+                borderBottomWidth: i === invites.length - 1 ? 0 : 1,
+                borderBottomColor: '#27272a',
+              }}
+            >
+              <View className="flex-1">
+                <Text className="text-white text-sm font-semibold" style={{ letterSpacing: 1.5 }}>
+                  {link.token}
+                </Text>
+                <Text className="text-zinc-500 text-xs mt-0.5">
+                  {link.joined_count} joined · expires in {daysUntil(link.expires_at)}d
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => reshareInvite(link)} hitSlop={12} className="px-4 py-2 mr-1 rounded-full bg-zinc-800">
+                <Text className="text-zinc-100 text-sm font-medium">Share</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => confirmRevoke(link)} hitSlop={12} className="w-9 h-9 rounded-full items-center justify-center">
+                <MoreHorizontal size={20} color="#d4d4d8" strokeWidth={2.25} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+      {invites.length === 0 && (
+        <View className="mb-5" />
+      )}
+
       {/* Invite */}
       <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Invite by username</Text>
       <View className="flex-row gap-2 mb-2">
@@ -688,15 +826,16 @@ function FriendsTab() {
                     </View>
                     <TouchableOpacity
                       onPress={() => acceptMutation.mutate(r.id)}
-                      className="bg-white rounded-full px-3 py-1.5 mr-2"
+                      className="bg-white rounded-full px-4 py-2 mr-2"
                     >
-                      <Text className="text-black text-xs font-semibold">Accept</Text>
+                      <Text className="text-black text-sm font-semibold">Accept</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => rejectMutation.mutate(r.id)}
-                      hitSlop={8}
+                      hitSlop={12}
+                      className="w-9 h-9 rounded-full bg-zinc-800 items-center justify-center"
                     >
-                      <Text className="text-zinc-500 text-sm">✕</Text>
+                      <X size={18} color="#d4d4d8" strokeWidth={2.25} />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -741,10 +880,10 @@ function FriendsTab() {
                         { text: 'Remove', style: 'destructive', onPress: () => deleteMutation.mutate(r.id) },
                       ],
                     )}
-                    hitSlop={8}
-                    className="px-2"
+                    hitSlop={12}
+                    className="w-9 h-9 rounded-full items-center justify-center"
                   >
-                    <Text className="text-zinc-500 text-base">⋯</Text>
+                    <MoreHorizontal size={20} color="#d4d4d8" strokeWidth={2.25} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -773,9 +912,10 @@ function FriendsTab() {
                     </View>
                     <TouchableOpacity
                       onPress={() => deleteMutation.mutate(r.id)}
-                      hitSlop={8}
+                      hitSlop={12}
+                      className="px-3 py-2 rounded-full bg-zinc-800"
                     >
-                      <Text className="text-zinc-500 text-xs">Cancel</Text>
+                      <Text className="text-zinc-200 text-sm font-medium">Cancel</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -849,11 +989,12 @@ export default function FriendsScreen() {
     <SafeAreaView className="flex-1 bg-black" edges={['top']}>
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 pt-2 pb-3">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-          <Text className="text-zinc-400 text-sm">← Back</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 px-2 py-2 flex-row items-center" style={{ gap: 2 }}>
+          <ChevronLeft size={22} color="#d4d4d8" strokeWidth={2.25} />
+          <Text className="text-zinc-300 text-base font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-white text-base font-semibold">Friends</Text>
-        <View style={{ width: 50 }} />
+        <Text className="text-white text-lg font-semibold">Friends</Text>
+        <View style={{ width: 70 }} />
       </View>
 
       {/* Tabs */}
@@ -862,12 +1003,12 @@ export default function FriendsScreen() {
           <TouchableOpacity
             key={t}
             onPress={() => { hapticLight(); setTab(t) }}
-            className="flex-1 py-2 rounded-xl items-center"
+            className="flex-1 py-3 rounded-xl items-center"
             style={{ backgroundColor: tab === t ? '#27272a' : 'transparent' }}
           >
             <Text
-              className="text-xs font-medium capitalize"
-              style={{ color: tab === t ? 'white' : '#71717a' }}
+              className="text-sm font-semibold capitalize"
+              style={{ color: tab === t ? 'white' : '#a1a1aa' }}
             >
               {t}
             </Text>

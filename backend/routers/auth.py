@@ -3,17 +3,19 @@ from __future__ import annotations
 import re
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sqlfunc
 from pydantic import BaseModel, EmailStr
 import redis.asyncio as aioredis
 
 from core.database import get_db
+from core.rate_limit import limiter
 from core.redis import get_redis
 from core.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from models.user import User
 from models.streak import Streak
+from schemas.user import RESERVED_USERNAMES
 from services.oauth_verify import verify_apple_token, verify_google_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -67,14 +69,21 @@ async def _generate_username(seed: str | None, db: AsyncSession) -> str:
     base = _USERNAME_RE.sub("", (seed or "").lower())[:16] or "user"
     if len(base) < 3:
         base = f"{base}_{secrets.token_hex(2)}"
+    # Reserved bases get a random suffix so we never seed an OAuth user with
+    # `@admin` or `@protocol`. MEDIUM-31.
+    if base in RESERVED_USERNAMES:
+        base = f"{base}_{secrets.token_hex(2)}"
 
     for suffix in ("", *(secrets.token_hex(2) for _ in range(5))):
         candidate = f"{base}{('_' + suffix) if suffix else ''}"[:24]
+        if candidate in RESERVED_USERNAMES:
+            continue
         existing = await db.execute(select(User.id).where(User.username == candidate))
         if not existing.scalar_one_or_none():
             return candidate
 
-    # Astronomically unlikely fallback.
+    # Astronomically unlikely fallback. Still bypasses RESERVED check because
+    # any "user_<hex>" handle can't collide with the reserved set.
     return f"user_{secrets.token_hex(4)}"
 
 
@@ -148,7 +157,8 @@ async def _find_or_create_oauth_user(
 # --- Endpoints ---
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("3/hour")
+async def register(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     # Check if email already exists
     result = await db.execute(select(User).where(User.email == body.email))
     if result.scalar_one_or_none():
@@ -174,7 +184,8 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
@@ -193,7 +204,8 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/apple", response_model=TokenResponse)
-async def apple_sign_in(body: AppleSignInRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def apple_sign_in(request: Request, body: AppleSignInRequest, db: AsyncSession = Depends(get_db)):
     identity = await verify_apple_token(body.identity_token)
     user = await _find_or_create_oauth_user(
         provider="apple",
@@ -206,7 +218,8 @@ async def apple_sign_in(body: AppleSignInRequest, db: AsyncSession = Depends(get
 
 
 @router.post("/google", response_model=TokenResponse)
-async def google_sign_in(body: GoogleSignInRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def google_sign_in(request: Request, body: GoogleSignInRequest, db: AsyncSession = Depends(get_db)):
     identity = await verify_google_token(body.id_token)
     user = await _find_or_create_oauth_user(
         provider="google",
@@ -219,8 +232,11 @@ async def google_sign_in(body: GoogleSignInRequest, db: AsyncSession = Depends(g
 
 
 @router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("30/minute")
 async def refresh(
+    request: Request,
     body: RefreshRequest,
+    db: AsyncSession = Depends(get_db),
     redis: aioredis.Redis = Depends(get_redis),
 ):
     # Check blacklist
@@ -232,6 +248,16 @@ async def refresh(
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
     user_id = payload.get("sub")
+
+    # Verify the user still exists. Without this, a refresh token held by
+    # someone whose account was deleted (BLOCKER-5 delete-account flow) would
+    # keep minting access tokens. The access tokens would fail at the next
+    # middleware lookup, but the round-trip is wasted — and any code path that
+    # trusts a fresh refresh as "user is real" would be wrong.
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
     return TokenResponse(
         access_token=create_access_token(user_id),
         refresh_token=create_refresh_token(user_id),

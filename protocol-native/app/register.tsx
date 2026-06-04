@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
 } from 'react-native'
@@ -16,6 +17,7 @@ import { setToken } from '../lib/storage'
 import SsoButtons from '../components/SsoButtons'
 import { FEATURES } from '../lib/featureFlags'
 import { extractErrorMessage } from '../lib/apiError'
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '../lib/legal'
 
 export default function RegisterScreen() {
   const { setAuth } = useAuthStore()
@@ -157,6 +159,25 @@ export default function RegisterScreen() {
               <Text className="text-white">Sign in</Text>
             </Text>
           </TouchableOpacity>
+
+          {/* Legal — Apple wants the link above-the-fold from the auth screens */}
+          <Text className="text-zinc-600 text-xs text-center mt-6 px-2">
+            By creating an account you agree to our{' '}
+            <Text
+              className="text-zinc-400 underline"
+              onPress={() => Linking.openURL(TERMS_OF_SERVICE_URL)}
+            >
+              Terms
+            </Text>{' '}
+            and{' '}
+            <Text
+              className="text-zinc-400 underline"
+              onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+            >
+              Privacy Policy
+            </Text>
+            .
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from core.database import get_db
+from core.timezone import user_today
 from middleware.auth import get_current_user
 from models.user import User
 from models.daily_summary import DailySummary
@@ -20,7 +21,7 @@ async def get_dashboard(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    today = date.today()
+    today = user_today(current_user.timezone)
 
     summary_result = await db.execute(
         select(DailySummary).where(
@@ -28,7 +29,9 @@ async def get_dashboard(
             DailySummary.date == today,
         )
     )
-    caffeine = await get_caffeine_curve(current_user.id, db, current_user.sleep_hour)
+    caffeine = await get_caffeine_curve(
+        current_user.id, db, current_user.sleep_hour, tz_name=current_user.timezone,
+    )
 
     summary = summary_result.scalar_one_or_none()
 
@@ -55,8 +58,7 @@ async def get_dashboard(
             "form_score": summary.form_score,
             "form_score_unlocked": current_user.form_score_unlocked,
             "score_breakdown": score_breakdown,
-            "sleep_score": summary.sleep_score,
-            "hrv_score": summary.hrv_score,
+            # sleep_score / hrv_score dropped (HIGH-16 Path A).
             "water_ml": summary.water_ml,
             "caffeine_mg": summary.caffeine_mg,
             "calories_eaten": summary.calories_eaten,

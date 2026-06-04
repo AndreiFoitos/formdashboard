@@ -1,12 +1,13 @@
 from __future__ import annotations
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sqlfunc
 
 from core.database import get_db
+from core.timezone import resolve_tz, user_today
 from middleware.auth import get_current_user
 from models.user import User
 from models.hydration_log import HydrationLog
@@ -30,7 +31,10 @@ async def log_hydration(
     db.add(entry)
 
     # Incrementally update today's summary — no full recompute needed
-    await increment_daily_field(current_user.id, db, "water_ml", body.amount_ml, mode="add")
+    await increment_daily_field(
+        current_user.id, db, "water_ml", body.amount_ml,
+        mode="add", tz_name=current_user.timezone,
+    )
 
     await db.commit()
     await db.refresh(entry)
@@ -42,8 +46,10 @@ async def get_today_hydration(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    now = datetime.now(timezone.utc)
-    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today = user_today(current_user.timezone)
+    day_start = datetime.combine(
+        today, datetime.min.time(),
+    ).replace(tzinfo=resolve_tz(current_user.timezone))
 
     total_result = await db.execute(
         select(sqlfunc.sum(HydrationLog.amount_ml)).where(
@@ -86,7 +92,10 @@ async def delete_hydration(
         raise HTTPException(404, "Log entry not found")
 
     # Decrement summary before deleting the log
-    await increment_daily_field(current_user.id, db, "water_ml", -entry.amount_ml, mode="add")
+    await increment_daily_field(
+        current_user.id, db, "water_ml", -entry.amount_ml,
+        mode="add", tz_name=current_user.timezone,
+    )
 
     await db.delete(entry)
     await db.commit()

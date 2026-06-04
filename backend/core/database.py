@@ -1,4 +1,6 @@
-﻿from sqlalchemy.ext.asyncio import (
+﻿import os
+
+from sqlalchemy.ext.asyncio import (
     create_async_engine,
     async_sessionmaker,
     AsyncSession,
@@ -7,6 +9,19 @@ from sqlalchemy.orm import DeclarativeBase
 
 from core.config import settings
 
+
+# MEDIUM-34: SSL mode is env-configurable. Supabase requires it, so default to
+# "require"; local docker-compose Postgres / CI fixtures can opt out by setting
+# DATABASE_SSL=disable. Other valid asyncpg values: prefer, allow, verify-ca,
+# verify-full.
+_db_ssl = os.environ.get("DATABASE_SSL", "require")
+_connect_args: dict = {
+    "statement_cache_size": 0,
+    # Set a tight connect timeout so failures surface fast
+    "command_timeout": 10,
+}
+if _db_ssl != "disable":
+    _connect_args["ssl"] = _db_ssl
 
 engine = create_async_engine(
     settings.DATABASE_URL,
@@ -24,12 +39,7 @@ engine = create_async_engine(
     pool_recycle=600,
 
     # asyncpg: disable statement cache to avoid pg_prepared_statements issues
-    connect_args={
-        "statement_cache_size": 0,
-        # Set a tight connect timeout so failures surface fast
-        "command_timeout": 10,
-        "ssl": "require",
-    },
+    connect_args=_connect_args,
 )
 
 AsyncSessionLocal = async_sessionmaker(

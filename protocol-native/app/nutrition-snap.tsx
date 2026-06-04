@@ -5,10 +5,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { CameraView, useCameraPermissions } from 'expo-camera'
+import { X } from 'lucide-react-native'
 import { api } from '../api/client'
 import { PressableScale } from '../components/PressableScale'
 import { hapticSuccess } from '../lib/haptics'
@@ -16,25 +18,44 @@ import { extractErrorMessage } from '../lib/apiError'
 
 // ─── Permission Gate ──────────────────────────────────────────────────────────
 
-function PermissionGate({ onRequest }: { onRequest: () => void }) {
+interface PermissionGateProps {
+  onRequest: () => void
+  // canAskAgain is false once the user has tapped "Don't allow" — iOS won't
+  // re-show the system prompt. We hide the Allow button and surface a deep-link
+  // to Settings instead so the user isn't stuck.
+  canAskAgain: boolean
+}
+
+function PermissionGate({ onRequest, canAskAgain }: PermissionGateProps) {
   return (
     <View className="flex-1 bg-black items-center justify-center px-8">
       <Text className="text-white text-xl font-semibold text-center mb-2">
         Camera access needed
       </Text>
       <Text className="text-zinc-400 text-sm text-center mb-8">
-        Protocol uses the camera to identify your meal and estimate calories. The photo
-        is not saved.
+        {canAskAgain
+          ? 'Protocol uses the camera to identify your meal and estimate calories. The photo is not saved.'
+          : 'Camera was denied. Open Settings to allow camera access for Protocol, then come back.'}
       </Text>
-      <PressableScale
-        haptic
-        onPress={onRequest}
-        className="bg-white rounded-2xl px-6 py-3"
-      >
-        <Text className="text-black font-semibold">Allow camera</Text>
-      </PressableScale>
-      <TouchableOpacity onPress={() => router.back()} className="mt-4 py-2">
-        <Text className="text-zinc-500 text-sm">Cancel</Text>
+      {canAskAgain ? (
+        <PressableScale
+          haptic
+          onPress={onRequest}
+          className="bg-white rounded-2xl px-6 py-3"
+        >
+          <Text className="text-black font-semibold">Allow camera</Text>
+        </PressableScale>
+      ) : (
+        <PressableScale
+          haptic
+          onPress={() => Linking.openSettings()}
+          className="bg-white rounded-2xl px-6 py-3"
+        >
+          <Text className="text-black font-semibold">Open Settings</Text>
+        </PressableScale>
+      )}
+      <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="mt-4 px-4 py-2.5">
+        <Text className="text-zinc-300 text-base font-medium">Cancel</Text>
       </TouchableOpacity>
     </View>
   )
@@ -71,7 +92,12 @@ export default function NutritionSnapScreen() {
     )
   }
   if (!permission.granted) {
-    return <PermissionGate onRequest={requestPermission} />
+    return (
+      <PermissionGate
+        onRequest={requestPermission}
+        canAskAgain={permission.canAskAgain}
+      />
+    )
   }
 
   async function handleCapture() {
@@ -128,10 +154,10 @@ export default function NutritionSnapScreen() {
         <View className="absolute top-0 left-0 right-0 px-4 pt-3 flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => router.back()}
-            className="w-10 h-10 rounded-full bg-black/60 items-center justify-center"
-            hitSlop={8}
+            className="w-11 h-11 rounded-full bg-black/60 items-center justify-center"
+            hitSlop={12}
           >
-            <Text className="text-white text-lg">✕</Text>
+            <X size={22} color="#ffffff" strokeWidth={2.25} />
           </TouchableOpacity>
           <View className="bg-black/60 rounded-full px-3 py-1.5">
             <Text className="text-white text-xs">Center your plate in frame</Text>

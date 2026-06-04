@@ -10,6 +10,7 @@ import {
   TextInput,
 } from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { X } from 'lucide-react-native'
 import Svg, {
   Polyline,
   Line,
@@ -328,8 +329,12 @@ function LogModal({ onClose }: { onClose: () => void }) {
 
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
           <Text className="text-white font-semibold">Log Stimulant</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Text className="text-zinc-400 text-sm">✕</Text>
+          <TouchableOpacity
+            onPress={onClose}
+            hitSlop={12}
+            className="w-10 h-10 -mr-1 rounded-full bg-zinc-900 border border-zinc-800 items-center justify-center"
+          >
+            <X size={20} color="#e4e4e7" strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
 

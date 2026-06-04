@@ -1,7 +1,6 @@
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -11,6 +10,7 @@ import { useMemo, useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { ChevronLeft } from 'lucide-react-native'
 import { api } from '../api/client'
 import { CountUp } from '../components/CountUp'
 import { SwipeableRow } from '../components/SwipeableRow'
@@ -151,7 +151,10 @@ function ConfirmContent({ raw }: { raw: string }) {
     }
   }, [raw])
 
-  const [dishName, setDishName] = useState(initial.dish)
+  // Dish name is now display-only — the log path writes one row per
+  // ingredient, so the composed dish name no longer travels with the data.
+  // Kept as context so the user can see what the model recognised.
+  const dishName = initial.dish
   const [items, setItems] = useState<EstimateItem[]>(initial.items)
   const [multiplier, setMultiplier] = useState<number>(1)
 
@@ -168,7 +171,7 @@ function ConfirmContent({ raw }: { raw: string }) {
   }, [items, multiplier])
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (body: object) => api.post('/nutrition/log', body),
+    mutationFn: (body: object) => api.post('/nutrition/log-batch', body),
     onSuccess: () => {
       hapticSuccess()
       qc.invalidateQueries({ queryKey: ['nutrition-today'] })
@@ -184,14 +187,20 @@ function ConfirmContent({ raw }: { raw: string }) {
       Alert.alert('Nothing to log', 'Add at least one ingredient or go back to retake.')
       return
     }
-    mutate({
-      meal_name: dishName.trim() || null,
-      calories: Math.round(totals.calories),
-      protein_g: Math.round(totals.protein_g * 10) / 10,
-      carbs_g: Math.round(totals.carbs_g * 10) / 10,
-      fat_g: Math.round(totals.fat_g * 10) / 10,
-      source: 'photo',
-    })
+    // Decompose to one NutritionLog row per ingredient — each row's meal_name
+    // is the ingredient ("chicken breast"), not the dish ("Chicken rice bowl").
+    // This makes every ingredient eligible for /nutrition/frequent on its own.
+    // source='photo_item' distinguishes from legacy dish-level photo rows so
+    // the Frequent endpoint can keep filtering the old composed entries out.
+    const entries = items.map((item) => ({
+      meal_name: item.name,
+      calories: Math.round(item.calories * multiplier),
+      protein_g: Math.round(item.protein_g * multiplier * 10) / 10,
+      carbs_g: Math.round(item.carbs_g * multiplier * 10) / 10,
+      fat_g: Math.round(item.fat_g * multiplier * 10) / 10,
+      source: 'photo_item',
+    }))
+    mutate({ entries })
   }
 
   const usdaCount = items.filter((i) => i.source === 'usda').length
@@ -201,8 +210,9 @@ function ConfirmContent({ raw }: { raw: string }) {
     <SafeAreaView className="flex-1 bg-black" edges={['top']}>
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
-          <Text className="text-zinc-400 text-base">‹  Retake</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 px-2 py-2 flex-row items-center" style={{ gap: 2 }}>
+          <ChevronLeft size={22} color="#d4d4d8" strokeWidth={2.25} />
+          <Text className="text-zinc-300 text-base font-medium">Retake</Text>
         </TouchableOpacity>
         <Text className="text-white font-semibold">Review meal</Text>
         <View style={{ width: 60 }} />
@@ -213,18 +223,21 @@ function ConfirmContent({ raw }: { raw: string }) {
         contentContainerStyle={{ paddingBottom: 160 }}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Dish name */}
+        {/* Recognised-as label. Read-only; each ingredient is logged
+            separately so there's no composed-meal name to edit. */}
         <View className="px-4 pt-4">
           <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
-            What you ate
+            Recognised as
           </Text>
-          <TextInput
-            value={dishName}
-            onChangeText={setDishName}
-            placeholder="Meal name"
-            placeholderTextColor="#52525b"
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-base"
-          />
+          <View className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3">
+            <Text className="text-white text-base" numberOfLines={2}>
+              {dishName || 'Unknown dish'}
+            </Text>
+            <Text className="text-zinc-600 text-[11px] mt-1.5">
+              Each ingredient below is logged as its own entry — edit portions or
+              swipe to remove.
+            </Text>
+          </View>
 
           {/* Confidence chip + USDA chip */}
           <View className="flex-row items-center mt-3 gap-2 flex-wrap">

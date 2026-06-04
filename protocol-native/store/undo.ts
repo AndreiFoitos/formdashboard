@@ -4,7 +4,7 @@ interface UndoEntry {
   key: number
   label: string
   onUndo: () => void | Promise<void>
-  durationMs: number
+  durationMs?: number
 }
 
 interface UndoState {

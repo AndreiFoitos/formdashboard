@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { ChevronLeft } from 'lucide-react-native'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { extractErrorMessage } from '../lib/apiError'
@@ -683,12 +684,29 @@ export default function OnboardingScreen() {
       setLoading(true)
       setError(null)
       try {
+        // MEDIUM-21: write sensible defaults rather than null on Skip. A null
+        // calorie target leaves the Form Score "_score_calories" branch
+        // permanently at the neutral 50 until the user finds Settings and
+        // fixes it manually — they're unlikely to.
+        const weight = form.weight_kg ? parseFloat(form.weight_kg) : null
+        const calorieDefault =
+          form.sex === 'female' ? 2000 : 2500
         await api.put('/users/me/onboarding', {
           step: 'targets',
           data: {
-            protein_target_g: form.protein_target_g ? parseFloat(form.protein_target_g) : null,
-            water_target_ml: form.water_target_ml ? parseInt(form.water_target_ml) : null,
-            calorie_target: form.calorie_target ? parseInt(form.calorie_target) : null,
+            protein_target_g: form.protein_target_g
+              ? parseFloat(form.protein_target_g)
+              : weight
+                ? Math.round(weight * 2)
+                : 140,
+            water_target_ml: form.water_target_ml
+              ? parseInt(form.water_target_ml)
+              : weight
+                ? Math.round(weight * 35)
+                : 2500,
+            calorie_target: form.calorie_target
+              ? parseInt(form.calorie_target)
+              : calorieDefault,
             sleep_hour: form.sleep_hour,
           },
         })
@@ -729,8 +747,9 @@ export default function OnboardingScreen() {
           {/* Top bar */}
           <View className="flex-row items-center justify-between pt-4 pb-6">
             {step > 0 ? (
-              <TouchableOpacity onPress={() => setStep((s) => s - 1)}>
-                <Text className="text-zinc-400 text-sm">← Back</Text>
+              <TouchableOpacity onPress={() => setStep((s) => s - 1)} hitSlop={12} className="-ml-1 px-2 py-2 flex-row items-center" style={{ gap: 2 }}>
+                <ChevronLeft size={22} color="#d4d4d8" strokeWidth={2.25} />
+                <Text className="text-zinc-300 text-base font-medium">Back</Text>
               </TouchableOpacity>
             ) : (
               <View />

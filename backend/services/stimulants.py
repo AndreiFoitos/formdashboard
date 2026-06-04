@@ -2,6 +2,8 @@ import math
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+
+from core.timezone import resolve_tz, user_now
 from models.stimulant_log import StimulantLog
 
 # Per-serving nutrition for each substance. Calorie / macro values are USDA
@@ -80,8 +82,13 @@ def get_sleep_impact_label(mg_at_bed: float) -> str:
     return "High impact — cut caffeine earlier tomorrow"
 
 
-async def get_today_stimulant_logs(user_id, db: AsyncSession) -> list[StimulantLog]:
-    now = datetime.now(timezone.utc)
+async def get_today_stimulant_logs(
+    user_id, db: AsyncSession, *, tz_name: str | None = None,
+) -> list[StimulantLog]:
+    # Boundary is local midnight in the user's timezone, expressed as an aware
+    # datetime. StimulantLog.logged_at is server-UTC (DB stores timestamptz)
+    # but compares correctly against tz-aware boundaries on either side.
+    now = user_now(tz_name)
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     result = await db.execute(
         select(StimulantLog)
@@ -91,11 +98,14 @@ async def get_today_stimulant_logs(user_id, db: AsyncSession) -> list[StimulantL
     return result.scalars().all()
 
 
-async def get_caffeine_curve(user_id, db: AsyncSession, sleep_hour: int = 23) -> dict:
-    logs = await get_today_stimulant_logs(user_id, db)
-    now = datetime.now(timezone.utc)
+async def get_caffeine_curve(
+    user_id, db: AsyncSession, sleep_hour: int = 23, *, tz_name: str | None = None,
+) -> dict:
+    logs = await get_today_stimulant_logs(user_id, db, tz_name=tz_name)
+    now = user_now(tz_name)
 
-    # Curve runs 6 AM to 1 AM (next day) in 30-min steps = 38 points
+    # Curve runs 6 AM to 1 AM (next day) in 30-min steps = 38 points, all
+    # anchored to the user's local clock so the x-axis aligns with their day.
     start = now.replace(hour=6, minute=0, second=0, microsecond=0)
     curve = []
 

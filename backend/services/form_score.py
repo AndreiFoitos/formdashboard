@@ -22,6 +22,7 @@ Targets / decay constants are grounded in published guidance:
                                 framing from HRV research to training volume
 """
 
+import math
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select, func as sqlfunc
@@ -110,8 +111,22 @@ def _score_training(
 
 
 def _score_caffeine(caffeine_at_bed_mg: float) -> int:
-    """Linear penalty for residual caffeine at bedtime. Hits 0 at ~250 mg."""
-    return max(0, 100 - round(caffeine_at_bed_mg / 2.5))
+    """Sigmoid penalty for residual caffeine at bedtime.
+
+    The previous linear `100 − mg/2.5` was too aggressive on the low end: ISSN
+    position stand + Drake et al. 2013 both put the dose-response threshold for
+    measurable sleep disruption around 100 mg taken within 6h of sleep. Below
+    that, sleep impact is small enough that we shouldn't punish it like a
+    near-bedtime energy drink.
+
+    Curve: 100 / (1 + exp((mg − 150) / 30)). Anchors:
+       0 mg → ~99, 50 mg → ~97, 100 mg → ~84, 150 mg → 50, 200 mg → ~16,
+       250 mg → ~4, 300 mg → ~1. Roughly flat under 75 mg, steep through 150,
+       near-zero past 250.
+    """
+    # Clamp the exponent to keep the math safe on absurd inputs.
+    z = max(-20.0, min(20.0, (caffeine_at_bed_mg - 150.0) / 30.0))
+    return round(100.0 / (1.0 + math.exp(z)))
 
 
 def _score_streak(current_streak: int) -> int:
@@ -178,8 +193,13 @@ async def days_since_last_training(user_id, current_date: date, db: AsyncSession
     return (current_date - last).days
 
 
-async def estimate_caffeine_at_sleep(user_id, target_date: date, sleep_hour: int, db: AsyncSession) -> float:
-    day_start = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+async def estimate_caffeine_at_sleep(
+    user_id, target_date: date, sleep_hour: int, db: AsyncSession,
+    *, tz_name: str | None = None,
+) -> float:
+    from core.timezone import resolve_tz
+    tz = resolve_tz(tz_name)
+    day_start = datetime.combine(target_date, datetime.min.time()).replace(tzinfo=tz)
     day_end = day_start + timedelta(days=1)
     result = await db.execute(
         select(StimulantLog).where(
@@ -210,7 +230,9 @@ async def compute_form_score(day: DailySummary, user, db: AsyncSession) -> tuple
     """
     # AsyncSession isn't safe for concurrent use — keep these sequential.
     days_since = await days_since_last_training(user.id, day.date, db)
-    caffeine_at_bed = await estimate_caffeine_at_sleep(user.id, day.date, user.sleep_hour, db)
+    caffeine_at_bed = await estimate_caffeine_at_sleep(
+        user.id, day.date, user.sleep_hour, db, tz_name=user.timezone,
+    )
     today_volume, baseline_volume = await _volume_today_and_baseline_kg(
         user.id, day.date, user.weight_kg, db,
     )

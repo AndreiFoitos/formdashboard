@@ -7,6 +7,22 @@ import uuid
 # Reusable constraint so the regex stays in one place.
 USERNAME_PATTERN = r"^[a-z0-9_]{3,24}$"
 
+# Handles users can't claim — impersonation surfaces and reserved brand names.
+# Checked at /users/username-available, the onboarding "username" step write,
+# and in auth._generate_username so OAuth seeding can't accidentally pick one.
+RESERVED_USERNAMES = frozenset({
+    # Operational / admin
+    "admin", "administrator", "root", "system", "bot", "moderator", "mod",
+    "support", "help", "sales", "info", "contact", "abuse", "security",
+    "staff", "owner", "operator",
+    # Brand / official
+    "protocol", "protocol_official", "protocol_team", "protocol_support",
+    "official", "team", "founder", "ceo", "cto", "marketing", "press",
+    # Reserved / placeholder
+    "anonymous", "deleted", "removed", "null", "undefined", "none",
+    "user", "test", "demo", "guest",
+})
+
 
 class UserOut(BaseModel):
     id: uuid.UUID

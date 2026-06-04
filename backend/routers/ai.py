@@ -17,6 +17,11 @@ from services.ai_features import generate_daily_digest, answer_question
 router = APIRouter(prefix="/ai", tags=["ai"])
 
 ASK_DAILY_LIMIT = 20
+# Digest is cached per-user per-day, so the first call of the day costs a full
+# Claude turn and subsequent calls are free. 5/day covers cache-busting edge
+# cases (timezone hop on travel, redis flush in dev) without letting a hostile
+# client loop the endpoint to inflate cost.
+DIGEST_DAILY_LIMIT = 5
 
 
 class AskTurn(BaseModel):
@@ -35,6 +40,13 @@ async def get_digest(
     db: AsyncSession = Depends(get_db),
     redis: aioredis.Redis = Depends(get_redis),
 ):
+    # Per-user daily cap on digest fetches. HIGH-27.
+    rate_key = f"digest_rate:{current_user.id}:{date.today().isoformat()}"
+    count = await redis.incr(rate_key)
+    await redis.expire(rate_key, 86400)
+    if count > DIGEST_DAILY_LIMIT:
+        raise HTTPException(429, f"Daily digest limit reached ({DIGEST_DAILY_LIMIT}/day)")
+
     try:
         digest = await generate_daily_digest(current_user, db, redis)
     except AINotConfigured:

@@ -18,6 +18,7 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import settings
 from models.push_token import PushToken
 
 logger = logging.getLogger(__name__)
@@ -29,17 +30,26 @@ BATCH_SIZE = 100
 
 
 async def _send_batch(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Returns Expo's per-message ticket list. Raises on transport errors."""
+    """Returns Expo's per-message ticket list. Raises on transport errors.
+
+    HIGH-28: when EXPO_ACCESS_TOKEN is configured, send it as a Bearer header.
+    Once "Enforce access token" is enabled in the Expo project dashboard,
+    unauthenticated callers can't spoof pushes to your users — the project ID
+    alone (visible in any IPA) is no longer enough to mint notifications.
+    """
     if not messages:
         return []
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    if settings.EXPO_ACCESS_TOKEN:
+        headers["Authorization"] = f"Bearer {settings.EXPO_ACCESS_TOKEN}"
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.post(
             EXPO_PUSH_URL,
             json=messages,
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
         )
         resp.raise_for_status()
         payload = resp.json()

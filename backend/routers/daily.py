@@ -20,8 +20,8 @@ def _summary_dict(s: DailySummary, score_breakdown: dict | None = None) -> dict:
         "date": s.date.isoformat(),
         "form_score": s.form_score,
         "score_breakdown": score_breakdown,
-        "sleep_score": s.sleep_score,
-        "hrv_score": s.hrv_score,
+        # sleep_score / hrv_score dropped (HIGH-16 Path A). Columns remain in
+        # the DB but are no longer surfaced or populated.
         "readiness_score": s.readiness_score,
         "steps": s.steps,
         "active_calories": s.active_calories,
@@ -45,7 +45,7 @@ async def get_today_summary(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    summary = await refresh_daily_summary(current_user.id, db)
+    summary = await refresh_daily_summary(current_user.id, db, tz_name=current_user.timezone)
 
     score_breakdown = None
     if current_user.form_score_unlocked:
@@ -91,5 +91,5 @@ async def get_week(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    summaries = await get_week_summaries(current_user.id, db)
+    summaries = await get_week_summaries(current_user.id, db, tz_name=current_user.timezone)
     return [_summary_dict(s) for s in summaries]

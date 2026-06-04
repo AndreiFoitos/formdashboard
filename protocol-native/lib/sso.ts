@@ -9,6 +9,7 @@ import {
 
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
+import { usePendingInviteStore } from '../store/pendingInvite'
 import { setToken } from './storage'
 
 // ── Google Sign-In configuration ─────────────────────────────────────────────
@@ -43,6 +44,25 @@ async function completeSignIn(tokens: { access_token: string; refresh_token: str
   })
 
   useAuthStore.getState().setAuth(user, tokens.access_token)
+
+  // If there's a pending invite from a deep-link tap, redeem it now.
+  // Best-effort — silent failure routes through the normal path so a bad token
+  // never blocks a real login. Skips onboarded users to Friends so they land
+  // on the new pending request; new accounts still go to onboarding first.
+  const pendingToken = usePendingInviteStore.getState().token
+  if (pendingToken) {
+    try {
+      await api.post(`/friends/invites/${pendingToken}/redeem`, undefined, {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      })
+    } catch {
+      // Revoked / expired between preview and login, or transient network. Move on.
+    }
+    usePendingInviteStore.getState().clear()
+    router.replace(user.onboarding_complete ? '/friends' : '/onboarding')
+    return
+  }
+
   router.replace(user.onboarding_complete ? '/' : '/onboarding')
 }
 

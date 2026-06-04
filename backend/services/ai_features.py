@@ -58,12 +58,19 @@ def _avg(values: list) -> float | None:
 
 
 def _week_averages(rows: list[DailySummary]) -> dict:
+    # HIGH-16: sleep_score / hrv_score columns removed from the prompt (wearables
+    # gone, columns return null).
+    # HIGH-30 / MEDIUM-33: exclude is_estimated baseline rows. Those rows have
+    # water and protein pinned EXACTLY to the user's targets, which would make
+    # the rolling average look like perfect adherence for any week containing
+    # any seed days. Past form_score is also unbackfilled (only today's is
+    # computed on read), so excluding estimated rows naturally also skips the
+    # rows whose form_score is null-by-design.
+    real = [r for r in rows if not r.is_estimated]
     return {
-        "sleep_score": _avg([r.sleep_score for r in rows]),
-        "hrv_score": _avg([r.hrv_score for r in rows]),
-        "water_ml": _avg([r.water_ml for r in rows]),
-        "protein_g": _avg([r.protein_g for r in rows]),
-        "form_score": _avg([r.form_score for r in rows]),
+        "water_ml": _avg([r.water_ml for r in real]),
+        "protein_g": _avg([r.protein_g for r in real]),
+        "form_score": _avg([r.form_score for r in real]),
     }
 
 
@@ -94,21 +101,23 @@ async def generate_daily_digest(user, db: AsyncSession, redis) -> str:
     yesterday = date.today() - timedelta(days=1)
     summary = await _get_summary(user.id, yesterday, db)
     has_data = summary and any([
-        summary.sleep_score, summary.hrv_score, summary.water_ml,
-        summary.protein_g, summary.trained,
+        summary.water_ml, summary.protein_g, summary.trained, summary.caffeine_mg,
     ])
     if not has_data:
         return "No data from yesterday yet — log a full day and your first briefing lands tomorrow morning."
 
     week = _week_averages(await _last_n_days(user.id, 7, db))
+    # Sleep / HRV intentionally omitted (Path A in PRE_SUBMISSION_TODO HIGH-16):
+    # the wearable integrations were removed, so feeding nulls into the prompt
+    # produces hallucinated values. Re-introduce only if Form Score gets a
+    # manual-sleep tile back (Path B).
     msg = f"""Yesterday ({yesterday.isoformat()}):
 - Form Score: {summary.form_score}
-- Sleep score: {summary.sleep_score}, HRV: {summary.hrv_score} ms
 - Water: {summary.water_ml}ml of {user.water_target_ml}ml target
 - Protein: {summary.protein_g}g of {user.protein_target_g}g target
 - Caffeine: {summary.caffeine_mg}mg
 - Trained: {('Yes — ' + summary.training_type) if summary.trained else 'No'}
-7-day averages: form {week['form_score']}, sleep {week['sleep_score']}, HRV {week['hrv_score']}, water {week['water_ml']}ml, protein {week['protein_g']}g
+7-day averages: form {week['form_score']}, water {week['water_ml']}ml, protein {week['protein_g']}g
 Bodyweight: {user.weight_kg}kg, bedtime hour: {user.sleep_hour}:00"""
 
     digest = await call_claude(DIGEST_SYSTEM, [{"role": "user", "content": msg}], max_tokens=120)
@@ -121,17 +130,21 @@ Bodyweight: {user.weight_kg}kg, bedtime hour: {user.sleep_hour}:00"""
 # ── Ask your data ─────────────────────────────────────────────────────────────
 
 def _build_context(rows: list[DailySummary], user) -> str:
+    # Sleep / HRV columns are not surfaced (HIGH-16 Path A) — see _week_averages
+    # for rationale. Estimated rows are excluded entirely (MEDIUM-33) so the AI
+    # only reasons over real logs.
+    real_rows = [r for r in rows if not r.is_estimated]
     lines = [
         f"User: bodyweight={user.weight_kg}kg, "
         f"targets: protein={user.protein_target_g}g water={user.water_target_ml}ml, bedtime={user.sleep_hour}:00",
         "",
-        "Last 30 days (date | form | sleep | hrv | water_ml | protein_g | caffeine_mg | trained | estimated):",
+        "Last 30 days (date | form | water_ml | protein_g | caffeine_mg | trained):",
     ]
-    for r in rows:
+    for r in real_rows:
         lines.append(
-            f"{r.date} | {r.form_score} | {r.sleep_score} | {r.hrv_score} | {r.water_ml} | "
+            f"{r.date} | {r.form_score} | {r.water_ml} | "
             f"{round(r.protein_g) if r.protein_g else None} | {r.caffeine_mg} | "
-            f"{'Y' if r.trained else 'N'} | {'est' if r.is_estimated else ''}"
+            f"{'Y' if r.trained else 'N'}"
         )
     return "\n".join(lines)
 

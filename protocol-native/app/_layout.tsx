@@ -4,6 +4,7 @@ import { Stack, router } from 'expo-router'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import * as Sentry from '@sentry/react-native'
 import { useAuthStore } from '../store/auth'
 import { getToken } from '../lib/storage'
 import { api } from '../api/client'
@@ -12,6 +13,24 @@ import {
   handleQuickLogResponse,
   setupNotificationHandlers,
 } from '../lib/notifications'
+
+// ── Sentry — fire-and-forget crash + JS error reporting ──────────────────────
+// DSN comes from EXPO_PUBLIC_SENTRY_DSN set per-profile in eas.json. When the
+// var is empty/unset (dev, or pre-Sentry-signup), init becomes a no-op so the
+// app continues to work. Once you (the developer) provide a DSN via Railway
+// for backend AND eas.json for the RN build, this starts shipping breadcrumbs.
+const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN
+if (sentryDsn) {
+  Sentry.init({
+    dsn: sentryDsn,
+    // Sample 10% of sessions in prod — enough signal without burning your
+    // free-tier quota. Bump later if you upgrade plans.
+    tracesSampleRate: 0.1,
+    // Don't auto-instrument the bundled fetch — Axios already wraps our
+    // backend calls and double-recording duplicates breadcrumbs.
+    enableNativeFramesTracking: false,
+  })
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -115,7 +134,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -141,9 +160,19 @@ export default function RootLayout() {
               {/* Photo-based calorie estimation flow */}
               <Stack.Screen name="nutrition-snap" options={{ animation: 'slide_from_bottom' }} />
               <Stack.Screen name="nutrition-confirm" />
+              {/* AI body-comp estimate (image is sent to Claude and dropped — never persisted). */}
+              <Stack.Screen name="body-comp-snap" options={{ animation: 'slide_from_bottom' }} />
 
               {/* Friends + leaderboard + weekly recap */}
               <Stack.Screen name="friends" />
+              {/* Read-only training programs catalogue */}
+              <Stack.Screen name="programs" />
+              {/* Deep-link target for protocol://invite/<token> */}
+              <Stack.Screen name="invite/[token]" />
+              {/* Methodology — "How is this calculated?" surface */}
+              <Stack.Screen name="methodology/index" />
+              <Stack.Screen name="methodology/[topic]" />
+              <Stack.Screen name="methodology/sources" />
               {/* Cinematic full-screen Weekly Race recap (Sun-Mon hero card → modal) */}
               <Stack.Screen
                 name="weekly-recap"
@@ -160,3 +189,8 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   )
 }
+
+// Only wrap when init actually ran. Calling Sentry.wrap before Sentry.init
+// emits a benign-but-noisy "App Start Span could not be finished" warning;
+// gating here keeps Expo Go / DSN-less dev runs clean.
+export default sentryDsn ? Sentry.wrap(RootLayout) : RootLayout

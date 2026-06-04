@@ -7,16 +7,24 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
 } from 'react-native'
 import { useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { ChevronLeft } from 'lucide-react-native'
+import Constants from 'expo-constants'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { removeToken } from '../lib/storage'
 import { hapticSuccess } from '../lib/haptics'
+import {
+  PRIVACY_POLICY_URL,
+  TERMS_OF_SERVICE_URL,
+  SUPPORT_EMAIL,
+} from '../lib/legal'
 import {
   disableNudges,
   enablePredictiveNudges,
@@ -350,6 +358,165 @@ function NudgesSection() {
   )
 }
 
+// ─── About / Legal ─────────────────────────────────────────────────────────────
+
+function LegalRow({
+  label,
+  onPress,
+  showBorder = true,
+}: {
+  label: string
+  onPress: () => void
+  showBorder?: boolean
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      className={`px-4 py-4 ${showBorder ? 'border-b border-zinc-800' : ''}`}
+    >
+      <View className="flex-row items-center justify-between">
+        <Text className="text-white text-sm">{label}</Text>
+        <Text className="text-zinc-500 text-base">›</Text>
+      </View>
+    </TouchableOpacity>
+  )
+}
+
+function AboutSection() {
+  // expoConfig is the source of truth at runtime — version and buildNumber
+  // come from app.json (production) or eas-update overrides (in OTA-pushed
+  // builds). Constants.nativeBuildVersion is the iOS CFBundleVersion.
+  const version = Constants.expoConfig?.version ?? '—'
+  const build =
+    Constants.expoConfig?.ios?.buildNumber ?? Constants.nativeBuildVersion ?? '—'
+
+  return (
+    <Section title="About">
+      <LegalRow
+        label="Privacy Policy"
+        onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+      />
+      <LegalRow
+        label="Terms of Service"
+        onPress={() => Linking.openURL(TERMS_OF_SERVICE_URL)}
+      />
+      <LegalRow
+        label="Contact support"
+        onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+        showBorder={false}
+      />
+      <View className="px-4 py-3 border-t border-zinc-800">
+        <Text className="text-zinc-500 text-xs">
+          Version {version} (build {build})
+        </Text>
+      </View>
+    </Section>
+  )
+}
+
+// ─── Delete account (Apple Guideline 5.1.1(v)) ─────────────────────────────────
+
+function DeleteAccountSection() {
+  const { user, clearAuth } = useAuthStore()
+  const [step, setStep] = useState<'idle' | 'confirming' | 'submitting'>('idle')
+  const [typed, setTyped] = useState('')
+
+  const email = user?.email ?? ''
+  // Compare on trimmed-lowercase since iOS keyboards capitalize the first letter
+  // and add a trailing space on autocomplete.
+  const matches = typed.trim().toLowerCase() === email.toLowerCase() && email.length > 0
+
+  async function submit() {
+    if (!matches) return
+    setStep('submitting')
+    try {
+      await api.delete('/users/me', {
+        data: { email_confirmation: typed.trim() },
+      })
+      await removeToken('refresh_token')
+      clearAuth()
+      router.replace('/login')
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail
+      Alert.alert(
+        'Delete failed',
+        typeof detail === 'string' ? detail : 'Could not delete your account. Try again or contact support.',
+      )
+      setStep('confirming')
+    }
+  }
+
+  if (step === 'idle') {
+    return (
+      <TouchableOpacity
+        onPress={() =>
+          Alert.alert(
+            'Delete your account?',
+            'This permanently deletes your account, all logs, friendships, photos, and AI history. You cannot undo this.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Continue',
+                style: 'destructive',
+                onPress: () => setStep('confirming'),
+              },
+            ],
+          )
+        }
+        className="px-4 py-4"
+      >
+        <Text className="text-red-400 text-sm font-medium">Delete account</Text>
+      </TouchableOpacity>
+    )
+  }
+
+  return (
+    <View className="px-4 py-4">
+      <Text className="text-red-300 text-sm font-semibold mb-1">
+        Type your email to confirm
+      </Text>
+      <Text className="text-zinc-500 text-xs mb-3">
+        Account: <Text className="text-zinc-300">{email || '—'}</Text>
+      </Text>
+      <TextInput
+        value={typed}
+        onChangeText={setTyped}
+        placeholder="Type your email"
+        placeholderTextColor="#52525b"
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        editable={step !== 'submitting'}
+        className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-white text-sm mb-3"
+      />
+      <View className="flex-row" style={{ gap: 8 }}>
+        <TouchableOpacity
+          onPress={() => {
+            setStep('idle')
+            setTyped('')
+          }}
+          disabled={step === 'submitting'}
+          className="flex-1 bg-zinc-800 rounded-xl py-3 items-center"
+        >
+          <Text className="text-white text-sm font-medium">Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={submit}
+          disabled={!matches || step === 'submitting'}
+          className="flex-1 rounded-xl py-3 items-center"
+          style={{ backgroundColor: matches && step !== 'submitting' ? '#dc2626' : '#3f3f46' }}
+        >
+          {step === 'submitting' ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text className="text-white text-sm font-semibold">Delete forever</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  )
+}
+
 // ─── Settings Screen ─────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
@@ -374,10 +541,11 @@ export default function SettingsScreen() {
     <SafeAreaView className="flex-1 bg-black" edges={['top']}>
       {/* Header */}
       <View className="flex-row items-center px-4 pt-2 pb-4">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={8} className="pr-3 py-1">
-          <Text className="text-zinc-400 text-sm">← Back</Text>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center" style={{ gap: 2 }}>
+          <ChevronLeft size={22} color="#d4d4d8" strokeWidth={2.25} />
+          <Text className="text-zinc-300 text-base font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-white text-lg font-bold">Settings</Text>
+        <Text className="text-white text-xl font-bold">Settings</Text>
       </View>
 
       <KeyboardAvoidingView
@@ -393,15 +561,35 @@ export default function SettingsScreen() {
 
         <NudgesSection />
 
+        <Section title="How it works">
+          <TouchableOpacity
+            onPress={() => router.push('/methodology')}
+            className="px-4 py-4"
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1 pr-3">
+                <Text className="text-white text-sm font-medium">How is this calculated?</Text>
+                <Text className="text-zinc-500 text-xs mt-0.5">
+                  Form Score, DOTS, caffeine curve, sus threshold, PR detection — formulas and sources.
+                </Text>
+              </View>
+              <Text className="text-zinc-500 text-base">›</Text>
+            </View>
+          </TouchableOpacity>
+        </Section>
+
         <Section title="Account">
           <View className="px-4 py-4 border-b border-zinc-800">
             <Text className="text-zinc-500 text-xs">Signed in as</Text>
             <Text className="text-white text-sm mt-0.5">{user?.email ?? '—'}</Text>
           </View>
-          <TouchableOpacity onPress={signOut} className="px-4 py-4">
+          <TouchableOpacity onPress={signOut} className="px-4 py-4 border-b border-zinc-800">
             <Text className="text-red-400 text-sm font-medium">Sign out</Text>
           </TouchableOpacity>
+          <DeleteAccountSection />
         </Section>
+
+        <AboutSection />
       </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

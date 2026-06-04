@@ -6,7 +6,11 @@ from jose import jwt, JWTError
 from core.config import settings
 
 
-BCRYPT_ROUNDS = 10
+# 2025/2026 production standard. Existing hashes from rounds=10 continue to
+# verify because bcrypt embeds the cost factor in the hash; only new hashes
+# get the higher work factor. If you want to upgrade existing users, do a
+# rehash-on-successful-login in verify_password's caller.
+BCRYPT_ROUNDS = 12
 
 
 def hash_password(password: str) -> str:

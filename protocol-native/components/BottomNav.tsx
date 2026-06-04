@@ -19,9 +19,9 @@ const LABELS: Record<string, string> = {
   ask: 'Ask',
 }
 
-const INDICATOR_WIDTH = 28
+const INDICATOR_WIDTH = 32
 const ACTIVE = '#ffffff'
-const INACTIVE = '#52525b'
+const INACTIVE = '#71717a'
 
 /**
  * Bottom tab bar rendered by the material-top-tabs navigator. Pages swipe
@@ -57,8 +57,8 @@ export function BottomNav({ state, navigation }: MaterialTopTabBarProps) {
   return (
     <View
       onLayout={onLayout}
-      style={{ paddingBottom: Math.max(insets.bottom, 8) }}
-      className="bg-zinc-950 border-t border-zinc-900 flex-row pt-2.5"
+      style={{ paddingBottom: Math.max(insets.bottom, 10) }}
+      className="bg-zinc-950 border-t border-zinc-900 flex-row pt-3"
     >
       {/* Sliding active indicator */}
       {width > 0 && (
@@ -101,10 +101,10 @@ export function BottomNav({ state, navigation }: MaterialTopTabBarProps) {
             key={route.key}
             onPress={onPress}
             className="flex-1 items-center justify-center"
-            style={{ minHeight: 48, gap: 4 }}
+            style={{ minHeight: 56, gap: 5 }}
           >
-            {Icon ? <Icon color={color} size={23} /> : null}
-            <Text style={{ color, fontSize: 11, fontWeight: focused ? '600' : '400' }}>
+            {Icon ? <Icon color={color} size={26} /> : null}
+            <Text style={{ color, fontSize: 12, fontWeight: focused ? '600' : '500' }}>
               {label}
             </Text>
           </Pressable>

@@ -73,8 +73,8 @@ export default function AskScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View className="px-4 pt-6 pb-3">
-          <Text className="text-zinc-500 text-xs uppercase tracking-widest">Ask</Text>
-          <Text className="text-white text-2xl font-bold mt-1">Your Data</Text>
+          <Text className="text-zinc-400 text-xs uppercase tracking-widest font-semibold">Ask</Text>
+          <Text className="text-white text-3xl font-bold mt-1.5">Your Data</Text>
         </View>
 
         <ScrollView

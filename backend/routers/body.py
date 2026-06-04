@@ -4,15 +4,28 @@ import uuid
 from datetime import date, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select
 
 from core.database import get_db
 from middleware.auth import get_current_user
 from models.user import User
 from models.body_metric import BodyMetric
+from services.ai_client import AINotConfigured
+from services.bf_estimate import estimate_bf_from_photo
+
+
+MAX_PHOTO_BYTES = 5 * 1024 * 1024  # 5 MB; matches the nutrition photo cap
+ALLOWED_PHOTO_MIME = {
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+    "image/heic",
+    "image/heif",
+}
 
 router = APIRouter(prefix="/body", tags=["body"])
 
@@ -148,6 +161,37 @@ async def get_history(
         "entries": entries,
         "stats": stats,
     }
+
+
+# ─── BF% estimate from photo ─────────────────────────────────────────────────
+#
+# Privacy stance: the captured image is forwarded to Claude for the estimate
+# and dropped from the request scope on return. We never persist user photos
+# server-side — progress photos were removed in 2026 for exactly this reason.
+
+
+@router.post("/estimate-bf")
+async def estimate_bf(
+    image: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Run Claude vision on a body photo and return an estimated BF% band.
+    The image is NOT persisted — the user gets the estimate back and can
+    decide separately whether to log a body_metric row from the midpoint."""
+    if image.content_type not in ALLOWED_PHOTO_MIME:
+        raise HTTPException(415, f"Unsupported image type: {image.content_type}")
+    body = await image.read()
+    if not body:
+        raise HTTPException(400, "Empty image upload")
+    if len(body) > MAX_PHOTO_BYTES:
+        raise HTTPException(413, "Image too large (max 5MB)")
+
+    try:
+        return await estimate_bf_from_photo(body)
+    except AINotConfigured as e:
+        raise HTTPException(503, str(e))
+    except ValueError as e:
+        raise HTTPException(502, str(e))
 
 
 @router.delete("/{metric_id}", status_code=204)

@@ -156,7 +156,7 @@ async def quick_log(
             raise HTTPException(400, "amount_ml required for hydration")
         entry = HydrationLog(user_id=current_user.id, amount_ml=body.amount_ml, source="water")
         db.add(entry)
-        await increment_daily_field(current_user.id, db, "water_ml", body.amount_ml, mode="add")
+        await increment_daily_field(current_user.id, db, "water_ml", body.amount_ml, mode="add", tz_name=current_user.timezone)
         await db.commit()
         await db.refresh(entry)
         return {"id": str(entry.id), "type": "hydration", "amount_ml": entry.amount_ml}
@@ -175,7 +175,7 @@ async def quick_log(
         half_life_hours=half_life,
     )
     db.add(entry)
-    await increment_daily_field(current_user.id, db, "caffeine_mg", caffeine, mode="add")
+    await increment_daily_field(current_user.id, db, "caffeine_mg", caffeine, mode="add", tz_name=current_user.timezone)
     await db.commit()
     await db.refresh(entry)
     return {

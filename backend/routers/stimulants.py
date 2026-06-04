@@ -28,13 +28,15 @@ class LogStimulantRequest(BaseModel):
     note: str | None = None
 
 
-async def _apply_nutrition_delta(user_id, db: AsyncSession, entry: StimulantLog, sign: int) -> None:
+async def _apply_nutrition_delta(
+    user_id, db: AsyncSession, entry: StimulantLog, sign: int, *, tz_name: str | None = None,
+) -> None:
     """Increment (sign=+1) or decrement (sign=-1) today's summary by an entry's macros."""
-    await increment_daily_field(user_id, db, "caffeine_mg", sign * entry.caffeine_mg, mode="add")
-    await increment_daily_field(user_id, db, "calories_eaten", sign * entry.calories, mode="add")
-    await increment_daily_field(user_id, db, "protein_g", sign * entry.protein_g, mode="add")
-    await increment_daily_field(user_id, db, "carbs_g", sign * entry.carbs_g, mode="add")
-    await increment_daily_field(user_id, db, "fat_g", sign * entry.fat_g, mode="add")
+    await increment_daily_field(user_id, db, "caffeine_mg", sign * entry.caffeine_mg, mode="add", tz_name=tz_name)
+    await increment_daily_field(user_id, db, "calories_eaten", sign * entry.calories, mode="add", tz_name=tz_name)
+    await increment_daily_field(user_id, db, "protein_g", sign * entry.protein_g, mode="add", tz_name=tz_name)
+    await increment_daily_field(user_id, db, "carbs_g", sign * entry.carbs_g, mode="add", tz_name=tz_name)
+    await increment_daily_field(user_id, db, "fat_g", sign * entry.fat_g, mode="add", tz_name=tz_name)
 
 
 @router.post("/log", status_code=201)
@@ -73,7 +75,7 @@ async def log_stimulant(
     db.add(entry)
     await db.flush()
 
-    await _apply_nutrition_delta(current_user.id, db, entry, sign=1)
+    await _apply_nutrition_delta(current_user.id, db, entry, sign=1, tz_name=current_user.timezone)
 
     await db.commit()
     await db.refresh(entry)
@@ -95,9 +97,12 @@ async def get_today_stimulants(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
-    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    from datetime import datetime
+    from core.timezone import resolve_tz, user_today
+    today = user_today(current_user.timezone)
+    day_start = datetime.combine(today, datetime.min.time()).replace(
+        tzinfo=resolve_tz(current_user.timezone)
+    )
     result = await db.execute(
         select(StimulantLog)
         .where(StimulantLog.user_id == current_user.id, StimulantLog.logged_at >= day_start)
@@ -134,7 +139,7 @@ async def delete_stimulant(
         raise HTTPException(404, "Log entry not found")
 
     # Decrement summary before deleting so the totals stay consistent.
-    await _apply_nutrition_delta(current_user.id, db, entry, sign=-1)
+    await _apply_nutrition_delta(current_user.id, db, entry, sign=-1, tz_name=current_user.timezone)
 
     await db.delete(entry)
     await db.commit()
@@ -145,7 +150,9 @@ async def get_curve(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await get_caffeine_curve(current_user.id, db)
+    return await get_caffeine_curve(
+        current_user.id, db, current_user.sleep_hour, tz_name=current_user.timezone,
+    )
 
 
 @router.get("/substances")

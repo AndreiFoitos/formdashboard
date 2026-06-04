@@ -9,6 +9,8 @@ import {
   Modal,
   Dimensions,
 } from 'react-native'
+import { router } from 'expo-router'
+import { Camera, X } from 'lucide-react-native'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -239,36 +241,36 @@ function TrendCard({
 
   return (
     <View className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+      <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-2 font-semibold">
         {label}
       </Text>
-      <Text className="text-white text-2xl font-bold mb-3">
+      <Text className="text-white text-3xl font-bold mb-3">
         {value != null ? (
-          <CountUp value={value} decimals={1} className="text-white text-2xl font-bold" />
+          <CountUp value={value} decimals={1} className="text-white text-3xl font-bold" />
         ) : (
           '—'
         )}
-        <Text className="text-zinc-500 text-sm font-normal"> {unit}</Text>
+        <Text className="text-zinc-500 text-base font-normal"> {unit}</Text>
       </Text>
       <View className="flex-row gap-4">
         {t7 && (
           <View>
-            <Text className="text-zinc-600 text-xs mb-0.5">7d</Text>
-            <Text className="text-xs font-semibold" style={{ color: t7.color }}>
+            <Text className="text-zinc-500 text-xs mb-0.5 font-medium">7d</Text>
+            <Text className="text-sm font-semibold" style={{ color: t7.color }}>
               {t7.arrow} {t7.label}
             </Text>
           </View>
         )}
         {t30 && (
           <View>
-            <Text className="text-zinc-600 text-xs mb-0.5">30d</Text>
-            <Text className="text-xs font-semibold" style={{ color: t30.color }}>
+            <Text className="text-zinc-500 text-xs mb-0.5 font-medium">30d</Text>
+            <Text className="text-sm font-semibold" style={{ color: t30.color }}>
               {t30.arrow} {t30.label}
             </Text>
           </View>
         )}
         {!t7 && !t30 && (
-          <Text className="text-zinc-600 text-xs">Log more to see trends</Text>
+          <Text className="text-zinc-500 text-xs">Log more to see trends</Text>
         )}
       </View>
     </View>
@@ -327,8 +329,12 @@ function LogModal({
 
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
           <Text className="text-white font-semibold">Log Body Metrics</Text>
-          <TouchableOpacity onPress={onClose}>
-            <Text className="text-zinc-400 text-sm">✕</Text>
+          <TouchableOpacity
+            onPress={onClose}
+            hitSlop={12}
+            className="w-10 h-10 -mr-1 rounded-full bg-zinc-900 border border-zinc-800 items-center justify-center"
+          >
+            <X size={20} color="#e4e4e7" strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
 
@@ -470,16 +476,30 @@ export default function BodyScreen() {
         {/* Header */}
         <View className="pt-6 pb-5 flex-row items-end justify-between">
           <View>
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest">{today}</Text>
-            <Text className="text-white text-2xl font-bold mt-1">Body</Text>
+            <Text className="text-zinc-400 text-xs uppercase tracking-widest font-semibold">{today}</Text>
+            <Text className="text-white text-3xl font-bold mt-1.5">Body</Text>
           </View>
-          <PressableScale
-            haptic
-            onPress={() => setShowLog(true)}
-            className="bg-white px-4 py-2 rounded-2xl"
-          >
-            <Text className="text-black text-sm font-semibold">+ Log</Text>
-          </PressableScale>
+          <View className="flex-row" style={{ gap: 8 }}>
+            {/* BF% estimator. The photo is sent to Claude and dropped after
+                the response — nothing is persisted server-side, so no privacy
+                exposure beyond the in-flight request. */}
+            <PressableScale
+              haptic
+              onPress={() => router.push('/body-comp-snap')}
+              className="bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-2xl flex-row items-center"
+              style={{ gap: 6 }}
+            >
+              <Camera size={14} color="#ffffff" strokeWidth={2} />
+              <Text className="text-white text-sm font-semibold">Scan BF</Text>
+            </PressableScale>
+            <PressableScale
+              haptic
+              onPress={() => setShowLog(true)}
+              className="bg-white px-4 py-2 rounded-2xl"
+            >
+              <Text className="text-black text-sm font-semibold">+ Log</Text>
+            </PressableScale>
+          </View>
         </View>
 
         {isLoading ? (
@@ -516,22 +536,24 @@ export default function BodyScreen() {
 
             {/* Empty state */}
             {entries.length === 0 && (
-              <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 items-center">
-                <Text className="text-zinc-400 text-sm font-medium">
-                  No body metrics yet
-                </Text>
-                <Text className="text-zinc-600 text-xs mt-1 mb-4 text-center">
-                  Track your weight and body fat to see trends over time
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setShowLog(true)}
-                  className="bg-zinc-800 px-4 py-2 rounded-2xl"
-                >
-                  <Text className="text-white text-sm font-medium">
-                    Log your first entry →
+              <>
+                <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 items-center">
+                  <Text className="text-zinc-400 text-sm font-medium">
+                    No body metrics yet
                   </Text>
-                </TouchableOpacity>
-              </View>
+                  <Text className="text-zinc-600 text-xs mt-1 mb-4 text-center">
+                    Track your weight and body fat to see trends over time
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowLog(true)}
+                    className="bg-zinc-800 px-4 py-2 rounded-2xl"
+                  >
+                    <Text className="text-white text-sm font-medium">
+                      Log your first entry →
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
             )}
 
             {entries.length > 0 && (

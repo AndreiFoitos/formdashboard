@@ -16,6 +16,20 @@ class Settings(BaseSettings):
     # falls back to Claude-only estimates when this isn't set.
     USDA_API_KEY: str = ""
 
+    # Global per-day ceiling on Anthropic API calls across all users. Catches
+    # runaway loops / abuse that slip past the per-user limits. The default is
+    # generous (5000 calls = roughly $30/day on Sonnet at typical token sizes);
+    # tune via env var ANTHROPIC_DAILY_CALL_LIMIT for prod.
+    ANTHROPIC_DAILY_CALL_LIMIT: int = 5000
+
+    # Expo Push API access token. When set, services/push.py sends it as a
+    # Bearer header so unauthenticated callers can't spoof pushes to your
+    # users. HIGH-28. Empty by default to keep dev frictionless.
+    EXPO_ACCESS_TOKEN: str = ""
+
+    # Sentry DSN for backend error reporting. Empty disables Sentry. HIGH-19.
+    SENTRY_DSN: str = ""
+
     # Sign in with Apple — the bundle ID is also the audience claim Apple signs.
     APPLE_BUNDLE_ID: str = ""
 

@@ -6,13 +6,25 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://192.168.178.240:8000",
+        "EXPO_PUBLIC_SENTRY_DSN": ""
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.protocolapp.com",
+        "EXPO_PUBLIC_SENTRY_DSN": ""
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.protocolapp.com",
+        "EXPO_PUBLIC_SENTRY_DSN": ""
+      }
     }
   },
   "submit": {

@@ -21,6 +21,15 @@ class Friendship(Base):
     requester_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     addressee_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     status: Mapped[str] = mapped_column(String, default="pending")  # pending | accepted
+    # Set when the friendship was created by redeeming an invite link, so the
+    # inviter's list of links can show 'X joined via this'. Null for friendships
+    # created via the username invite flow. SET NULL on invite delete so dropping
+    # a link doesn't cascade and unfriend people.
+    invite_token_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("friend_invites.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 

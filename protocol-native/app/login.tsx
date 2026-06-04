@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -6,24 +6,64 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
 } from 'react-native'
 import { router } from 'expo-router'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
+import { usePendingInviteStore } from '../store/pendingInvite'
 import { setToken } from '../lib/storage'
 import SsoButtons from '../components/SsoButtons'
 import { FEATURES } from '../lib/featureFlags'
 import { extractErrorMessage } from '../lib/apiError'
+import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '../lib/legal'
+
+interface InviterPreview {
+  name: string
+  username: string | null
+}
 
 export default function LoginScreen() {
   const { setAuth } = useAuthStore()
+  const pendingInviteToken = usePendingInviteStore((s) => s.token)
+  const clearPendingInvite = usePendingInviteStore((s) => s.clear)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [inviterPreview, setInviterPreview] = useState<InviterPreview | null>(null)
+
+  // Pull the inviter's public name/username so we can render
+  // "Log in to accept @andrei's invite". Drops the pending token on the floor
+  // if the link is revoked or expired — silently, no banner shown.
+  useEffect(() => {
+    if (!pendingInviteToken) {
+      setInviterPreview(null)
+      return
+    }
+    let cancelled = false
+    api
+      .get(`/friends/invites/${pendingInviteToken}/preview`)
+      .then((r) => {
+        if (cancelled) return
+        const data = r.data as { inviter: InviterPreview; revoked: boolean; expired: boolean }
+        if (data.revoked || data.expired) {
+          clearPendingInvite()
+          return
+        }
+        setInviterPreview(data.inviter)
+      })
+      .catch(() => {
+        if (cancelled) return
+        clearPendingInvite()
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [pendingInviteToken])
 
   async function handleLogin() {
     setError(null)
@@ -41,6 +81,23 @@ export default function LoginScreen() {
       })
 
       setAuth(user, tokens.access_token)
+
+      // Pending invite from a deep-link tap? Redeem now and route to Friends.
+      // Best-effort: swallow errors so a flaky invite never blocks login.
+      if (pendingInviteToken) {
+        try {
+          await api.post(`/friends/invites/${pendingInviteToken}/redeem`, undefined, {
+            headers: { Authorization: `Bearer ${tokens.access_token}` },
+          })
+        } catch {
+          // Token may have been revoked between preview and login. Continue.
+        }
+        clearPendingInvite()
+        // Onboarding still takes priority — accepting an invite from your inbox
+        // can wait until after you've finished signup.
+        router.replace(user.onboarding_complete ? '/friends' : '/onboarding')
+        return
+      }
 
       // Navigate based on onboarding state
       router.replace(user.onboarding_complete ? '/' : '/onboarding')
@@ -67,6 +124,23 @@ export default function LoginScreen() {
           <Text className="text-zinc-500 text-sm mb-8">
             Your performance operating system
           </Text>
+
+          {/* Pending invite banner — shown if user tapped protocol://invite/<token>
+              while logged out. After successful login we auto-redeem. */}
+          {inviterPreview && (
+            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 mb-6">
+              <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1">
+                Pending invite
+              </Text>
+              <Text className="text-white text-sm">
+                Log in to accept{' '}
+                <Text className="font-semibold">
+                  {inviterPreview.username ? `@${inviterPreview.username}` : inviterPreview.name}
+                </Text>
+                ’s invite
+              </Text>
+            </View>
+          )}
 
           {/* SSO */}
           {FEATURES.anySso && (
@@ -138,6 +212,25 @@ export default function LoginScreen() {
               <Text className="text-white">Create one</Text>
             </Text>
           </TouchableOpacity>
+
+          {/* Legal — Apple wants the link above-the-fold from the auth screens */}
+          <Text className="text-zinc-600 text-xs text-center mt-6 px-2">
+            By signing in you agree to our{' '}
+            <Text
+              className="text-zinc-400 underline"
+              onPress={() => Linking.openURL(TERMS_OF_SERVICE_URL)}
+            >
+              Terms
+            </Text>{' '}
+            and{' '}
+            <Text
+              className="text-zinc-400 underline"
+              onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
+            >
+              Privacy Policy
+            </Text>
+            .
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

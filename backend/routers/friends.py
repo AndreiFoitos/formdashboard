@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import math
+import secrets
 import uuid
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,6 +17,7 @@ from middleware.auth import get_current_user
 from models.user import User
 from models.training_log import TrainingLog
 from models.friendship import Friendship
+from models.friend_invite import FriendInvite
 from models.sus_vote import SusVote
 from models.vouch import Vouch
 from services.dots import dots_score
@@ -253,6 +255,254 @@ async def remove_friend(
         raise HTTPException(404, "Friendship not found")
     await db.delete(f)
     await db.commit()
+
+
+# ─── Invite links ────────────────────────────────────────────────────────────
+#
+# Per-invite shareable link. Multi-use until revoked or expired. Deep-link
+# format is protocol://invite/<token>; the new-user case (no app installed)
+# is intentionally unsupported — the recipient just falls back to manual
+# @username invite once they install. See the spec on the Friends UI for
+# why we don't run a web landing.
+
+# Crockford-ish base32, minus visually ambiguous 0/1/I/O. 32 chars × 8 = 32^8
+# ≈ 1.1 trillion combos. Plenty of entropy with no rate-limit needed.
+_INVITE_TOKEN_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+_INVITE_TOKEN_LENGTH = 8
+INVITE_MAX_ACTIVE_PER_USER = 20
+INVITE_EXPIRY_DAYS = 90
+
+
+def _generate_invite_token() -> str:
+    return "".join(secrets.choice(_INVITE_TOKEN_ALPHABET) for _ in range(_INVITE_TOKEN_LENGTH))
+
+
+def _deep_link_for(token: str) -> str:
+    return f"protocol://invite/{token}"
+
+
+async def _active_invite_count(user_id: uuid.UUID, db: AsyncSession) -> int:
+    """Active = not revoked AND not expired. Used for the per-user cap."""
+    result = await db.execute(
+        select(sqlfunc.count(FriendInvite.id)).where(
+            FriendInvite.inviter_id == user_id,
+            FriendInvite.revoked_at.is_(None),
+            FriendInvite.expires_at > sqlfunc.now(),
+        )
+    )
+    return result.scalar() or 0
+
+
+@router.post("/invites", status_code=201)
+async def create_invite_link(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate a fresh invite link. Caps at 20 active per user — older links
+    must be revoked or expire first. Token generation retries on the
+    astronomically-rare collision."""
+    active = await _active_invite_count(current_user.id, db)
+    if active >= INVITE_MAX_ACTIVE_PER_USER:
+        raise HTTPException(
+            409,
+            f"You already have {INVITE_MAX_ACTIVE_PER_USER} active invite links. "
+            "Revoke one to create a new one.",
+        )
+
+    # 8 chars from 32-symbol alphabet — collision probability per request is
+    # roughly N / 32^8. We retry a handful of times and bail loud if something
+    # is very wrong.
+    invite: FriendInvite | None = None
+    for _ in range(5):
+        token = _generate_invite_token()
+        existing = await db.execute(select(FriendInvite.id).where(FriendInvite.token == token))
+        if existing.scalar_one_or_none() is not None:
+            continue
+        invite = FriendInvite(
+            inviter_id=current_user.id,
+            token=token,
+            expires_at=datetime.now(timezone.utc) + timedelta(days=INVITE_EXPIRY_DAYS),
+        )
+        db.add(invite)
+        await db.commit()
+        await db.refresh(invite)
+        break
+    if invite is None:
+        raise HTTPException(500, "Could not generate a unique invite token")
+
+    return {
+        "id": str(invite.id),
+        "token": invite.token,
+        "deep_link": _deep_link_for(invite.token),
+        "created_at": invite.created_at.isoformat(),
+        "expires_at": invite.expires_at.isoformat(),
+        "joined_count": 0,
+    }
+
+
+@router.get("/invites")
+async def list_invite_links(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List the caller's active (non-revoked, non-expired) invite links with
+    a joined-count for each — joined = an accepted friendship that points at
+    this invite."""
+    result = await db.execute(
+        select(
+            FriendInvite,
+            sqlfunc.count(Friendship.id).label("joined_count"),
+        )
+        .outerjoin(
+            Friendship,
+            and_(
+                Friendship.invite_token_id == FriendInvite.id,
+                Friendship.status == "accepted",
+            ),
+        )
+        .where(
+            FriendInvite.inviter_id == current_user.id,
+            FriendInvite.revoked_at.is_(None),
+            FriendInvite.expires_at > sqlfunc.now(),
+        )
+        .group_by(FriendInvite.id)
+        .order_by(FriendInvite.created_at.desc())
+    )
+    rows = result.all()
+    invites = [
+        {
+            "id": str(inv.id),
+            "token": inv.token,
+            "deep_link": _deep_link_for(inv.token),
+            "created_at": inv.created_at.isoformat(),
+            "expires_at": inv.expires_at.isoformat(),
+            "joined_count": int(joined_count),
+        }
+        for inv, joined_count in rows
+    ]
+    return {
+        "invites": invites,
+        "active_count": len(invites),
+        "cap": INVITE_MAX_ACTIVE_PER_USER,
+    }
+
+
+@router.delete("/invites/{invite_id}", status_code=204)
+async def revoke_invite_link(
+    invite_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Soft revoke. We keep the row so existing friendships' invite_token_id
+    still resolves to something for analytics purposes — and so a freshly
+    revoked link can be re-checked by /redeem to show 'link revoked'."""
+    result = await db.execute(select(FriendInvite).where(FriendInvite.id == invite_id))
+    invite = result.scalar_one_or_none()
+    if not invite or invite.inviter_id != current_user.id:
+        raise HTTPException(404, "Invite link not found")
+    if invite.revoked_at is None:
+        invite.revoked_at = datetime.now(timezone.utc)
+        await db.commit()
+
+
+@router.get("/invites/{token}/preview")
+async def preview_invite_link(
+    token: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Unauthenticated lookup so the login screen can show
+    'Log in to accept @andrei's invite' before the user has a session.
+    Reveals only the inviter's public name + username, never email or stats."""
+    result = await db.execute(
+        select(FriendInvite).where(FriendInvite.token == token)
+    )
+    invite = result.scalar_one_or_none()
+    if not invite:
+        raise HTTPException(404, "Invite link not found")
+
+    inviter_result = await db.execute(select(User).where(User.id == invite.inviter_id))
+    inviter = inviter_result.scalar_one_or_none()
+    if not inviter:
+        # Shouldn't happen given the FK cascade, but defensive.
+        raise HTTPException(404, "Invite link not found")
+
+    now = datetime.now(timezone.utc)
+    return {
+        "inviter": {
+            "name": inviter.name or inviter.username or "User",
+            "username": inviter.username,
+        },
+        "revoked": invite.revoked_at is not None,
+        "expired": invite.expires_at <= now,
+    }
+
+
+@router.post("/invites/{token}/redeem")
+async def redeem_invite_link(
+    token: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Idempotent. Looks up the invite, validates state, then either
+    surfaces an existing relationship or creates a new pending one
+    (inviter → current_user, status=pending) tagged with this invite."""
+    result = await db.execute(select(FriendInvite).where(FriendInvite.token == token))
+    invite = result.scalar_one_or_none()
+    if not invite:
+        raise HTTPException(404, "Invite link not found")
+    if invite.revoked_at is not None:
+        raise HTTPException(410, "This invite link was revoked")
+    if invite.expires_at <= datetime.now(timezone.utc):
+        raise HTTPException(410, "This invite link has expired")
+    if invite.inviter_id == current_user.id:
+        raise HTTPException(400, "You can't redeem your own invite link")
+
+    inviter_result = await db.execute(select(User).where(User.id == invite.inviter_id))
+    inviter = inviter_result.scalar_one_or_none()
+    if not inviter:
+        raise HTTPException(404, "Inviter no longer exists")
+    inviter_dict = _user_dict(inviter)
+
+    # Already a relationship in either direction?
+    existing_q = await db.execute(
+        select(Friendship).where(
+            or_(
+                and_(Friendship.requester_id == inviter.id, Friendship.addressee_id == current_user.id),
+                and_(Friendship.requester_id == current_user.id, Friendship.addressee_id == inviter.id),
+            )
+        )
+    )
+    existing = existing_q.scalar_one_or_none()
+    if existing is not None:
+        if existing.status == "accepted":
+            return {
+                "status": "already_friends",
+                "inviter": inviter_dict,
+                "friendship_id": str(existing.id),
+            }
+        return {
+            "status": "already_pending",
+            "inviter": inviter_dict,
+            "friendship_id": str(existing.id),
+            "direction": "incoming" if existing.requester_id == inviter.id else "outgoing",
+        }
+
+    friendship = Friendship(
+        requester_id=inviter.id,
+        addressee_id=current_user.id,
+        status="pending",
+        invite_token_id=invite.id,
+    )
+    db.add(friendship)
+    await db.commit()
+    await db.refresh(friendship)
+
+    return {
+        "status": "created",
+        "inviter": inviter_dict,
+        "friendship_id": str(friendship.id),
+        "direction": "incoming",  # the request now sits in the redeemer's inbox
+    }
 
 
 # ─── Sus + Vouch ─────────────────────────────────────────────────────────────

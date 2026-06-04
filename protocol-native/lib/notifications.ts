@@ -91,7 +91,7 @@ export async function registerPushTokenWithBackend(): Promise<{ token: string } 
     Constants.expoConfig?.extra?.eas?.projectId ??
     (Constants.easConfig as { projectId?: string } | undefined)?.projectId
   if (!projectId) {
-    console.warn('[notifications] No EAS projectId — cannot fetch push token')
+    if (__DEV__) console.warn('[notifications] No EAS projectId — cannot fetch push token')
     return null
   }
   const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId })
@@ -133,7 +133,7 @@ export async function disableNudges(): Promise<void> {
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId })
     await api.delete('/notifications/token', { params: { token } })
   } catch (e) {
-    console.warn('[notifications] disable failed:', e)
+    if (__DEV__) console.warn('[notifications] disable failed:', e)
   }
 }
 
@@ -148,7 +148,7 @@ export async function enablePredictiveNudges(): Promise<{ enabled: boolean; reas
     if (!result) return { enabled: false, reason: 'no_project_id' }
     return { enabled: true }
   } catch (e) {
-    console.warn('[notifications] enable failed:', e)
+    if (__DEV__) console.warn('[notifications] enable failed:', e)
     return { enabled: false, reason: 'error' }
   }
 }
@@ -216,6 +216,6 @@ export async function handleQuickLogResponse(
       qc.invalidateQueries({ queryKey: ['dashboard'] })
     }
   } catch (e) {
-    console.warn('[notifications] quick-log failed:', e)
+    if (__DEV__) console.warn('[notifications] quick-log failed:', e)
   }
 }

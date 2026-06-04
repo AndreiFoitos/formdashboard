@@ -1,18 +1,19 @@
 from __future__ import annotations
 import re
 from datetime import date, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func as sqlfunc
+from sqlalchemy import select, func as sqlfunc, delete as sa_delete
 
 from core.database import get_db
+from core.rate_limit import limiter
 from middleware.auth import get_current_user
 from models.user import User
 from models.daily_summary import DailySummary
 from models.onboarding import OnboardingBaseline
 from models.body_metric import BodyMetric
-from schemas.user import UserOut, UserUpdate, USERNAME_PATTERN
+from schemas.user import UserOut, UserUpdate, USERNAME_PATTERN, RESERVED_USERNAMES
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -50,6 +51,8 @@ async def update_me(
     # but we pre-check so the user sees a clean 409 instead of a 500.
     new_username = updates.get("username")
     if new_username and new_username != current_user.username:
+        if new_username.lower() in RESERVED_USERNAMES:
+            raise HTTPException(409, "That username is reserved — pick another")
         existing = await db.execute(
             select(User.id).where(sqlfunc.lower(User.username) == new_username.lower())
         )
@@ -63,8 +66,62 @@ async def update_me(
     return current_user
 
 
+class DeleteAccountRequest(BaseModel):
+    """Server-side defense in depth: the UI also gates this on a typed email
+    confirmation, but we re-check here so the endpoint can't be called from
+    a hostile script bearing a stolen access token. Apple Guideline 5.1.1(v)
+    requires in-app deletion to be at least as easy to find as sign-up — but
+    nothing says it can't double-check intent."""
+    email_confirmation: str
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_me(
+    body: DeleteAccountRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Permanently delete the authenticated user and all their data.
+
+    Apple App Store Review Guideline 5.1.1(v) (in force since June 30, 2022)
+    requires any app with account creation to offer in-app account deletion —
+    not deactivation, not 'email us'.
+
+    Cascade chain (all enforced at the database level via FK ondelete=CASCADE):
+
+      - daily_summaries, streak, onboarding_baseline
+      - hydration_logs, nutrition_logs, stimulant_logs, training_logs
+      - body_metrics, ai_insights, push_tokens
+      - friendships (as requester OR addressee)
+      - sus_votes (as voter OR target)
+      - vouches (as voter OR target)
+      - custom_exercises, user_splits
+      - saved_meals (and saved_meal_items via saved_meal cascade)
+      - dismissed_meal_patterns, friend_invites (as inviter)
+
+    Existing access tokens stop working immediately: middleware/auth.py loads
+    the user via `db.get(User, user_id)` and returns 401 when it's missing.
+    Existing refresh tokens stop working at the next /auth/refresh call,
+    where we now also verify the user row still exists (see auth.py).
+    """
+    if body.email_confirmation.strip().lower() != (current_user.email or "").lower():
+        raise HTTPException(
+            status_code=400,
+            detail="Email confirmation does not match your account email.",
+        )
+
+    user_id = current_user.id
+
+    # Single-row DELETE; Postgres handles the rest via FK cascade.
+    await db.execute(sa_delete(User).where(User.id == user_id))
+    await db.commit()
+    return  # 204
+
+
 @router.get("/username-available")
+@limiter.limit("10/minute")
 async def username_available(
+    request: Request,
     username: str = Query(..., min_length=3, max_length=24),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -74,6 +131,8 @@ async def username_available(
         return {"available": False, "reason": "format"}
     # Lowercase the comparison since usernames are stored lowercased everywhere.
     handle = username.lower()
+    if handle in RESERVED_USERNAMES:
+        return {"available": False, "reason": "reserved"}
     if handle == (current_user.username or "").lower():
         return {"available": True}
     result = await db.execute(
@@ -109,10 +168,13 @@ async def save_onboarding_step(
     elif body.step == "username":
         new_username = data.get("username")
         if new_username:
+            handle = new_username.lower()
+            if handle in RESERVED_USERNAMES:
+                raise HTTPException(409, "That username is reserved — pick another")
             # Pre-check so the user gets a clean 409 instead of a unique-violation 500.
             existing = await db.execute(
                 select(User.id).where(
-                    sqlfunc.lower(User.username) == new_username.lower(),
+                    sqlfunc.lower(User.username) == handle,
                     User.id != current_user.id,
                 )
             )
@@ -179,7 +241,14 @@ async def _seed_first_body_metric(user: User, db: AsyncSession):
 
 
 async def _seed_estimated_summaries(user: User, baseline: BaselineRequest, db: AsyncSession):
-    sleep_score = min(100, round(((baseline.avg_sleep_hours or 7.5) / 8) * 100))
+    """Backfills 7 days of DailySummary rows so the Form Score 14-day baseline
+    has data to compare against from day 1.
+
+    HIGH-16 Path A: we no longer seed `sleep_score` because the underlying
+    wearable integrations are gone and a baseline guess would mislead the AI
+    digest. The rows still seed water/protein/training so the rolling water
+    consistency check has a starting point.
+    """
     training_map = {"0-1x": 1, "2-3x": 2, "4-5x": 4, "6x+": 6}
     sessions_per_week = training_map.get(baseline.training_frequency or "2-3x", 2)
 
@@ -195,7 +264,6 @@ async def _seed_estimated_summaries(user: User, baseline: BaselineRequest, db: A
         summary = DailySummary(
             user_id=user.id,
             date=target_date,
-            sleep_score=sleep_score,
             trained=trained,
             water_ml=user.water_target_ml or 2000,
             protein_g=user.protein_target_g,

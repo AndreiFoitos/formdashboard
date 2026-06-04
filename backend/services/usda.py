@@ -91,6 +91,31 @@ async def search_food(query: str, client: httpx.AsyncClient) -> dict | None:
     return max(foods, key=lambda f: score_match(query, f.get("description", "")))
 
 
+async def search_foods(query: str, n: int, client: httpx.AsyncClient) -> list[dict]:
+    """Search USDA FDC and return up to N matches re-ranked by score_match desc.
+
+    Uses USDA's first 25 results as the candidate pool (one page; enough for
+    typical queries), re-sorts with our token-overlap scorer, and trims to N.
+    """
+    if not settings.USDA_API_KEY:
+        raise USDANotConfigured("USDA_API_KEY is not set on the server")
+
+    resp = await client.get(
+        f"{USDA_BASE}/foods/search",
+        params={
+            "query": query,
+            "dataType": "SR Legacy,Foundation",
+            "pageSize": 25,
+            "api_key": settings.USDA_API_KEY,
+        },
+        timeout=15.0,
+    )
+    resp.raise_for_status()
+    foods = resp.json().get("foods") or []
+    foods.sort(key=lambda f: score_match(query, f.get("description", "")), reverse=True)
+    return foods[:n]
+
+
 def get_nutrition(food: dict, grams: float) -> dict:
     """Extract kcal + macros from a USDA food doc, scaled from /100g to the given grams."""
     by_id = {n.get("nutrientId"): n.get("value", 0) for n in food.get("foodNutrients", [])}

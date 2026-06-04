@@ -54,10 +54,6 @@ interface Summary {
   form_score: number | null
   form_score_unlocked: boolean
   score_breakdown: FormScoreBreakdown | null
-  // sleep_score / hrv_score remain in the payload for forward compatibility
-  // (Path B — manual sleep input — is on the roadmap). Always null today.
-  sleep_score: number | null
-  hrv_score: number | null
   water_ml: number | null
   caffeine_mg: number | null
   calories_eaten: number | null
@@ -166,15 +162,15 @@ function FormScoreCard({ summary }: { summary: Summary | undefined }) {
       </Text>
       <View className="flex-row items-center gap-5">
         <View
-          className="w-16 h-16 rounded-full items-center justify-center border-2"
+          className="w-20 h-20 rounded-full items-center justify-center border-2"
           style={{ borderColor: color }}
         >
-          <CountUp value={score} className="text-white text-xl font-bold" />
+          <CountUp value={score} className="text-white text-3xl font-bold" />
         </View>
 
         <View className="flex-1">
-          <Text className="text-white font-semibold text-base">{label}</Text>
-          <Text className="text-zinc-500 text-xs mt-1">{subtitle}</Text>
+          <Text className="text-white font-semibold text-lg">{label}</Text>
+          <Text className="text-zinc-400 text-sm mt-1">{subtitle}</Text>
         </View>
       </View>
 
@@ -200,25 +196,25 @@ function StatTile({
 
   return (
     <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex-1">
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+      <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-2 font-semibold">
         {label}
       </Text>
-      <Text className="text-white font-semibold text-base">
+      <Text className="text-white font-bold text-2xl">
         {value != null ? (
           <CountUp
             value={Math.round(value)}
             separator
-            className="text-white font-semibold text-base"
+            className="text-white font-bold text-2xl"
           />
         ) : (
           '—'
         )}
-        <Text className="text-zinc-500 text-xs font-normal"> {unit}</Text>
+        <Text className="text-zinc-500 text-sm font-normal"> {unit}</Text>
       </Text>
       {target != null && (
         <>
-          <AnimatedBar percent={p} color="#ffffff" height={2} style={{ marginTop: 12 }} />
-          <Text className="text-zinc-600 text-xs mt-1">{p}%</Text>
+          <AnimatedBar percent={p} color="#ffffff" height={4} style={{ marginTop: 12 }} />
+          <Text className="text-zinc-500 text-xs mt-1.5 font-medium">{p}%</Text>
         </>
       )}
     </View>
@@ -277,16 +273,16 @@ function HydrationQuickLog({
   return (
     <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
       <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-zinc-500 text-xs uppercase tracking-widest">
+        <Text className="text-zinc-400 text-xs uppercase tracking-widest font-semibold">
           Hydration
         </Text>
-        <Text className="text-xs text-zinc-400">
-          <Text className="text-white font-semibold">{current.toLocaleString()}</Text>
-          <Text className="text-zinc-600"> / {target.toLocaleString()}ml</Text>
+        <Text className="text-sm text-zinc-400">
+          <Text className="text-white font-bold text-base">{current.toLocaleString()}</Text>
+          <Text className="text-zinc-500"> / {target.toLocaleString()}ml</Text>
         </Text>
       </View>
 
-      <AnimatedBar percent={p} color="#38bdf8" height={6} style={{ marginBottom: 12 }} />
+      <AnimatedBar percent={p} color="#38bdf8" height={8} style={{ marginBottom: 14 }} />
 
       <View className="flex-row gap-2">
         {WATER_PRESETS.map((ml) => (
@@ -294,10 +290,10 @@ function HydrationQuickLog({
             key={ml}
             onPress={() => handleLog(ml)}
             disabled={isPending}
-            className="flex-1 py-2.5 rounded-xl bg-zinc-800 items-center"
+            className="flex-1 py-3 rounded-xl bg-zinc-800 items-center"
             style={{ opacity: isPending ? 0.6 : 1 }}
           >
-            <Text className="text-white text-xs font-medium">+{ml}ml</Text>
+            <Text className="text-white text-sm font-semibold">+{ml}ml</Text>
           </PressableScale>
         ))}
       </View>
@@ -535,19 +531,19 @@ export default function DashboardScreen() {
         {/* Header */}
         <View className="pt-6 pb-5 flex-row items-start justify-between">
           <View className="flex-1">
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest">
+            <Text className="text-zinc-400 text-xs uppercase tracking-widest font-semibold">
               {today}
             </Text>
-            <Text className="text-white text-2xl font-bold mt-1">
+            <Text className="text-white text-3xl font-bold mt-1.5">
               {getGreeting()}{firstName ? `, ${firstName}` : ''}
             </Text>
           </View>
           <TouchableOpacity
             onPress={() => router.push('/settings')}
-            hitSlop={8}
+            hitSlop={12}
             className="mt-1 p-2 -mr-2"
           >
-            <SettingsIcon color="#a1a1aa" size={22} />
+            <SettingsIcon color="#d4d4d8" size={26} />
           </TouchableOpacity>
         </View>
 

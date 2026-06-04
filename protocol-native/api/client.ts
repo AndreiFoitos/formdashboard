@@ -3,11 +3,14 @@ import { getToken, setToken, removeToken } from '../lib/storage'
 import { useAuthStore } from '../store/auth'
 
 // ── Base URL ──────────────────────────────────────────────────────────────────
-// For Expo Go on a physical device, use your machine's LAN IP:
-//   'http://192.168.x.x:8000'
-// localhost only works on an iOS/Android simulator, not a real device.
-// For production, swap this for your Railway URL.
-const BASE_URL = 'http://192.168.178.240:8000'
+// Resolved at build time from EXPO_PUBLIC_API_URL (set per build profile in
+// eas.json). The fallback only ever applies when running `expo start` on a dev
+// machine without the env var set — in that case use your LAN IP so a physical
+// device on the same Wi-Fi can reach the backend. `localhost` works only in
+// simulators. Production / TestFlight builds always have EXPO_PUBLIC_API_URL
+// baked in by EAS, so the fallback never ships to users.
+const BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.178.240:8000'
 
 export const api = axios.create({
   baseURL: BASE_URL,
