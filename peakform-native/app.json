@@ -25,19 +25,27 @@
         "NSPrivacyAccessedAPITypes": [
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
-            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
           },
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
-            "NSPrivacyAccessedAPITypeReasons": ["C617.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1"
+            ]
           },
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
-            "NSPrivacyAccessedAPITypeReasons": ["35F9.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "35F9.1"
+            ]
           },
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
-            "NSPrivacyAccessedAPITypeReasons": ["E174.1"]
+            "NSPrivacyAccessedAPITypeReasons": [
+              "E174.1"
+            ]
           }
         ],
         "NSPrivacyCollectedDataTypes": [
@@ -116,7 +124,10 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.gainrace.app"
+      "package": "com.gainrace.app",
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -148,9 +159,6 @@
     ],
     "extra": {
       "router": {},
-      "eas": {
-        "projectId": "9035cc7e-cb5e-403b-ae10-274b0bd7f8e1"
-      },
       "features": {
         "appleSignIn": true,
         "googleSignIn": true
@@ -158,7 +166,11 @@
       "googleSignIn": {
         "iosClientId": "471688772354-9rte1ombjd7p7enmli9b0btcjb5k3v5e.apps.googleusercontent.com",
         "webClientId": "471688772354-c9q0begitcjad2eql335mm3jtt2ao4ft.apps.googleusercontent.com"
+      },
+      "eas": {
+        "projectId": "aaa7b0b7-4c10-49e7-8c1d-2c647097a3f5"
       }
-    }
+    },
+    "owner": "asky12346272"
   }
 }
