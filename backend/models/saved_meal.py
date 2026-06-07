@@ -21,7 +21,7 @@ class SavedMeal(Base):
 
     `source` distinguishes the two paths and drives the Saved-tab grouping:
     'manual' rows surface under 'My meals'; 'auto' rows under 'Suggested by
-    PeakForm'. Auto rows are identified by (food_set_hash, time_bucket); the
+    Gainrace'. Auto rows are identified by (food_set_hash, time_bucket); the
     nightly detector dup-checks against existing source='auto' rows only, so
     a user can manually save a meal with the same food set without blocking
     a future suggestion of the same pattern (and vice versa).

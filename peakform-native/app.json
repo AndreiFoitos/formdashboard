@@ -1,9 +1,9 @@
 {
   "expo": {
-    "name": "PeakForm",
-    "slug": "peakform-native",
+    "name": "Gainrace",
+    "slug": "gainrace-native",
     "version": "1.0.0",
-    "scheme": "peakform",
+    "scheme": "gainrace",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.peakformapp.peakform",
+      "bundleIdentifier": "com.gainrace.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
@@ -116,7 +116,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.peakformapp.peakform"
+      "package": "com.gainrace.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -133,7 +133,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "PeakForm uses the camera to identify your meal and estimate calories.",
+          "cameraPermission": "Gainrace uses the camera to identify your meal and estimate calories.",
           "recordAudioAndroid": false
         }
       ],

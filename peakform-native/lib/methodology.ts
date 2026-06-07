@@ -25,8 +25,8 @@ export const TOPICS: Topic[] = [
     slug: 'form-score',
     title: 'Form Score',
     summary:
-      'A daily 0–100 score from data you log in PeakForm — habits, not wearables.',
-    prose: `Form Score is a daily "Habits Score" derived entirely from data you log in PeakForm. Sleep and HRV are intentionally absent — the app doesn't integrate with wearables, and leaving them in the formula would have collapsed almost half the weighting to a flat constant.
+      'A daily 0–100 score from data you log in Gainrace — habits, not wearables.',
+    prose: `Form Score is a daily "Habits Score" derived entirely from data you log in Gainrace. Sleep and HRV are intentionally absent — the app doesn't integrate with wearables, and leaving them in the formula would have collapsed almost half the weighting to a flat constant.
 
 Each component scores 0–100, then we take a weighted average. Targets are grounded in published guidance; you can override them per-user in Settings.
 

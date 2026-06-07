@@ -167,7 +167,7 @@ function RootLayout() {
               <Stack.Screen name="friends" />
               {/* Read-only training programs catalogue */}
               <Stack.Screen name="programs" />
-              {/* Deep-link target for peakform://invite/<token> */}
+              {/* Deep-link target for gainrace://invite/<token> */}
               <Stack.Screen name="invite/[token]" />
               {/* Methodology — "How is this calculated?" surface */}
               <Stack.Screen name="methodology/index" />

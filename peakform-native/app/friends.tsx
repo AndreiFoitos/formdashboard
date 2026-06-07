@@ -626,7 +626,7 @@ function FriendsTab() {
       try {
         await Share.share({
           url: invite.deep_link,
-          message: `Join me on PeakForm: ${invite.deep_link}`,
+          message: `Join me on Gainrace: ${invite.deep_link}`,
         })
       } catch {
         // User dismissed the share sheet — link is still created, fine.
@@ -649,7 +649,7 @@ function FriendsTab() {
     try {
       await Share.share({
         url: link.deep_link,
-        message: `Join me on PeakForm: ${link.deep_link}`,
+        message: `Join me on Gainrace: ${link.deep_link}`,
       })
     } catch {}
   }
@@ -851,7 +851,7 @@ function FriendsTab() {
             <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 items-center mb-5">
               <Text className="text-zinc-400 text-sm font-medium">No friends yet</Text>
               <Text className="text-zinc-600 text-xs mt-1 text-center">
-                Send an invite above. They need to have a PeakForm account.
+                Send an invite above. They need to have a Gainrace account.
               </Text>
             </View>
           ) : (

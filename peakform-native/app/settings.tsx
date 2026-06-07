@@ -279,7 +279,7 @@ function NudgesSection() {
       } else if (result.reason === 'permission_denied') {
         Alert.alert(
           'Notifications blocked',
-          'Open Settings and allow notifications for PeakForm to turn this on.',
+          'Open Settings and allow notifications for Gainrace to turn this on.',
         )
       }
       refetchStatus()

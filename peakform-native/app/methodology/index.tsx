@@ -23,7 +23,7 @@ export default function MethodologyHubScreen() {
         contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 }}
       >
         <Text className="text-zinc-500 text-sm leading-5 mb-6">
-          The numbers in PeakForm are derived from data you log — not from wearable APIs or
+          The numbers in Gainrace are derived from data you log — not from wearable APIs or
           black-box scores. Here's exactly how each one is computed, with the published
           guidance we leaned on.
         </Text>

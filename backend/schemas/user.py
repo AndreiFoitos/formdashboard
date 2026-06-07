@@ -15,8 +15,9 @@ RESERVED_USERNAMES = frozenset({
     "admin", "administrator", "root", "system", "bot", "moderator", "mod",
     "support", "help", "sales", "info", "contact", "abuse", "security",
     "staff", "owner", "operator",
-    # Brand / official (peakform = current; protocol = squatted from old brand
-    # so impersonators can't claim the former name)
+    # Brand / official (gainrace = current; peakform + protocol = squatted from
+    # old brand names so impersonators can't claim the former handles)
+    "gainrace", "gainrace_official", "gainrace_team", "gainrace_support",
     "peakform", "peakform_official", "peakform_team", "peakform_support",
     "protocol", "protocol_official", "protocol_team", "protocol_support",
     "official", "team", "founder", "ceo", "cto", "marketing", "press",

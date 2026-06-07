@@ -130,7 +130,7 @@ export default function LoginScreen() {
             Your performance operating system
           </Text>
 
-          {/* Pending invite banner — shown if user tapped peakform://invite/<token>
+          {/* Pending invite banner — shown if user tapped gainrace://invite/<token>
               while logged out. After successful login we auto-redeem. */}
           {inviterPreview && (
             <View className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 mb-6">

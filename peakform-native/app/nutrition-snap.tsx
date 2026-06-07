@@ -34,8 +34,8 @@ function PermissionGate({ onRequest, canAskAgain }: PermissionGateProps) {
       </Text>
       <Text className="text-zinc-400 text-sm text-center mb-8">
         {canAskAgain
-          ? 'PeakForm uses the camera to identify your meal and estimate calories. The photo is not saved.'
-          : 'Camera was denied. Open Settings to allow camera access for PeakForm, then come back.'}
+          ? 'Gainrace uses the camera to identify your meal and estimate calories. The photo is not saved.'
+          : 'Camera was denied. Open Settings to allow camera access for Gainrace, then come back.'}
       </Text>
       {canAskAgain ? (
         <PressableScale
