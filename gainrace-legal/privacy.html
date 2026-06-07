@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gainrace — Privacy Policy</title>
+<style>
+  body{max-width:720px;margin:2rem auto;padding:0 1.25rem;font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#111;background:#fff}
+  h1{margin-bottom:0.5rem}
+  h2{margin-top:2rem}
+  small{color:#666}
+  a{color:#0b62e8}
+  ul{padding-left:1.25rem}
+</style>
+</head>
+<body>
+<h1>Privacy Policy</h1>
+<small>Last updated: 2026-06-08</small>
+
+<p>Gainrace ("the app", "we") is a personal performance-tracking tool. This policy explains what data we collect, why, and how to remove it.</p>
+
+<h2>1. What we collect</h2>
+<ul>
+  <li><strong>Account:</strong> email address, optional name, optional username (a public handle visible only to people you accept as friends), and a hashed password. If you sign in with Apple or Google, we store the provider's stable subject ID instead of a password.</li>
+  <li><strong>Profile:</strong> age, biological sex, height, weight, body-fat percentage (if you choose to log it), bedtime hour, and daily targets (protein, water, calories).</li>
+  <li><strong>Logs you create:</strong> hydration entries, caffeine/stimulant entries, food entries (with optional photos), training entries (exercise, sets, reps, weight), body weight history, and notes.</li>
+  <li><strong>Device:</strong> Expo push notification token (used to send reminders), app version, OS version, timezone.</li>
+  <li><strong>AI usage:</strong> the prompts you send to the "Ask" feature and the daily-digest text the model generates for you.</li>
+</ul>
+<p>We do not collect contacts, location, browsing history, advertising identifiers, or analytics events for behavioural advertising.</p>
+
+<h2>2. How we use it</h2>
+<ul>
+  <li>Compute your daily Form Score and surface it on the dashboard.</li>
+  <li>Show your weekly leaderboard rank among friends you have accepted (Σ weight×reps).</li>
+  <li>Generate your daily AI digest and answer your "Ask" questions, using a 30-day window of your own data as context.</li>
+  <li>Send push reminders at times you have historically logged (only if you enable predictive nudges in Settings).</li>
+  <li>Identify food and macronutrients from photos you upload to the nutrition estimator.</li>
+</ul>
+
+<h2>3. Third parties we share data with</h2>
+<p>We send the minimum data needed to each service to provide functionality. None of these parties use your data for advertising.</p>
+<ul>
+  <li><strong>Anthropic (Claude API)</strong> — receives your "Ask" prompt + the recent-data summary, and food-photo image bytes for the nutrition estimator. Anthropic's policy: <a href="https://www.anthropic.com/legal/privacy">anthropic.com/legal/privacy</a>.</li>
+  <li><strong>Supabase</strong> — managed Postgres host for your account row and all logs. Policy: <a href="https://supabase.com/privacy">supabase.com/privacy</a>.</li>
+  <li><strong>Railway</strong> — application hosting for the API server. Policy: <a href="https://railway.com/legal/privacy">railway.com/legal/privacy</a>.</li>
+  <li><strong>USDA FoodData Central</strong> — receives the food name strings extracted from your photos so we can look up nutrition data. No personal identifiers are sent. Policy: <a href="https://www.usda.gov/privacy-policy">usda.gov/privacy-policy</a>.</li>
+  <li><strong>Expo</strong> — relays push notifications to Apple Push Notification service. Policy: <a href="https://expo.dev/privacy">expo.dev/privacy</a>.</li>
+  <li><strong>Apple Push Notification service</strong> — delivers push notifications to iOS devices. Subject to <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>.</li>
+  <li><strong>Sign in with Apple / Google</strong> (if you choose to use them) — receives an authentication request and returns a stable user identifier and (first time only) your email. Subject to Apple's and Google's respective policies.</li>
+</ul>
+
+<h2>4. Retention</h2>
+<p>We keep your data for as long as your account is active. If you delete your account inside the app (Settings → Account → Delete account), all of the data listed in section 1 is removed from our database within 24 hours. Backups expire within 30 days. Anthropic, Supabase, and Railway retain their own logs per their own policies — we cannot delete those on your behalf.</p>
+
+<h2>5. Your rights</h2>
+<p>You can:</p>
+<ul>
+  <li>View and edit your profile at any time in the app (Settings → Profile &amp; Targets).</li>
+  <li>Delete your account permanently from inside the app (Settings → Account → Delete account).</li>
+  <li>Request a copy of your data, request correction, or request erasure by emailing <a href="mailto:support@gainrace.com">support@gainrace.com</a>. We respond within 30 days under GDPR Article 12.</li>
+</ul>
+
+<h2>6. Children</h2>
+<p>The app is not directed to children under 13. We do not knowingly collect data from anyone under 13.</p>
+
+<h2>7. Security</h2>
+<p>Passwords are stored as bcrypt hashes (work factor 12). Data in transit is encrypted via HTTPS. Database access requires TLS. Refresh tokens are stored in iOS Keychain / Android Keystore on your device.</p>
+
+<h2>8. Changes</h2>
+<p>If we materially change this policy we will update the "Last updated" date at the top and, for substantive changes, surface a notice in-app at next sign-in.</p>
+
+<h2>9. Contact</h2>
+<p>Questions or data requests: <a href="mailto:support@gainrace.com">support@gainrace.com</a>.</p>
+</body>
+</html>
