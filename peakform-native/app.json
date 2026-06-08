@@ -138,7 +138,7 @@
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.471688772354-9rte1ombjd7p7enmli9b0btcjb5k3v5e"
+          "iosUrlScheme": "com.googleusercontent.apps.471688772354-jk87n5u0alesh9c2o3qei7t9b5tvqu5b"
         }
       ],
       [
@@ -164,8 +164,8 @@
         "googleSignIn": true
       },
       "googleSignIn": {
-        "iosClientId": "471688772354-9rte1ombjd7p7enmli9b0btcjb5k3v5e.apps.googleusercontent.com",
-        "webClientId": "471688772354-c9q0begitcjad2eql335mm3jtt2ao4ft.apps.googleusercontent.com"
+        "iosClientId": "471688772354-jk87n5u0alesh9c2o3qei7t9b5tvqu5b.apps.googleusercontent.com",
+        "webClientId": "471688772354-ikgc0oc4qi9hob13av8bsvskj74hclj7.apps.googleusercontent.com"
       },
       "eas": {
         "projectId": "aaa7b0b7-4c10-49e7-8c1d-2c647097a3f5"
