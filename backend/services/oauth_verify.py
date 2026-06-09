@@ -102,13 +102,18 @@ async def _verify_jwt(
     if not audiences:
         raise HTTPException(503, "Server is not configured to accept this provider")
 
+    # python-jose's `audience` parameter only accepts a single string, so we
+    # disable its audience check and validate membership in our list manually
+    # below. Same for `issuer` when it's a set (Google publishes two valid
+    # values).
     try:
         payload = jwt.decode(
             token,
             key,
             algorithms=[unverified_header.get("alg", "RS256")],
-            audience=audiences,
+            audience=None,
             issuer=issuer if isinstance(issuer, str) else None,
+            options={"verify_aud": False},
         )
     except JWTError as e:
         # Log the actual claims vs what we expected so 401s aren't a black box.
@@ -125,6 +130,18 @@ async def _verify_jwt(
         except Exception as decode_err:
             log.warning("OAuth token rejected: %s (claims decode also failed: %s)", e, decode_err)
         raise HTTPException(401, f"Identity token rejected: {e}")
+
+    # Manual audience check. Token `aud` can be a string or a list (Apple uses
+    # string, Google uses string for ID tokens). Accept either shape.
+    token_aud = payload.get("aud")
+    token_auds = token_aud if isinstance(token_aud, list) else [token_aud]
+    if not any(a in audiences for a in token_auds):
+        log.warning(
+            "OAuth token rejected: audience mismatch | token aud=%r | server expected aud in=%r",
+            token_aud,
+            audiences,
+        )
+        raise HTTPException(401, "Identity token rejected: audience mismatch")
 
     # `issuer` set-of-strings (Google) isn't supported by jose, so check manually.
     if not isinstance(issuer, str):
