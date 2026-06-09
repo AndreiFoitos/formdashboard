@@ -12,6 +12,7 @@ their endpoints.
 """
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -22,6 +23,8 @@ from jose import jwt, JWTError
 from jose.utils import base64url_decode
 
 from core.config import settings
+
+log = logging.getLogger(__name__)
 
 
 APPLE_ISSUER = "https://appleid.apple.com"
@@ -108,6 +111,19 @@ async def _verify_jwt(
             issuer=issuer if isinstance(issuer, str) else None,
         )
     except JWTError as e:
+        # Log the actual claims vs what we expected so 401s aren't a black box.
+        try:
+            claims = jwt.get_unverified_claims(token)
+            log.warning(
+                "OAuth token rejected: %s | token aud=%r iss=%r | server expected aud in=%r iss=%r",
+                e,
+                claims.get("aud"),
+                claims.get("iss"),
+                audiences,
+                issuer,
+            )
+        except Exception as decode_err:
+            log.warning("OAuth token rejected: %s (claims decode also failed: %s)", e, decode_err)
         raise HTTPException(401, f"Identity token rejected: {e}")
 
     # `issuer` set-of-strings (Google) isn't supported by jose, so check manually.
