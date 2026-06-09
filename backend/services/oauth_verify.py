@@ -113,7 +113,10 @@ async def _verify_jwt(
             algorithms=[unverified_header.get("alg", "RS256")],
             audience=None,
             issuer=issuer if isinstance(issuer, str) else None,
-            options={"verify_aud": False},
+            # verify_aud: see manual check below.
+            # verify_at_hash: Google ID tokens carry at_hash to bind the ID token
+            # to a paired access token, but our flow only sees the ID token.
+            options={"verify_aud": False, "verify_at_hash": False},
         )
     except JWTError as e:
         # Log the actual claims vs what we expected so 401s aren't a black box.
