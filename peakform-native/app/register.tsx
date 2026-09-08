@@ -72,10 +72,10 @@ export default function RegisterScreen() {
           {/* Logo */}
           <Image
             source={require('../assets/logo-dark.png')}
-            style={{ width: 200, height: 60, marginBottom: 8 }}
+            style={{ width: 320, height: 110, marginBottom: 12, alignSelf: 'center' }}
             resizeMode="contain"
           />
-          <Text className="text-zinc-500 text-sm mb-8">Set up your account</Text>
+          <Text className="text-zinc-500 text-sm mb-8 text-center">Set up your account</Text>
 
           {/* SSO */}
           {FEATURES.anySso && (

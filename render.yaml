@@ -1,0 +1,46 @@
+# Render Blueprint — Gainrace backend
+# Migrated off Railway (see USER_ACTIONS.md). The Postgres DB stays on Supabase;
+# this only hosts the FastAPI compute. Redis is intentionally omitted — the code
+# fails open without it (middleware/auth.py, core/rate_limit.py), so we run
+# Redis-free on the free tier and can add Upstash later if caching is wanted.
+#
+# To deploy: Render Dashboard -> New -> Blueprint -> pick this repo. Render reads
+# this file, then prompts for the secret values marked `sync: false` below.
+services:
+  - type: web
+    name: gainrace-api
+    runtime: docker
+    plan: free
+    region: frankfurt          # closest Render region to Europe
+    rootDir: backend           # build context + Dockerfile live here
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    # Override the Dockerfile CMD so migrations run on every deploy, then start
+    # uvicorn on Render's injected $PORT (mirrors the old railway.json start cmd).
+    dockerCommand: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: ENV
+        value: production
+      # ── Required (app won't start without these) ──────────────────────────
+      - key: DATABASE_URL        # Supabase connection string (async, postgresql+asyncpg://)
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      # ── Optional but you'll want them ─────────────────────────────────────
+      - key: ANTHROPIC_API_KEY   # AI digest / ask; endpoints 503 until set
+        sync: false
+      - key: USDA_API_KEY        # nutrition lookups; falls back to Claude-only if unset
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: GOOGLE_IOS_CLIENT_ID
+        sync: false
+      - key: GOOGLE_WEB_CLIENT_ID
+        sync: false
+      # ── Redis: leave unset to run Redis-free. To enable later, add an Upstash
+      #    URL here (redis://...) — the code picks it up automatically.
+      # - key: REDIS_URL
+      #   sync: false

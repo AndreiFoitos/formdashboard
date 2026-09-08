@@ -123,10 +123,10 @@ export default function LoginScreen() {
           {/* Logo */}
           <Image
             source={require('../assets/logo-dark.png')}
-            style={{ width: 200, height: 60, marginBottom: 8 }}
+            style={{ width: 320, height: 110, marginBottom: 12, alignSelf: 'center' }}
             resizeMode="contain"
           />
-          <Text className="text-zinc-500 text-sm mb-8">
+          <Text className="text-zinc-500 text-sm mb-8 text-center">
             Your performance operating system
           </Text>
 

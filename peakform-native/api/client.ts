@@ -43,8 +43,19 @@ api.interceptors.response.use(
   (res) => res,
   async (err) => {
     const original = err.config as typeof err.config & { _retry?: boolean }
+    const url: string = original?.url ?? ''
 
-    if (err.response?.status !== 401 || original._retry) {
+    // 401s from /auth/* are genuine credential errors (bad OAuth token, wrong
+    // password, etc.) — NOT session-expired. Don't try to refresh; bubble the
+    // original error up so the caller can show a real message. Without this
+    // skip, an SSO endpoint returning 401 triggers the refresh path, which
+    // finds no stored refresh token (you're not logged in yet) and surfaces
+    // a misleading "No refresh token" error to the user.
+    if (
+      err.response?.status !== 401 ||
+      original._retry ||
+      url.startsWith('/auth/')
+    ) {
       return Promise.reject(err)
     }
 
