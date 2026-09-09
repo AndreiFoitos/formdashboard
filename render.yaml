@@ -2,7 +2,7 @@
 # Migrated off Railway (see USER_ACTIONS.md). The Postgres DB stays on Supabase;
 # this only hosts the FastAPI compute. Redis is intentionally omitted — the code
 # fails open without it (middleware/auth.py, core/rate_limit.py), so we run
-# Redis-free on the free tier and can add Upstash later if caching is wanted.
+# Redis-free for now and can add Upstash later if caching is wanted.
 #
 # To deploy: Render Dashboard -> New -> Blueprint -> pick this repo. Render reads
 # this file, then prompts for the secret values marked `sync: false` below.
@@ -10,7 +10,11 @@ services:
   - type: web
     name: gainrace-api
     runtime: docker
-    plan: free
+    # Starter, not free: free web services spin down after ~15 min idle and cold
+    # start in 30-60s. api/client.ts sets no axios timeout, so a cold start shows
+    # as an indefinite spinner rather than an error — reads as a broken app to a
+    # TestFlight tester. $7/mo buys an always-on instance.
+    plan: starter
     region: frankfurt          # closest Render region to Europe
     rootDir: backend           # build context + Dockerfile live here
     dockerfilePath: ./Dockerfile
