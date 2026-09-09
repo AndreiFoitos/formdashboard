@@ -22,11 +22,20 @@ services:
     envVars:
       - key: ENV
         value: production
+      # CORS lockdown (HIGH-12) only engages when ENV=production AND this is
+      # non-empty — main.py falls back to allow_origins=["*"] otherwise. Native
+      # clients don't send Origin, so this only constrains browser callers.
+      - key: CORS_ORIGINS
+        value: https://gainrace.com,https://www.gainrace.com
       # ── Required (app won't start without these) ──────────────────────────
       - key: DATABASE_URL        # Supabase connection string (async, postgresql+asyncpg://)
         sync: false
       - key: JWT_SECRET
         sync: false
+      # Audience claim Apple signs into the identity token. Without this,
+      # verify_apple_token() 503s and Sign in with Apple is dead on arrival.
+      - key: APPLE_BUNDLE_ID
+        value: com.gainrace.app
       # ── Optional but you'll want them ─────────────────────────────────────
       - key: ANTHROPIC_API_KEY   # AI digest / ask; endpoints 503 until set
         sync: false
@@ -39,6 +48,14 @@ services:
       - key: GOOGLE_IOS_CLIENT_ID
         sync: false
       - key: GOOGLE_WEB_CLIENT_ID
+        sync: false
+      # Backend error reporting (HIGH-19). Empty disables Sentry entirely —
+      # set it, because the first live deploy is exactly when you need traces.
+      - key: SENTRY_DSN
+        sync: false
+      # Expo Push access token (HIGH-28). Unset means push requests go out
+      # unauthenticated, so anyone could spoof pushes to your users.
+      - key: EXPO_ACCESS_TOKEN
         sync: false
       # ── Redis: leave unset to run Redis-free. To enable later, add an Upstash
       #    URL here (redis://...) — the code picks it up automatically.

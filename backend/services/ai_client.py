@@ -7,8 +7,11 @@ from core import redis as redis_mod
 
 # Single source of truth for the model. The roadmap chose Sonnet for the
 # quality/cost balance on this high-volume per-user feature; bump to
-# "claude-opus-4-7" here if you want higher quality and accept the cost.
-CLAUDE_MODEL = "claude-sonnet-4-6"
+# "claude-opus-5" here if you want higher quality and accept the cost.
+#
+# Sonnet 5 supersedes the Sonnet 4.6 we shipped on and is also cheaper
+# ($2/$10 per MTok vs $3/$15), so this is a strict win at the same tier.
+CLAUDE_MODEL = "claude-sonnet-5"
 
 
 class AINotConfigured(Exception):
