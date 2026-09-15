@@ -20,9 +20,9 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
     autoDeploy: true
-    # Override the Dockerfile CMD so migrations run on every deploy, then start
-    # uvicorn on Render's injected $PORT (mirrors the old railway.json start cmd).
-    dockerCommand: sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    # No dockerCommand: the Dockerfile CMD runs migrations then uvicorn on $PORT.
+    # (Render wraps dockerCommand in its own shell, so a nested `sh -c "..."`
+    # kept the quotes literally and failed with "not found", exit 127.)
     envVars:
       - key: ENV
         value: production

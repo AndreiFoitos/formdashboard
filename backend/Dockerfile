@@ -26,6 +26,7 @@ USER app
 
 EXPOSE 8000
 
-# Railway, Fly, Render, and Heroku all inject $PORT. Default to 8000 for local
-# `docker run` use. railway.json's startCommand overrides this on Railway.
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Apply pending migrations, then start the API. Render (like Fly and Heroku)
+# injects $PORT; default to 8000 for local `docker run`. Note this means a local
+# `docker run` also migrates whatever DATABASE_URL points at.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
