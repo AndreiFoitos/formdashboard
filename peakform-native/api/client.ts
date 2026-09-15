@@ -12,8 +12,12 @@ import { useAuthStore } from '../store/auth'
 const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.178.240:8000'
 
+// Without a timeout axios waits forever, so an unreachable or waking backend
+// shows as an endless spinner. 30s covers a normal request with headroom; slow
+// endpoints (AI, photo uploads) pass their own longer timeout per call.
 export const api = axios.create({
   baseURL: BASE_URL,
+  timeout: 30_000,
 })
 
 // ── Attach access token to every outgoing request ────────────────────────────

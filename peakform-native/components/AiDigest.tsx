@@ -9,7 +9,7 @@ import { api } from '../api/client'
 export function AiDigest() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['ai-digest'],
-    queryFn: () => api.get('/ai/digest').then((r) => r.data.digest as string),
+    queryFn: () => api.get('/ai/digest', { timeout: 60_000 }).then((r) => r.data.digest as string),
     staleTime: 30 * 60 * 1000,
     retry: false,
   })

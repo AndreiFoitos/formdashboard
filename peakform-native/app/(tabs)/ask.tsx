@@ -38,7 +38,7 @@ export default function AskScreen() {
   const ask = useMutation({
     mutationFn: (question: string) =>
       api
-        .post('/ai/ask', { question, history: turns.slice(-10) })
+        .post('/ai/ask', { question, history: turns.slice(-10) }, { timeout: 60_000 })
         .then((r) => r.data.answer as string),
     onSuccess: (answer) => {
       setTurns((t) => [...t, { role: 'assistant', content: answer }])
