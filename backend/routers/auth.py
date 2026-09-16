@@ -17,6 +17,7 @@ from models.user import User
 from models.streak import Streak
 from schemas.user import RESERVED_USERNAMES
 from services.oauth_verify import verify_apple_token, verify_google_token
+from services.apple_revoke import exchange_authorization_code
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -43,6 +44,10 @@ class AppleSignInRequest(BaseModel):
     # Apple sends a name object only on the first auth ever. Pass it through so
     # we can populate `name` for brand-new accounts; we ignore it for returning users.
     full_name: str | None = None
+    # Single-use code (valid ~5 min) we exchange for an Apple refresh token so
+    # account deletion can revoke Sign in with Apple. Optional so builds that
+    # predate it can still sign in.
+    authorization_code: str | None = None
 
 
 class GoogleSignInRequest(BaseModel):
@@ -214,7 +219,16 @@ async def apple_sign_in(request: Request, body: AppleSignInRequest, db: AsyncSes
         name=body.full_name,
         db=db,
     )
-    return await _issue_tokens_for_user(user)
+    tokens = await _issue_tokens_for_user(user)
+
+    # Every sign-in brings a fresh code; keep the latest refresh token. A failed
+    # exchange only means we can't revoke later, so it never fails the login.
+    if body.authorization_code:
+        apple_refresh_token = await exchange_authorization_code(body.authorization_code)
+        if apple_refresh_token:
+            user.apple_refresh_token = apple_refresh_token
+            await db.commit()
+    return tokens
 
 
 @router.post("/google", response_model=TokenResponse)

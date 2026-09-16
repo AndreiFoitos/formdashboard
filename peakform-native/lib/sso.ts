@@ -97,6 +97,9 @@ export async function signInWithApple() {
   const { data: tokens } = await api.post('/auth/apple', {
     identity_token: credential.identityToken,
     full_name: fullName,
+    // Single-use code the server exchanges for an Apple refresh token, so it
+    // can revoke Sign in with Apple when the account is deleted.
+    authorization_code: credential.authorizationCode,
   })
 
   await completeSignIn(tokens)

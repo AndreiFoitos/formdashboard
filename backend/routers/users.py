@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 import re
 from datetime import date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -14,6 +15,9 @@ from models.daily_summary import DailySummary
 from models.onboarding import OnboardingBaseline
 from models.body_metric import BodyMetric
 from schemas.user import UserOut, UserUpdate, USERNAME_PATTERN, RESERVED_USERNAMES
+from services.apple_revoke import revoke_refresh_token
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -111,6 +115,13 @@ async def delete_me(
         )
 
     user_id = current_user.id
+
+    # Apple also requires revoking Sign in with Apple on deletion. Best-effort:
+    # an Apple outage must not stop someone deleting their data.
+    if current_user.apple_refresh_token:
+        await revoke_refresh_token(current_user.apple_refresh_token)
+    elif current_user.apple_sub:
+        log.warning("Deleting Apple user %s with no stored Apple refresh token; cannot revoke", user_id)
 
     # Single-row DELETE; Postgres handles the rest via FK cascade.
     await db.execute(sa_delete(User).where(User.id == user_id))

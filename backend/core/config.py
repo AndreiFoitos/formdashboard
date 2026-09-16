@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     # Sign in with Apple — the bundle ID is also the audience claim Apple signs.
     APPLE_BUNDLE_ID: str = ""
 
+    # Sign in with Apple key (Developer portal -> Keys) used to exchange the
+    # app's authorization code for a refresh token and revoke it when the user
+    # deletes their account (Guideline 5.1.1(v)). The private key is the full
+    # contents of the .p8 file. All empty = revocation is skipped with a warning.
+    APPLE_TEAM_ID: str = ""
+    APPLE_SIGNIN_KEY_ID: str = ""
+    APPLE_SIGNIN_PRIVATE_KEY: str = ""
+
     # Google Sign-In — Client IDs are public (they ship in app.json), but they're
     # deployment-specific, so they go in .env rather than as code defaults. The
     # audience varies per-platform, so we accept all three and validate against

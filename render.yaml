@@ -40,6 +40,15 @@ services:
       # verify_apple_token() 503s and Sign in with Apple is dead on arrival.
       - key: APPLE_BUNDLE_ID
         value: com.gainrace.app
+      # Sign in with Apple key (Developer portal -> Keys), used to revoke a
+      # user's Apple tokens when they delete their account. The private key is
+      # the full contents of the .p8 file.
+      - key: APPLE_TEAM_ID
+        sync: false
+      - key: APPLE_SIGNIN_KEY_ID
+        sync: false
+      - key: APPLE_SIGNIN_PRIVATE_KEY
+        sync: false
       # ── Optional but you'll want them ─────────────────────────────────────
       - key: ANTHROPIC_API_KEY   # AI digest / ask; endpoints 503 until set
         sync: false

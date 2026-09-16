@@ -18,6 +18,9 @@ class User(Base):
     # Provider-specific stable subject IDs (Apple `sub`, Google `sub`).
     apple_sub: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     google_sub: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    # Apple refresh token from exchanging the sign-in authorization code. Only
+    # used to revoke Sign in with Apple on account deletion (services/apple_revoke.py).
+    apple_refresh_token: Mapped[str | None] = mapped_column(String, nullable=True)
     name: Mapped[str] = mapped_column(String, nullable=True)
     age: Mapped[int] = mapped_column(nullable=True)
     height_cm: Mapped[float] = mapped_column(nullable=True)
