@@ -7,11 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sqlfunc
 from pydantic import BaseModel, EmailStr
-import redis.asyncio as aioredis
 
 from core.database import get_db
 from core.rate_limit import limiter
-from core.redis import get_redis
+from core.redis import cache_get, cache_setex
 from core.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from models.user import User
 from models.streak import Streak
@@ -251,10 +250,9 @@ async def refresh(
     request: Request,
     body: RefreshRequest,
     db: AsyncSession = Depends(get_db),
-    redis: aioredis.Redis = Depends(get_redis),
 ):
     # Check blacklist
-    if await redis.get(f"blacklist:{body.refresh_token}"):
+    if await cache_get(f"blacklist:{body.refresh_token}"):
         raise HTTPException(status_code=401, detail="Token revoked")
 
     payload = decode_token(body.refresh_token)
@@ -281,7 +279,6 @@ async def refresh(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     body: RefreshRequest,
-    redis: aioredis.Redis = Depends(get_redis),
 ):
     payload = decode_token(body.refresh_token)
     if payload:
@@ -289,4 +286,4 @@ async def logout(
         import time
         ttl = int(exp - time.time())
         if ttl > 0:
-            await redis.setex(f"blacklist:{body.refresh_token}", ttl, "1")
+            await cache_setex(f"blacklist:{body.refresh_token}", ttl, "1")

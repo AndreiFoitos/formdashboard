@@ -37,19 +37,11 @@ async def _enforce_global_spend_cap() -> None:
     many users together (or a bug) drive total spend past what we can absorb.
     Redis is the source of truth so multiple replicas share the counter.
 
-    If Redis is unavailable we fail OPEN — the call proceeds. That preserves
-    availability at the cost of one missed cap-hit; the per-user limits are
-    still active, so worst-case spend is bounded by user_count * per_user_cap.
+    Without Redis the counter lives in process memory (core/redis.py), so the
+    cap still holds on a single instance but resets when the server restarts.
     """
-    client = redis_mod.redis_client
-    if client is None:
-        return
     key = f"anthropic_calls:{date.today().isoformat()}"
-    try:
-        n = await client.incr(key)
-        await client.expire(key, 86400)
-    except Exception:  # noqa: BLE001
-        return
+    n = await redis_mod.incr_with_ttl(key, 86400)
     if n > settings.ANTHROPIC_DAILY_CALL_LIMIT:
         raise AINotConfigured(
             f"Global daily AI quota exhausted ({settings.ANTHROPIC_DAILY_CALL_LIMIT}). "

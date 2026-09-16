@@ -22,7 +22,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select
 
 from core.database import AsyncSessionLocal
-from core import redis as redis_mod
 from models.user import User
 from services.ai_client import AINotConfigured
 from services.ai_features import generate_daily_digest
@@ -68,7 +67,7 @@ async def _prewarm_one(user_id, sem: asyncio.Semaphore) -> tuple[bool, bool]:
             if user is None:
                 return False, False
             try:
-                await generate_daily_digest(user, db, redis_mod.redis_client)
+                await generate_daily_digest(user, db)
                 await db.commit()
                 return True, False
             except AINotConfigured:

@@ -4,11 +4,10 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-import redis.asyncio as aioredis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
-from core.redis import get_redis
+from core.redis import incr_with_ttl
 from middleware.auth import get_current_user
 from models.user import User
 from services.ai_client import AINotConfigured
@@ -38,17 +37,15 @@ class AskRequest(BaseModel):
 async def get_digest(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    redis: aioredis.Redis = Depends(get_redis),
 ):
     # Per-user daily cap on digest fetches. HIGH-27.
     rate_key = f"digest_rate:{current_user.id}:{date.today().isoformat()}"
-    count = await redis.incr(rate_key)
-    await redis.expire(rate_key, 86400)
+    count = await incr_with_ttl(rate_key, 86400)
     if count > DIGEST_DAILY_LIMIT:
         raise HTTPException(429, f"Daily digest limit reached ({DIGEST_DAILY_LIMIT}/day)")
 
     try:
-        digest = await generate_daily_digest(current_user, db, redis)
+        digest = await generate_daily_digest(current_user, db)
     except AINotConfigured:
         raise HTTPException(503, "AI is not configured on the server")
     await db.commit()  # persist the cached insight, if one was generated
@@ -60,12 +57,10 @@ async def ask(
     payload: AskRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    redis: aioredis.Redis = Depends(get_redis),
 ):
     # Rate limit: 20 questions per user per day.
     rate_key = f"ask_rate:{current_user.id}:{date.today().isoformat()}"
-    count = await redis.incr(rate_key)
-    await redis.expire(rate_key, 86400)
+    count = await incr_with_ttl(rate_key, 86400)
     if count > ASK_DAILY_LIMIT:
         raise HTTPException(429, f"Daily question limit reached ({ASK_DAILY_LIMIT}/day)")
 

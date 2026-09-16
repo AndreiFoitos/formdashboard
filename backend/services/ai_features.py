@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.daily_summary import DailySummary
 from models.ai_insight import AIInsight
+from core.redis import cache_get, cache_setex
 from services.ai_client import call_claude
 
 # ── Prompts ─────────────────────────────────────────────────────────────────────
@@ -92,9 +93,9 @@ async def save_insight(user_id, insight_type: str, content: str, db: AsyncSessio
 
 # ── Daily digest ──────────────────────────────────────────────────────────────
 
-async def generate_daily_digest(user, db: AsyncSession, redis) -> str:
+async def generate_daily_digest(user, db: AsyncSession) -> str:
     cache_key = f"digest:{user.id}:{date.today().isoformat()}"
-    cached = await redis.get(cache_key)
+    cached = await cache_get(cache_key)
     if cached:
         return cached
 
@@ -122,7 +123,7 @@ Bodyweight: {user.weight_kg}kg, bedtime hour: {user.sleep_hour}:00"""
 
     digest = await call_claude(DIGEST_SYSTEM, [{"role": "user", "content": msg}], max_tokens=120)
 
-    await redis.setex(cache_key, _seconds_to_midnight(), digest)
+    await cache_setex(cache_key, max(_seconds_to_midnight(), 1), digest)
     await save_insight(user.id, "daily_digest", digest, db, data_window_days=7)
     return digest
 

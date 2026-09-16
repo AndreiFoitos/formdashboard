@@ -10,10 +10,9 @@ from sqlalchemy import select, func as sqlfunc
 from sqlalchemy.orm import selectinload
 
 import httpx
-import redis.asyncio as aioredis
 
 from core.database import get_db
-from core.redis import get_redis
+from core.redis import get_redis, incr_with_ttl
 from core.timezone import user_today
 from middleware.auth import get_current_user
 from models.user import User
@@ -239,7 +238,6 @@ the global ceiling in services.ai_client."""
 async def estimate_from_photo_endpoint(
     image: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
-    redis: aioredis.Redis = Depends(get_redis),
 ):
     """Identify ingredients from a food photo and return estimated macros.
 
@@ -250,8 +248,7 @@ async def estimate_from_photo_endpoint(
     # HIGH-27 per-user rate limit. Pre-deducts before the upload bytes are
     # read so a hot loop can't even pay the network cost of repeated tries.
     rate_key = f"photo_estimate:{current_user.id}:{date.today().isoformat()}"
-    count = await redis.incr(rate_key)
-    await redis.expire(rate_key, 86400)
+    count = await incr_with_ttl(rate_key, 86400)
     if count > PHOTO_DAILY_LIMIT:
         raise HTTPException(429, f"Daily photo estimate limit reached ({PHOTO_DAILY_LIMIT}/day)")
 
