@@ -9,4 +9,7 @@ const config = getDefaultConfig(__dirname)
 // the extension here is the one-line fix the library docs recommend.
 config.resolver.sourceExts.push('mjs')
 
+// 3D avatar models (assets/avatar/*.glb) are bundled as binary assets.
+config.resolver.assetExts.push('glb')
+
 module.exports = withNativeWind(config, { input: './global.css' })

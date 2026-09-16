@@ -157,13 +157,15 @@
           "color": "#0b62e8"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-asset"
     ],
     "extra": {
       "router": {},
       "features": {
         "appleSignIn": true,
-        "googleSignIn": true
+        "googleSignIn": true,
+        "avatarLab": true
       },
       "googleSignIn": {
         "iosClientId": "471688772354-jk87n5u0alesh9c2o3qei7t9b5tvqu5b.apps.googleusercontent.com",

@@ -71,12 +71,15 @@ async def update_me(
 
 
 class DeleteAccountRequest(BaseModel):
-    """Server-side defense in depth: the UI also gates this on a typed email
-    confirmation, but we re-check here so the endpoint can't be called from
-    a hostile script bearing a stolen access token. Apple Guideline 5.1.1(v)
-    requires in-app deletion to be at least as easy to find as sign-up — but
-    nothing says it can't double-check intent."""
-    email_confirmation: str
+    """Server-side intent check: the UI gates this on typing "DELETE", and we
+    re-check here so a stray/buggy call can't wipe an account. Apple Guideline
+    5.1.1(v) requires in-app deletion to be easy — but nothing says it can't
+    double-check intent.
+
+    `email_confirmation` is still accepted for older app builds that asked the
+    user to type their email."""
+    confirmation: str | None = None
+    email_confirmation: str | None = None
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
@@ -108,10 +111,14 @@ async def delete_me(
     Existing refresh tokens stop working at the next /auth/refresh call,
     where we now also verify the user row still exists (see auth.py).
     """
-    if body.email_confirmation.strip().lower() != (current_user.email or "").lower():
+    typed_delete = (body.confirmation or "").strip().upper() == "DELETE"
+    typed_email = bool(current_user.email) and (
+        (body.email_confirmation or "").strip().lower() == current_user.email.lower()
+    )
+    if not (typed_delete or typed_email):
         raise HTTPException(
             status_code=400,
-            detail="Email confirmation does not match your account email.",
+            detail='Type DELETE to confirm account deletion.',
         )
 
     user_id = current_user.id

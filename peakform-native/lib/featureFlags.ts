@@ -4,7 +4,7 @@ import Constants from 'expo-constants'
 // Default to OFF so half-finished features stay dark in unconfigured builds.
 
 const extra = (Constants.expoConfig?.extra ?? {}) as {
-  features?: { appleSignIn?: boolean; googleSignIn?: boolean }
+  features?: { appleSignIn?: boolean; googleSignIn?: boolean; avatarLab?: boolean }
 }
 const f = extra.features ?? {}
 
@@ -14,4 +14,7 @@ export const FEATURES = {
   // Convenience: true if either provider is enabled, so call sites can do a
   // single check before rendering the whole "or sign in with…" section.
   anySso: !!f.appleSignIn || !!f.googleSignIn,
+  // Internal 3D avatar test screen (Settings → Avatar lab). Turn OFF before
+  // App Store submission.
+  avatarLab: !!f.avatarLab,
 } as const

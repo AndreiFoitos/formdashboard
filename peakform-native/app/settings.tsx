@@ -19,6 +19,7 @@ import Constants from 'expo-constants'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { removeToken } from '../lib/storage'
+import { FEATURES } from '../lib/featureFlags'
 import { hapticSuccess } from '../lib/haptics'
 import {
   PRIVACY_POLICY_URL,
@@ -422,16 +423,17 @@ function DeleteAccountSection() {
   const [typed, setTyped] = useState('')
 
   const email = user?.email ?? ''
-  // Compare on trimmed-lowercase since iOS keyboards capitalize the first letter
-  // and add a trailing space on autocomplete.
-  const matches = typed.trim().toLowerCase() === email.toLowerCase() && email.length > 0
+  // Typing the email was painful for Apple "Hide My Email" relay addresses, so
+  // we ask for the word DELETE instead. Case-insensitive + trimmed since iOS
+  // keyboards capitalize and autocomplete adds a trailing space.
+  const matches = typed.trim().toUpperCase() === 'DELETE'
 
   async function submit() {
     if (!matches) return
     setStep('submitting')
     try {
       await api.delete('/users/me', {
-        data: { email_confirmation: typed.trim() },
+        data: { confirmation: 'DELETE' },
       })
       await removeToken('refresh_token')
       clearAuth()
@@ -473,7 +475,7 @@ function DeleteAccountSection() {
   return (
     <View className="px-4 py-4">
       <Text className="text-red-300 text-sm font-semibold mb-1">
-        Type your email to confirm
+        Type DELETE to confirm
       </Text>
       <Text className="text-zinc-500 text-xs mb-3">
         Account: <Text className="text-zinc-300">{email || '—'}</Text>
@@ -481,11 +483,10 @@ function DeleteAccountSection() {
       <TextInput
         value={typed}
         onChangeText={setTyped}
-        placeholder="Type your email"
+        placeholder="DELETE"
         placeholderTextColor="#52525b"
-        autoCapitalize="none"
+        autoCapitalize="characters"
         autoCorrect={false}
-        keyboardType="email-address"
         editable={step !== 'submitting'}
         className="bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-white text-sm mb-3"
       />
@@ -577,6 +578,20 @@ export default function SettingsScreen() {
             </View>
           </TouchableOpacity>
         </Section>
+
+        {FEATURES.avatarLab && (
+          <Section title="Labs">
+            <TouchableOpacity onPress={() => router.push('/avatar-lab')} className="px-4 py-4">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 pr-3">
+                  <Text className="text-white text-sm font-medium">Avatar lab</Text>
+                  <Text className="text-zinc-500 text-xs mt-0.5">3D avatar test — placeholder model, FPS + snapshot timing.</Text>
+                </View>
+                <Text className="text-zinc-500 text-base">›</Text>
+              </View>
+            </TouchableOpacity>
+          </Section>
+        )}
 
         <Section title="Account">
           <View className="px-4 py-4 border-b border-zinc-800">
