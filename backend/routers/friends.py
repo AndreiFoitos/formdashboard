@@ -120,7 +120,7 @@ async def invite_friend(
         result = await db.execute(select(User).where(sqlfunc.lower(User.username) == handle))
         target = result.scalar_one_or_none()
         if not target:
-            raise HTTPException(404, "No Gainrace user with that username")
+            raise HTTPException(404, "No GainRace user with that username")
     elif body.email:
         target_email = body.email.strip().lower()
         if target_email == (current_user.email or "").lower():
@@ -128,7 +128,7 @@ async def invite_friend(
         result = await db.execute(select(User).where(sqlfunc.lower(User.email) == target_email))
         target = result.scalar_one_or_none()
         if not target:
-            raise HTTPException(404, "No Gainrace user with that email")
+            raise HTTPException(404, "No GainRace user with that email")
     else:
         raise HTTPException(400, "Username is required")
 

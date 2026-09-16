@@ -1175,12 +1175,12 @@ function LogModal({
                       </>
                     )}
 
-                    {/* Suggested by Gainrace — auto-detected. Hidden when empty
+                    {/* Suggested by GainRace — auto-detected. Hidden when empty
                         so a brand-new user only sees the manual section. */}
                     {suggested.length > 0 && (
                       <>
                         <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2 mt-5">
-                          Suggested by Gainrace
+                          Suggested by GainRace
                         </Text>
                         <View style={{ gap: 8 }}>
                           {suggested.map((meal) => (

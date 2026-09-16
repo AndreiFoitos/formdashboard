@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Gainrace",
+    "name": "GainRace",
     "slug": "gainrace-native",
     "version": "1.0.0",
     "scheme": "gainrace",
@@ -146,7 +146,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Gainrace uses the camera to identify your meal and estimate calories.",
+          "cameraPermission": "GainRace uses the camera to identify your meal and estimate calories.",
           "recordAudioAndroid": false
         }
       ],
