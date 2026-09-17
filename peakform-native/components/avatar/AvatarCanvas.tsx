@@ -1,6 +1,6 @@
 import '../../lib/avatar/textDecoderPolyfill'
-import { forwardRef, Suspense, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
-import { PanResponder, View, type ViewStyle } from 'react-native'
+import { Component, forwardRef, Suspense, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from 'react'
+import { PanResponder, Text, View, type ViewStyle } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber/native'
 import { GLView } from 'expo-gl'
@@ -30,6 +30,38 @@ interface Props {
   style?: ViewStyle
   /** Called roughly once a second with the measured frame rate. */
   onFps?: (fps: number) => void
+  /** Called when rendering or loading the model throws (the canvas shows the error instead of crashing). */
+  onError?: (error: Error) => void
+}
+
+/**
+ * Keeps a GL / model-loading failure from taking the whole app down, and shows
+ * the message so it can be reported (production builds have no dev red screen).
+ */
+class AvatarErrorBoundary extends Component<{ children: ReactNode; onError?: (e: Error) => void }, { error: Error | null }> {
+  state = { error: null as Error | null }
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+  componentDidCatch(error: Error) {
+    console.error('[AvatarCanvas]', error)
+    this.props.onError?.(error)
+  }
+  render() {
+    const { error } = this.state
+    if (!error) return this.props.children
+    return (
+      <View style={{ flex: 1, padding: 12, justifyContent: 'center' }}>
+        <Text style={{ color: '#f87171', fontSize: 13, fontWeight: '600', marginBottom: 4 }}>3D avatar failed</Text>
+        <Text selectable style={{ color: '#d4d4d8', fontSize: 11 }}>
+          {String(error.message || error)}
+        </Text>
+        <Text selectable style={{ color: '#71717a', fontSize: 9, marginTop: 6 }} numberOfLines={8}>
+          {String(error.stack ?? '')}
+        </Text>
+      </View>
+    )
+  }
 }
 
 /**
@@ -38,7 +70,7 @@ interface Props {
  * Rendering stops while the screen is not focused.
  */
 export const AvatarCanvas = forwardRef<AvatarCanvasHandle, Props>(function AvatarCanvas(
-  { base, source = 'glb', state, style, onFps },
+  { base, source = 'glb', state, style, onFps, onError },
   ref,
 ) {
   const [focused, setFocused] = useState(true)
@@ -73,6 +105,7 @@ export const AvatarCanvas = forwardRef<AvatarCanvasHandle, Props>(function Avata
 
   return (
     <View style={style}>
+      <AvatarErrorBoundary onError={onError}>
       <Canvas
         frameloop={focused ? 'always' : 'never'}
         camera={{ position: [0, 1.0, 3.9], fov: 30 }}
@@ -92,6 +125,7 @@ export const AvatarCanvas = forwardRef<AvatarCanvasHandle, Props>(function Avata
         </Suspense>
       </Canvas>
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} {...pan.panHandlers} />
+      </AvatarErrorBoundary>
     </View>
   )
 })

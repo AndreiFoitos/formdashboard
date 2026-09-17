@@ -1,6 +1,5 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native'
-import * as AppleAuthentication from 'expo-apple-authentication'
 import Svg, { Path } from 'react-native-svg'
 
 import { FEATURES } from '../lib/featureFlags'
@@ -29,8 +28,7 @@ function humanizeSsoError(err: any, provider: 'Apple' | 'Google'): string {
 }
 
 // ── Multicolor Google "G" logo (official mark) ────────────────────────────────
-// Vector traced from Google's identity guidelines. Sized to match the cap-height
-// of Apple's "Continue with Apple" button glyph at the same row height.
+// Vector traced from Google's identity guidelines.
 function GoogleGLogo({ size = 20 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 48 48">
@@ -54,22 +52,77 @@ function GoogleGLogo({ size = 20 }: { size?: number }) {
   )
 }
 
+// ── Apple logo (black, for the white button) ─────────────────────────────────
+function AppleLogo({ size = 20 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        fill="#000000"
+        d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"
+      />
+    </Svg>
+  )
+}
+
 // ── Apple + Google sign-in buttons (real implementation) ─────────────────────
 // This file is only required at runtime when FEATURES.anySso is true (see
 // ./SsoButtons.tsx). Keeping the native imports here means an unconfigured
 // build never touches the SSO SDKs.
 //
 // Design choices:
-// - Both buttons are 52pt tall with a 16pt corner radius — matches Apple's
-//   recommended sizing exactly (Apple's button is the native control, Google's
-//   is a hand-rolled match).
-// - Apple uses its own white pill (mandated by Apple HIG — third-party styling
-//   of "Sign in with Apple" gets the app rejected on submission).
-// - Google uses the same white pill with the official multicolor G mark on
-//   the left, "Continue with Google" centered in semibold text.
+// - Both buttons are rendered by the same SsoButton so the logo size, font,
+//   weight and spacing are identical. The native AppleAuthenticationButton
+//   draws its own title (size scales with height, Apple's weight), which never
+//   lined up with a hand-rolled Google button.
+// - The custom Apple button follows Apple's HIG rules for custom buttons:
+//   Apple logo, "Continue with Apple" title, system font, title size ~43% of
+//   button height, white background with black content.
 
 const BUTTON_HEIGHT = 52
 const BUTTON_RADIUS = 16
+const TITLE_SIZE = 19
+const LOGO_SIZE = 20
+
+function SsoButton({
+  title,
+  logo,
+  busy,
+  onPress,
+}: {
+  title: string
+  logo: ReactNode
+  busy: boolean
+  onPress: () => void
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={busy}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      style={{
+        height: BUTTON_HEIGHT,
+        borderRadius: BUTTON_RADIUS,
+        backgroundColor: 'white',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: busy ? 0.5 : 1,
+        paddingHorizontal: 16,
+      }}
+    >
+      {busy ? (
+        <ActivityIndicator color="black" />
+      ) : (
+        <>
+          <View style={{ width: LOGO_SIZE, height: LOGO_SIZE, marginRight: 10 }}>{logo}</View>
+          <Text style={{ color: 'black', fontSize: TITLE_SIZE, fontWeight: '500' }}>{title}</Text>
+        </>
+      )}
+    </TouchableOpacity>
+  )
+}
 
 export default function SsoButtonsImpl({ onError }: Props) {
   const [appleBusy, setAppleBusy] = useState(false)
@@ -107,62 +160,20 @@ export default function SsoButtonsImpl({ onError }: Props) {
   return (
     <View style={{ gap: 10 }}>
       {showApple && (
-        <View style={{ position: 'relative' }}>
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
-            cornerRadius={BUTTON_RADIUS}
-            style={{
-              width: '100%',
-              height: BUTTON_HEIGHT,
-              opacity: appleBusy ? 0.5 : 1,
-            }}
-            onPress={onApple}
-          />
-          {appleBusy && (
-            <View className="absolute inset-0 items-center justify-center">
-              <ActivityIndicator color="black" />
-            </View>
-          )}
-        </View>
+        <SsoButton
+          title="Continue with Apple"
+          logo={<AppleLogo size={LOGO_SIZE} />}
+          busy={appleBusy}
+          onPress={onApple}
+        />
       )}
-
       {showGoogle && (
-        <TouchableOpacity
+        <SsoButton
+          title="Continue with Google"
+          logo={<GoogleGLogo size={LOGO_SIZE} />}
+          busy={googleBusy}
           onPress={onGoogle}
-          disabled={googleBusy}
-          activeOpacity={0.85}
-          style={{
-            height: BUTTON_HEIGHT,
-            borderRadius: BUTTON_RADIUS,
-            backgroundColor: 'white',
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: googleBusy ? 0.5 : 1,
-            paddingHorizontal: 16,
-          }}
-        >
-          {googleBusy ? (
-            <ActivityIndicator color="black" />
-          ) : (
-            <>
-              <View style={{ marginRight: 10 }}>
-                <GoogleGLogo size={20} />
-              </View>
-              <Text
-                style={{
-                  color: 'black',
-                  fontSize: 17,
-                  fontWeight: '600',
-                  letterSpacing: -0.2,
-                }}
-              >
-                Continue with Google
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+        />
       )}
     </View>
   )

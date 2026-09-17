@@ -28,6 +28,8 @@ export default function AvatarLab() {
   const [highCaffeine, setHighCaffeine] = useState(false)
   const [head, setHead] = useState<HeadStyle>('human')
   const [source, setSource] = useState<AvatarSource>('glb')
+  // 3D is only mounted on request, so a GL/model failure can be pinned to one of the two models.
+  const [started, setStarted] = useState(false)
   const [look, setLook] = useState<Omit<AvatarLook, 'head'>>({
     skin: SKINS[2],
     hair: HAIRS[1],
@@ -71,7 +73,27 @@ export default function AvatarLab() {
       </View>
 
       <View style={{ height: 340 }} className="mx-4 rounded-3xl bg-zinc-900 overflow-hidden">
-        <AvatarCanvas ref={canvas} base={base} source={source} state={state} onFps={setFps} style={{ flex: 1 }} />
+        {started ? (
+          <AvatarCanvas key={source} ref={canvas} base={base} source={source} state={state} onFps={setFps} style={{ flex: 1 }} />
+        ) : (
+          <View className="flex-1 items-center justify-center px-6" style={{ gap: 10 }}>
+            <Text className="text-zinc-400 text-xs text-center">3D is off. Start it with one of the models:</Text>
+            {(['placeholder', 'glb'] as const).map((s) => (
+              <TouchableOpacity
+                key={s}
+                onPress={() => {
+                  setSource(s)
+                  setStarted(true)
+                }}
+                className="bg-white rounded-xl px-4 py-2.5"
+              >
+                <Text className="text-black text-sm font-semibold">
+                  {s === 'glb' ? 'Start MakeHuman model' : 'Start placeholder model'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
         <View pointerEvents="none" className="absolute top-3 left-3 bg-black/60 rounded-lg px-2 py-1">
           <Text className="text-emerald-400 text-xs font-mono">{fps ?? '–'} fps</Text>
         </View>
