@@ -53,15 +53,21 @@ async def call_claude(
     system,  # str, or a list of system blocks (use a cache_control block for large reusable prefixes)
     messages: list[dict],
     max_tokens: int = 600,
+    thinking: bool = True,
 ) -> str:
-    """Single Messages API call, returns the concatenated text. No thinking — these
-    are short, structured generations where latency/cost matter more than reasoning depth."""
+    """Single Messages API call, returns the concatenated text.
+
+    Sonnet 5 thinks adaptively unless told not to, and thinking tokens count
+    against max_tokens. Pass thinking=False for tiny structured replies: with
+    a ~120-token cap the model can spend it all thinking and return no text."""
     client = get_client()
     await _enforce_global_spend_cap()
+    extra = {} if thinking else {"thinking": {"type": "disabled"}}
     resp = await client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=max_tokens,
         system=system,
         messages=messages,
+        **extra,
     )
     return "".join(b.text for b in resp.content if b.type == "text").strip()

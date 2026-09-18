@@ -121,7 +121,7 @@ async def generate_daily_digest(user, db: AsyncSession) -> str:
 7-day averages: form {week['form_score']}, water {week['water_ml']}ml, protein {week['protein_g']}g
 Bodyweight: {user.weight_kg}kg, bedtime hour: {user.sleep_hour}:00"""
 
-    digest = await call_claude(DIGEST_SYSTEM, [{"role": "user", "content": msg}], max_tokens=120)
+    digest = await call_claude(DIGEST_SYSTEM, [{"role": "user", "content": msg}], max_tokens=120, thinking=False)
 
     await cache_setex(cache_key, max(_seconds_to_midnight(), 1), digest)
     await save_insight(user.id, "daily_digest", digest, db, data_window_days=7)
