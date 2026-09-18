@@ -23,3 +23,5 @@ USER_ACTIONS.md
 HANDOFF.md
 
 TODO_BEFORE_LAUNCH.md
+# Nutrition5k eval sample (backend/scripts/eval_food_views.py)
+backend/scripts/.n5k_data/
