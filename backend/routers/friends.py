@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
 from middleware.auth import get_current_user
 from models.user import User
+from schemas.avatar import public_avatar
 from models.training_log import TrainingLog
 from models.friendship import Friendship
 from models.friend_invite import FriendInvite
@@ -1233,6 +1234,9 @@ async def weekly_recap_race(
             "trusted_crossed_on_day": trusted_day if is_trusted else None,
             "sus_crossed_on_day": sus_day if is_sus else None,
             "is_me": uid == current_user.id,
+            # Look + (if the user shares it) applied body weights — never raw metrics.
+            "avatar": public_avatar(user.avatar),
+            "sex": user.sex,
         })
 
     # Sort by final total so frontend can pull podium top-3 without resorting.

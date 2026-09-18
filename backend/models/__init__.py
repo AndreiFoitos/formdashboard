@@ -16,8 +16,10 @@ from models.push_token import PushToken
 from models.saved_meal import SavedMeal, SavedMealItem, DismissedMealPattern
 from models.custom_exercise import CustomExercise
 from models.user_split import UserSplit
+from models.avatar_achievement import AvatarAchievement
 
 __all__ = [
+    "AvatarAchievement",
     "User",
     "DailySummary",
     "Streak",

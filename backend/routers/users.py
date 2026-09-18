@@ -16,6 +16,7 @@ from models.onboarding import OnboardingBaseline
 from models.body_metric import BodyMetric
 from schemas.user import UserOut, UserUpdate, USERNAME_PATTERN, RESERVED_USERNAMES
 from services.apple_revoke import revoke_refresh_token
+from services.avatar_rewards import load_owned, ownership_errors
 
 log = logging.getLogger(__name__)
 
@@ -62,6 +63,12 @@ async def update_me(
         )
         if existing.scalar_one_or_none():
             raise HTTPException(409, "Username already taken")
+
+    # Avatar cosmetics must be unlocked server-side (see services/avatar_rewards).
+    if updates.get("avatar"):
+        errors = ownership_errors(updates["avatar"], await load_owned(current_user.id, db))
+        if errors:
+            raise HTTPException(403, "Locked avatar items: " + "; ".join(errors))
 
     for field, value in updates.items():
         setattr(current_user, field, value)

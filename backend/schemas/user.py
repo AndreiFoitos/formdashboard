@@ -3,6 +3,8 @@ from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 import uuid
 
+from schemas.avatar import AvatarConfig
+
 
 # Reusable constraint so the regex stays in one place.
 USERNAME_PATTERN = r"^[a-z0-9_]{3,24}$"
@@ -42,6 +44,7 @@ class UserOut(BaseModel):
     protein_target_g: float | None
     water_target_ml: int | None
     calorie_target: int | None
+    avatar: AvatarConfig | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -60,3 +63,4 @@ class UserUpdate(BaseModel):
     protein_target_g: float | None = None
     water_target_ml: int | None = None
     calorie_target: int | None = None
+    avatar: AvatarConfig | None = None

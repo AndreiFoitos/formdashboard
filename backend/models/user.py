@@ -1,8 +1,8 @@
-﻿import uuid
+import uuid
 from datetime import datetime
 from sqlalchemy import String, Boolean, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from core.database import Base
 
 
@@ -36,6 +36,9 @@ class User(Base):
     protein_target_g: Mapped[float] = mapped_column(nullable=True)
     water_target_ml: Mapped[int] = mapped_column(nullable=True)
     calorie_target: Mapped[int] = mapped_column(nullable=True)
+
+    # 3D avatar: chosen look + last applied body (schemas/avatar.py AvatarConfig).
+    avatar: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # Form Score unlock state
     form_score_unlocked: Mapped[bool] = mapped_column(Boolean, default=False)
