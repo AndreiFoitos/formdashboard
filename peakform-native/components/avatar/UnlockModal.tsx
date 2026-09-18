@@ -5,6 +5,7 @@ import { hapticSuccess } from '../../lib/haptics'
 import { useMyAvatar, useSaveAvatar } from '../../hooks/useMyAvatar'
 import { useMarkRewardsSeen } from '../../hooks/useRewards'
 import { ITEMS, itemName, RARITY_COLOR, type RewardNew } from '../../lib/avatar/rewards'
+import { emoteName } from '../../lib/avatar/emotes'
 
 /** Celebrates newly earned combos/milestones, with one-tap equip. */
 export function UnlockModal({ items }: { items: RewardNew[] }) {
@@ -19,8 +20,8 @@ export function UnlockModal({ items }: { items: RewardNew[] }) {
     markSeen.mutate(undefined, { onSettled: () => then?.() })
   }
 
-  function equip(item: string) {
-    const slot = ITEMS[item]?.slot
+  function equip(item: string, emote = false) {
+    const slot = emote ? 'emote' : ITEMS[item]?.slot
     if (!slot) return
     save.mutate(
       { ...config, equipped: { ...(config.equipped ?? {}), [slot]: item } },
@@ -62,6 +63,26 @@ export function UnlockModal({ items }: { items: RewardNew[] }) {
                     Reward: <Text className="text-zinc-200">{itemName(n.reward)}</Text>
                     {!n.has_art ? '  ·  3D art coming soon — it’s saved to your account' : ''}
                   </Text>
+                  {n.emotes?.map((e) => {
+                    const on = equipped.includes(e)
+                    return (
+                      <View key={e} className="flex-row items-center justify-between mt-2">
+                        <Text className="text-zinc-300 text-xs">
+                          + Emote: <Text className="text-white font-semibold">{emoteName(e)}</Text>
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => equip(e, true)}
+                          disabled={on || save.isPending}
+                          className="px-3 py-1.5 rounded-lg"
+                          style={{ backgroundColor: on ? '#27272a' : color }}
+                        >
+                          <Text className="text-xs font-semibold" style={{ color: on ? '#a1a1aa' : '#000' }}>
+                            {on ? 'Equipped' : 'Use on podium'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )
+                  })}
                   {canEquip && (
                     <TouchableOpacity
                       onPress={() => equip(n.reward!)}

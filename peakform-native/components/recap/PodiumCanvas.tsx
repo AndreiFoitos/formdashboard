@@ -16,6 +16,9 @@ import Animated, {
 import { Award, Trophy } from 'lucide-react-native'
 import type { RecapCrewMember } from '../../app/weekly-recap'
 import { SusFace } from '../icons/SusFace'
+import { AvatarCanvas } from '../avatar/AvatarCanvas'
+import type { AvatarBase } from '../../lib/avatar/bodyParams'
+import type { AvatarState } from '../../lib/avatar/model'
 import { TrustedShield } from '../icons/TrustedShield'
 import { colorForUser } from './recapShared'
 
@@ -35,9 +38,17 @@ interface Props {
   runId: number
   /** user_id -> avatar face image (shown above the name when available). */
   heads?: Record<string, string>
+  /** user_id -> full-body 3D avatar + the emote it performs on its stand. */
+  avatars?: Record<string, PodiumAvatar>
 }
 
-export function PodiumCanvas({ crew, runId, heads }: Props) {
+export interface PodiumAvatar {
+  base: AvatarBase
+  state: AvatarState
+  emote: string
+}
+
+export function PodiumCanvas({ crew, runId, heads, avatars }: Props) {
   const { width, height } = useWindowDimensions()
 
   const { top3, tail } = useMemo(
@@ -76,6 +87,7 @@ export function PodiumCanvas({ crew, runId, heads }: Props) {
             key={s.rank}
             member={s.member}
             head={s.member ? heads?.[s.member.user_id] : undefined}
+            avatar={s.member ? avatars?.[s.member.user_id] : undefined}
             rank={s.rank}
             barW={barW}
             colW={colW}
@@ -100,6 +112,7 @@ export function PodiumCanvas({ crew, runId, heads }: Props) {
 function Stand({
   member,
   head,
+  avatar,
   rank,
   barW,
   colW,
@@ -109,6 +122,7 @@ function Stand({
 }: {
   member: RecapCrewMember | undefined
   head?: string
+  avatar?: PodiumAvatar
   rank: 1 | 2 | 3
   barW: number
   colW: number
@@ -160,6 +174,20 @@ function Stand({
   const color = colorForUser(member.user_id)
   const { Icon, color: medalColor } = MEDALS[rank]
   const isMe = member.is_me
+  const headImage = head ? (
+    <Image
+      source={{ uri: head }}
+      style={{
+        width: rank === 1 ? 52 : 42,
+        height: rank === 1 ? 52 : 42,
+        borderRadius: 999,
+        borderWidth: 2,
+        borderColor: medalColor,
+        backgroundColor: '#18181b',
+        marginTop: 4,
+      }}
+    />
+  ) : null
 
   return (
     <View style={{ width: colW, alignItems: 'center', justifyContent: 'flex-end' }}>
@@ -169,19 +197,18 @@ function Stand({
         <Animated.View style={medalStyle}>
           <Icon size={26} color={medalColor} strokeWidth={2} />
         </Animated.View>
-        {head && (
-          <Image
-            source={{ uri: head }}
-            style={{
-              width: rank === 1 ? 52 : 42,
-              height: rank === 1 ? 52 : 42,
-              borderRadius: 999,
-              borderWidth: 2,
-              borderColor: medalColor,
-              backgroundColor: '#18181b',
-              marginTop: 4,
-            }}
+        {avatar ? (
+          // Full-body avatar doing its emote; falls back to the face image if 3D fails.
+          <AvatarCanvas
+            base={avatar.base}
+            state={avatar.state}
+            emote={avatar.emote}
+            interactive={false}
+            style={{ width: colW, height: rank === 1 ? 170 : 140 }}
+            errorFallback={headImage}
           />
+        ) : (
+          headImage
         )}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 }}>
           <Text

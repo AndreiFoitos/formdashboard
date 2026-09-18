@@ -18,6 +18,8 @@ import { PodiumCanvas } from '../components/recap/PodiumCanvas'
 import { RACE_DURATION_MS } from '../components/recap/recapShared'
 import { useAvatarHeads, type HeadRequest } from '../components/avatar/AvatarHeadSnapshots'
 import { stateForFriend, type PublicAvatar } from '../lib/avatar/config'
+import { randomFreeEmote } from '../lib/avatar/emotes'
+import type { PodiumAvatar } from '../components/recap/PodiumCanvas'
 import { FEATURES } from '../lib/featureFlags'
 
 // ─── Types (mirror backend /friends/recap/race shape) ───────────────────────
@@ -88,6 +90,21 @@ export default function WeeklyRecapScreen() {
   )
   const { heads, renderer: headRenderer } = useAvatarHeads(headRequests)
 
+  // Top 3 perform their chosen emote on the podium; no pick = a random free
+  // one, reshuffled on every replay.
+  const podiumAvatars = useMemo<Record<string, PodiumAvatar>>(() => {
+    if (!FEATURES.avatarLab || !data) return {}
+    const out: Record<string, PodiumAvatar> = {}
+    for (const m of data.crew.slice(0, 3)) {
+      out[m.user_id] = {
+        base: m.sex ?? 'male',
+        state: stateForFriend(m.avatar),
+        emote: m.avatar?.equipped?.emote ?? randomFreeEmote(`${m.user_id}:${runId}`),
+      }
+    }
+    return out
+  }, [data, runId])
+
   // Once we have data, kick the state machine into intro.
   useEffect(() => {
     if (!data || phase !== 'idle') return
@@ -156,7 +173,7 @@ export default function WeeklyRecapScreen() {
         <RaceScene data={data} phase={phase} runId={runId} heads={heads} />
       )}
       {(phase === 'podium' || phase === 'outro') && (
-        <PodiumScene data={data} phase={phase} runId={runId} heads={heads} />
+        <PodiumScene data={data} phase={phase} runId={runId} heads={heads} avatars={podiumAvatars} />
       )}
 
       {headRenderer}
@@ -233,11 +250,13 @@ function PodiumScene({
   phase,
   runId,
   heads,
+  avatars,
 }: {
   data: RecapRaceData
   phase: Phase
   runId: number
   heads: Record<string, string>
+  avatars: Record<string, PodiumAvatar>
 }) {
   return (
     <View className="flex-1">
@@ -249,7 +268,7 @@ function PodiumScene({
           {formatWeekLabel(data.week_start, data.week_end)}
         </Text>
       </View>
-      <PodiumCanvas crew={data.crew} runId={runId} heads={heads} />
+      <PodiumCanvas crew={data.crew} runId={runId} heads={heads} avatars={avatars} />
       {phase === 'outro' && (
         <Text className="text-zinc-600 text-xs text-center mb-24">
           Tap replay to watch again

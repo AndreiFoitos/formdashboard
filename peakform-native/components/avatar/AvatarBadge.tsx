@@ -18,12 +18,15 @@ export function AvatarBadge({
   size = 44,
   effects = NO_EFFECTS,
   todayCombos = NO_COMBOS,
+  champion = false,
   onPress,
 }: {
   size?: number
   effects?: DailyEffects
   /** Combo ids active today (backend, rarest first) — adds their signature effect. */
   todayCombos?: string[]
+  /** Won last week's race — shows a crown until the week ends. */
+  champion?: boolean
   onPress?: () => void
 }) {
   const user = useAuthStore((s) => s.user)
@@ -69,6 +72,15 @@ export function AvatarBadge({
           }
         />
       </View>
+      {champion && (
+        <Text
+          pointerEvents="none"
+          accessibilityLabel="Weekly race champion"
+          style={{ position: 'absolute', top: -Math.round(size * 0.32), alignSelf: 'center', fontSize: Math.round(size * 0.42) }}
+        >
+          👑
+        </Text>
+      )}
       {body.levelUpAvailable && (
         <View
           style={{

@@ -4,6 +4,7 @@ import { router } from 'expo-router'
 import { ChevronLeft } from 'lucide-react-native'
 import { useRewards } from '../hooks/useRewards'
 import { itemName, RARITY_COLOR, type DexCombo, type DexMilestone } from '../lib/avatar/rewards'
+import { emoteName } from '../lib/avatar/emotes'
 
 const GOLDEN_AFTER = 7
 
@@ -91,6 +92,7 @@ function ComboCard({ combo: c }: { combo: DexCombo }) {
         <RarityTag rarity={c.rarity} golden={c.golden} />
       </View>
       <Text className="text-zinc-400 text-xs mt-1">{c.recipe}</Text>
+      <EmoteLine emote={c.emote} golden={c.emote_golden} hidden={c.secret && !c.found} />
       <View className="flex-row items-center justify-between mt-2">
         <Text className="text-zinc-500 text-xs">
           {c.reward ? (
@@ -127,6 +129,7 @@ function MilestoneCard({ milestone: m }: { milestone: DexMilestone }) {
         <RarityTag rarity={m.rarity} />
       </View>
       <Text className="text-zinc-400 text-xs mt-1">{m.description}</Text>
+      <EmoteLine emote={m.emote} golden={m.emote_golden} />
       <Text className="text-zinc-500 text-xs mt-1">
         Reward: <Text className="text-zinc-300">{itemName(m.reward)}</Text>
         {!m.has_art ? ' · art coming soon' : ''}
@@ -153,4 +156,20 @@ function MilestoneCard({ milestone: m }: { milestone: DexMilestone }) {
 
 function formatNum(n: number) {
   return n >= 10000 ? `${Math.round(n / 1000).toLocaleString()}k` : Math.round(n).toLocaleString()
+}
+
+function EmoteLine({ emote, golden, hidden }: { emote: string | null; golden: string | null; hidden?: boolean }) {
+  if (!emote && !golden) return null
+  return (
+    <Text className="text-zinc-500 text-xs mt-1">
+      Emote:{' '}
+      {emote && <Text className="text-zinc-300">{hidden ? '???' : emoteName(emote)}</Text>}
+      {emote && golden ? '  ·  ' : ''}
+      {golden && (
+        <Text className="text-yellow-300">
+          {hidden ? '???' : emoteName(golden)} (golden)
+        </Text>
+      )}
+    </Text>
+  )
 }

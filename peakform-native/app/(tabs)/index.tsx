@@ -556,6 +556,7 @@ export default function DashboardScreen() {
                 size={48}
                 effects={avatarEffects}
                 todayCombos={rewards.data?.today.combos}
+                champion={rewards.data?.champion}
                 onPress={() => router.push('/avatar-edit')}
               />
             </View>

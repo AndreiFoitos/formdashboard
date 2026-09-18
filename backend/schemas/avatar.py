@@ -32,6 +32,8 @@ class AvatarEquipped(BaseModel):
     aura: str | None = Field(None, max_length=40)
     frame: str | None = Field(None, max_length=40)
     eyes: str | None = Field(None, max_length=40)
+    # Podium emote; None = a random free one each time.
+    emote: str | None = Field(None, max_length=40)
 
     model_config = {"extra": "forbid"}
 

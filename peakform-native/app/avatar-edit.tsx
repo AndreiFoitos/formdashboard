@@ -7,6 +7,7 @@ import { AvatarCanvas } from '../components/avatar/AvatarCanvas'
 import { useMyAvatar, useSaveAvatar } from '../hooks/useMyAvatar'
 import { appliedBody, PALETTE, toState, type AvatarConfig, type LookColors } from '../lib/avatar/config'
 import { useRewards } from '../hooks/useRewards'
+import { ALL_EMOTES, emoteName, FREE_EMOTES } from '../lib/avatar/emotes'
 import {
   EXCLUSIVE_PALETTE,
   extrasFor,
@@ -82,7 +83,8 @@ export default function AvatarEditScreen() {
     SECTIONS.some((s) => look[s.key] !== config.look[s.key]) ||
     frozen !== !!config.frozen ||
     shareBody !== (config.share_body ?? true) ||
-    SLOTS.some((sl) => (equipped[sl.key] ?? null) !== (config.equipped?.[sl.key] ?? null))
+    SLOTS.some((sl) => (equipped[sl.key] ?? null) !== (config.equipped?.[sl.key] ?? null)) ||
+    (equipped.emote ?? null) !== (config.equipped?.emote ?? null)
 
   function buildConfig(applyCurrentBody: boolean): AvatarConfig {
     return {
@@ -124,7 +126,7 @@ export default function AvatarEditScreen() {
       </View>
 
       <View style={{ height: 360 }} className="mx-4 rounded-3xl bg-zinc-900 overflow-hidden">
-        <AvatarCanvas base={base} state={state} style={{ flex: 1 }} />
+        <AvatarCanvas base={base} state={state} emote={equipped.emote ?? null} style={{ flex: 1 }} />
         <Text pointerEvents="none" className="absolute bottom-3 self-center text-zinc-600 text-[11px]">
           Drag to turn
         </Text>
@@ -223,6 +225,33 @@ export default function AvatarEditScreen() {
                 </View>
               )
             })}
+          </View>
+        </View>
+
+        <View>
+          <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-2">Podium emote</Text>
+          <View className="bg-zinc-900 rounded-2xl p-4">
+            <Text className="text-zinc-500 text-xs mb-3">
+              What you do when you place top 3 in the weekly race. Tap one to preview it above.
+            </Text>
+            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+              <Chip
+                label="Random free"
+                selected={!equipped.emote}
+                onPress={() => setEquipped((e) => ({ ...e, emote: null }))}
+              />
+              {ALL_EMOTES.filter((id) => FREE_EMOTES.includes(id) || owned.includes(id)).map((id) => (
+                <Chip
+                  key={id}
+                  label={emoteName(id)}
+                  selected={equipped.emote === id}
+                  onPress={() => setEquipped((e) => ({ ...e, emote: id }))}
+                />
+              ))}
+              {ALL_EMOTES.filter((id) => !FREE_EMOTES.includes(id) && !owned.includes(id)).map((id) => (
+                <Chip key={id} label={emoteName(id)} locked onPress={() => router.push('/combo-dex')} />
+              ))}
+            </View>
           </View>
         </View>
 

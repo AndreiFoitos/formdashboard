@@ -6,6 +6,7 @@
 // and get swapped for toon materials so the look can be recolored at runtime.
 
 import * as THREE from 'three'
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { toonMaterial, type AvatarModel, type AvatarLook } from './model'
 
 type SlotName = 'Skin' | 'Hair' | 'Brows' | 'Lash' | 'Eyes' | 'Iris' | 'Pupil' | 'Mouth' | 'Top' | 'Bottom' | 'Shoes' | 'Socks'
@@ -48,11 +49,22 @@ function getHaloTexture() {
 
 const TIRED_TINT = new THREE.Color('#9ca3af')
 
+/** Bones by name (Mixamo naming, e.g. "mixamorigHips" after glTF sanitizing). */
+export function findBone(root: THREE.Object3D, mixamoName: string): THREE.Bone | undefined {
+  const wanted = mixamoName.replace(/[^A-Za-z0-9]/g, '')
+  let found: THREE.Bone | undefined
+  root.traverse((o) => {
+    if (!found && (o as THREE.Bone).isBone && o.name.replace(/[^A-Za-z0-9]/g, '') === wanted) found = o as THREE.Bone
+  })
+  return found
+}
+
 export function createGlbModel(scene: THREE.Object3D): AvatarModel {
   const root = new THREE.Group()
   const body = new THREE.Group() // idle motion lives here; root carries height scale
   root.add(body)
-  const avatar = scene.clone(true)
+  // SkeletonUtils.clone keeps each copy's skinned meshes bound to its own bones.
+  const avatar = cloneSkinned(scene)
   body.add(avatar)
 
   // Aura: one glow behind the body and a tighter one behind the head (header
@@ -73,6 +85,15 @@ export function createGlbModel(scene: THREE.Object3D): AvatarModel {
   halos.add(bodyHalo, headHalo)
   halos.visible = false
   let tired = false
+
+  // Emotes: skeletal animation clips (see lib/avatar/emotes.ts).
+  const mixer = new THREE.AnimationMixer(avatar)
+  let current: THREE.AnimationAction | null = null
+  let lastTime: number | null = null
+  let skinned: THREE.SkinnedMesh | null = null
+  avatar.traverse((o) => {
+    if (!skinned && (o as THREE.SkinnedMesh).isSkinnedMesh) skinned = o as THREE.SkinnedMesh
+  })
 
   const materials = new Map<string, THREE.MeshToonMaterial>()
   const morphs: { mesh: THREE.Mesh; fat: number; muscle: number }[] = []
@@ -136,6 +157,11 @@ export function createGlbModel(scene: THREE.Object3D): AvatarModel {
       if (x.aura) haloMat.color.set(x.aura)
     },
     tick(time, effects) {
+      if (current) {
+        const dt = lastTime == null ? 0 : Math.min(0.1, Math.max(0, time - lastTime))
+        mixer.update(dt)
+      }
+      lastTime = time
       // Auras always face the camera, whichever way the avatar is turned.
       halos.rotation.y = -root.rotation.y
       const t = time * effects.energy * (tired ? 0.55 : 1)
@@ -145,7 +171,21 @@ export function createGlbModel(scene: THREE.Object3D): AvatarModel {
       // No head bone yet, so caffeine jitter shakes the whole body a little.
       body.rotation.z = effects.jitter ? Math.sin(time * 47) * 0.006 : 0
     },
+    setEmote(clip) {
+      if (current && current.getClip() === clip) return
+      const prev = current
+      if (!clip) {
+        mixer.stopAllAction()
+        current = null
+        skinned?.skeleton.pose() // back to the rest (idle) pose
+        return
+      }
+      current = mixer.clipAction(clip)
+      current.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(prev ? 0.25 : 0).play()
+      if (prev) prev.fadeOut(0.25)
+    },
     dispose() {
+      mixer.stopAllAction()
       materials.forEach((m) => m.dispose())
       haloMat.dispose()
       bodyHalo.geometry.dispose()

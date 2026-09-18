@@ -18,6 +18,8 @@ export interface RewardNew {
   reward: string | null
   golden: boolean
   has_art: boolean
+  /** Emotes unlocked together with this reward. */
+  emotes: string[]
 }
 
 export interface DexCombo {
@@ -32,6 +34,8 @@ export interface DexCombo {
   days: number
   golden: boolean
   active_today: boolean
+  emote: string | null
+  emote_golden: string | null
 }
 
 export interface DexMilestone {
@@ -47,6 +51,8 @@ export interface DexMilestone {
   needs_trusted: boolean
   blocked_by_trust: boolean
   evaluated: boolean
+  emote: string | null
+  emote_golden: string | null
 }
 
 export interface RewardsPayload {
@@ -54,6 +60,9 @@ export interface RewardsPayload {
   owned: string[]
   new: RewardNew[]
   trusted: boolean
+  /** Won last week's race: wears the champion crown this week. */
+  champion: boolean
+  free_emotes: string[]
   dex: { combos: DexCombo[]; milestones: DexMilestone[] }
 }
 
@@ -61,6 +70,8 @@ export interface Equipped {
   aura?: string | null
   frame?: string | null
   eyes?: string | null
+  /** Podium emote id; null = random free emote each time. */
+  emote?: string | null
 }
 
 /** Extra visuals on top of body + look (see glbModel.apply). */

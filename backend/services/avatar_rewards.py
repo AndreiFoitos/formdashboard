@@ -20,23 +20,26 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Callable
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.timezone import user_today
 from models.avatar_achievement import AvatarAchievement
 from models.daily_summary import DailySummary
+from models.friendship import Friendship
 from models.streak import Streak
 from models.training_log import TrainingLog
 from models.user import User
 from models.vouch import Vouch
+from services.social_notifications import BODYWEIGHT_EXERCISES
 from services.stimulants import get_caffeine_curve
 
 GOLDEN_AFTER_DAYS = 7
 BACKFILL_DAYS = 120
 TRUSTED_MIN_VOUCHES = 2
 MAX_REWARDED_CAFFEINE_MG = 400
+RACE_LOOKBACK_WEEKS = 52
 
 # ─── Catalog ──────────────────────────────────────────────────────────────────
 
@@ -157,7 +160,7 @@ MILESTONES: list[Milestone] = [
     Milestone("streak_30", "Blue Flame", "epic", "Reach a 30-day streak", "aura_flame_blue", True, "longest_streak", 30),
     Milestone("first_pr", "First PR", "common", "Set your first PR", "frame_pr", True, "pr_count", 1),
     Milestone("prs_25", "PR Machine", "rare", "Set 25 PRs", "frame_pr_gold", True, "pr_count", 25),
-    Milestone("race_win", "Champion", "epic", "Win a weekly race (crown for the next week)", "crown_champion", False, "race_wins", 1, evaluated=False),
+    Milestone("race_win", "Champion", "epic", "Win a weekly race (crown for the next week)", "crown_champion", False, "race_wins", 1),
     Milestone("vouched_10", "Certified", "rare", "Get vouched 10 times", "frame_trusted", True, "vouches", 10),
     Milestone("water_30", "Gallon Gang", "rare", "Hit your water target on 30 days", "hand_gallon", False, "water_days", 30),
 ]
@@ -170,10 +173,52 @@ EXCLUSIVE_COLORS: dict[str, set[str]] = {
 }
 
 # Equippable items by slot (see schemas/avatar.AvatarEquipped).
+# ─── Emotes (podium) ─────────────────────────────────────────────────────────
+# Clips live in the app (assets/avatar/emotes_*.glb, built by
+# tools/avatar/build_emotes.py). Free ones are owned by everyone; the rest are
+# a second reward on an existing combo/milestone. (kind, id, needs_golden)
+FREE_EMOTES = {
+    "wave", "clap", "cheer", "fist_pump", "thumbs_up",
+    "salute", "point", "victory_jump", "blow_kiss", "bicep_curl",
+}
+EMOTE_UNLOCKS: dict[str, tuple[str, str, bool]] = {
+    "beast_mode": ("combo", "gorilla_mode", False),
+    "shadow_boxing": ("combo", "pre_workout_demon", True),
+    "cow_milking": ("combo", "bulk_szn", False),
+    "drop_kick": ("combo", "shredder", False),
+    "rumba_dancing": ("combo", "rest_day_royalty", False),
+    "silly_dancing": ("combo", "hydro_homie", False),
+    "breakdance": ("combo", "hydro_homie", True),
+    "shake_chug": ("combo", "protein_goblin", False),
+    "shrugging": ("combo", "clean_machine", False),
+    "singing": ("combo", "perfect_day", False),
+    "hip_hop": ("combo", "perfect_day", True),
+    "loser": ("milestone", "volume_10k", False),
+    "victory_pose": ("milestone", "volume_100k", False),
+    "entry": ("milestone", "workouts_50", False),
+    "backflip": ("milestone", "streak_30", False),
+    "dismiss": ("milestone", "prs_25", False),
+    "king_pose": ("milestone", "race_win", False),
+    "taunt": ("milestone", "vouched_10", False),
+    "swing_dancing": ("milestone", "water_30", False),
+}
+ALL_EMOTES = FREE_EMOTES | set(EMOTE_UNLOCKS)
+
+
+def emotes_for(kind: str, ident: str) -> dict[str, str | None]:
+    """{"emote": id unlocked by the source, "emote_golden": id unlocked by its golden upgrade}."""
+    out: dict[str, str | None] = {"emote": None, "emote_golden": None}
+    for emote, (k, i, golden) in EMOTE_UNLOCKS.items():
+        if k == kind and i == ident:
+            out["emote_golden" if golden else "emote"] = emote
+    return out
+
+
 EQUIP_SLOTS: dict[str, set[str]] = {
     "aura": {"aura_blue", "aura_flame", "aura_flame_blue"},
     "frame": {"frame_shredded", "frame_pr", "frame_pr_gold", "frame_trusted"},
     "eyes": {"eyes_demon"},
+    "emote": ALL_EMOTES,
 }
 
 RARITY_ORDER = {"common": 0, "rare": 1, "epic": 2, "legendary": 3}
@@ -249,8 +294,55 @@ async def _stats(user: User, db: AsyncSession) -> dict[str, float]:
         "vouches": float(vouches or 0),
         "water_days": float(water_days),
         "pr_count": float(count_prs([(r[0], r[1], r[2]) for r in pr_rows])),
-        "race_wins": 0.0,
     }
+
+
+async def _race_record(user: User, db: AsyncSession, today: date) -> tuple[int, bool]:
+    """(weeks won, won the most recent completed week).
+
+    A win = most kg moved (weight x reps, bodyweight exercises use body weight,
+    same as the weekly race) in a completed Mon-Sun week, against the user's
+    current crew. Needs at least one friend and a non-zero total; ties all win.
+    """
+    friendships = (
+        await db.execute(
+            select(Friendship.requester_id, Friendship.addressee_id).where(
+                Friendship.status == "accepted",
+                or_(Friendship.requester_id == user.id, Friendship.addressee_id == user.id),
+            )
+        )
+    ).all()
+    friend_ids = {a if b == user.id else b for a, b in friendships}
+    if not friend_ids:
+        return 0, False
+    circle = [user.id, *friend_ids]
+
+    body_weight = dict((await db.execute(select(User.id, User.weight_kg).where(User.id.in_(circle)))).all())
+    this_monday = today - timedelta(days=today.weekday())
+    start = this_monday - timedelta(weeks=RACE_LOOKBACK_WEEKS)
+    logs = (
+        await db.execute(
+            select(TrainingLog.user_id, TrainingLog.date, TrainingLog.type, TrainingLog.weight_kg, TrainingLog.reps).where(
+                TrainingLog.user_id.in_(circle), TrainingLog.date >= start, TrainingLog.date < this_monday
+            )
+        )
+    ).all()
+
+    volume: dict[date, dict[uuid.UUID, float]] = defaultdict(lambda: defaultdict(float))
+    for uid, d, ex_type, weight, reps in logs:
+        if weight is not None:
+            w = float(weight)
+        elif ex_type in BODYWEIGHT_EXERCISES and body_weight.get(uid):
+            w = float(body_weight[uid])
+        else:
+            w = 0.0
+        volume[d - timedelta(days=d.weekday())][uid] += w * (reps or 0)
+
+    won_weeks = [
+        week for week, by_user in volume.items()
+        if (top := max(by_user.values(), default=0)) > 0 and by_user.get(user.id, 0) == top
+    ]
+    return len(won_weeks), (this_monday - timedelta(weeks=1)) in won_weeks
 
 
 async def _was_ever_trusted(user_id: uuid.UUID, db: AsyncSession) -> bool:
@@ -279,17 +371,20 @@ def owned_items(rows: list[AvatarAchievement]) -> set[str]:
     counts: dict[str, int] = defaultdict(int)
     for r in rows:
         counts[r.key] += 1
-    owned: set[str] = set()
+    owned: set[str] = set(FREE_EMOTES)
     for key, n in counts.items():
         kind, _, ident = key.partition(":")
         item = (COMBOS_BY_ID[ident].reward if kind == "combo" and ident in COMBOS_BY_ID
                 else MILESTONES_BY_ID[ident].reward if kind == "milestone" and ident in MILESTONES_BY_ID
                 else None)
-        if not item:
-            continue
-        owned.add(item)
-        if kind == "combo" and n >= GOLDEN_AFTER_DAYS:
-            owned.add(f"{item}_gold")
+        if item:
+            owned.add(item)
+            if kind == "combo" and n >= GOLDEN_AFTER_DAYS:
+                owned.add(f"{item}_gold")
+    for emote, (kind, ident, needs_golden) in EMOTE_UNLOCKS.items():
+        n = counts.get(f"{kind}:{ident}", 0)
+        if n > 0 and (not needs_golden or n >= GOLDEN_AFTER_DAYS):
+            owned.add(emote)
     return owned
 
 
@@ -329,6 +424,8 @@ async def sync_and_describe(user: User, db: AsyncSession) -> dict:
                 await _record(db, user.id, f"combo:{c.id}", s.date)
 
     stats = await _stats(user, db)
+    race_wins, champion = await _race_record(user, db, today)
+    stats["race_wins"] = float(race_wins)
     trusted = await _was_ever_trusted(user.id, db)
     for m in MILESTONES:
         if m.evaluated and stats[m.metric] >= m.target and (trusted or not m.needs_trusted):
@@ -358,6 +455,8 @@ async def sync_and_describe(user: User, db: AsyncSession) -> dict:
         first_unlock = seen_before == 0
         golden_now = kind == "combo" and seen_before < GOLDEN_AFTER_DAYS <= total
         if first_unlock or golden_now:
+            em = emotes_for(kind, ident)
+            new_emotes = [e for e in ((em["emote"] if first_unlock else None), (em["emote_golden"] if golden_now else None)) if e]
             new.append({
                 "key": key,
                 "name": entry.name,
@@ -365,6 +464,7 @@ async def sync_and_describe(user: User, db: AsyncSession) -> dict:
                 "reward": f"{entry.reward}_gold" if golden_now else entry.reward,
                 "golden": golden_now,
                 "has_art": entry.has_art,
+                "emotes": new_emotes,
             })
     new.sort(key=lambda n: RARITY_ORDER[n["rarity"]], reverse=True)
 
@@ -376,6 +476,7 @@ async def sync_and_describe(user: User, db: AsyncSession) -> dict:
         n = days_by_key.get(f"combo:{c.id}", 0)
         found = n > 0 or c.id in active_today
         dex_combos.append({
+            **emotes_for("combo", c.id),
             "id": c.id,
             "name": c.name if (found or not c.secret) else "???",
             "rarity": c.rarity,
@@ -392,6 +493,7 @@ async def sync_and_describe(user: User, db: AsyncSession) -> dict:
     for m in MILESTONES:
         unlocked = f"milestone:{m.id}" in days_by_key
         dex_milestones.append({
+            **emotes_for("milestone", m.id),
             "id": m.id,
             "name": m.name,
             "rarity": m.rarity,
@@ -411,6 +513,9 @@ async def sync_and_describe(user: User, db: AsyncSession) -> dict:
         "owned": sorted(owned),
         "new": new,
         "trusted": trusted,
+        "free_emotes": sorted(FREE_EMOTES),
+        # Won last week's race: wears the champion crown this week.
+        "champion": champion,
         "dex": {"combos": dex_combos, "milestones": dex_milestones},
     }
 

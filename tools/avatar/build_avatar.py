@@ -14,7 +14,10 @@ Pipeline, per sex:
      (oval eyes with iris/pupil/highlight, lids, brows, smile) and stylized hair. Everything on
      the head is generated from one analytic surface per shape key, so it all follows fat/muscle.
   3. Hands are pulled into mitten-like shapes; skin under clothes is tucked away.
-  4. Flat-color materials, GLB export, and toon-shaded preview renders.
+  4. Rigged with MPFB's Mixamo-compatible skeleton (bone names match Mixamo, so
+     Mixamo animations play on it directly). Weights come from MPFB for body and
+     clothes; generated parts are bound rigidly (head parts -> Head, mittens -> hands).
+  5. Flat-color materials, GLB export (skin + shape keys), and toon-shaded preview renders.
 """
 
 import bpy
@@ -24,6 +27,7 @@ import os
 import sys
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
+from mathutils.kdtree import KDTree
 
 addon_utils.enable("bl_ext.blender_org.mpfb", default_set=True)
 from bl_ext.blender_org.mpfb.services import HumanService, TargetService, LocationService  # noqa: E402
@@ -61,6 +65,11 @@ BODY_SUBDIV = 1
 # Cartoon head half-extents (meters) and how high its centre sits above the neck cut.
 HEAD = {"rx": 0.106, "ry": 0.112, "rz": 0.134, "lift": 0.152}
 
+RIG = "mixamo"
+BONE_PREFIX = "mixamorig:"
+HEAD_BONE = "mixamorig:Head"
+MAX_INFLUENCES = 4
+
 COLORS = {
     "Skin": (0.87, 0.6, 0.43),
     "Hair": (0.16, 0.09, 0.05),
@@ -79,10 +88,12 @@ COLORS = {
 
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-    args = {"out": None, "preview": None, "sex": None}
+    args = {"out": None, "preview": None, "sex": None, "pose_test": False}
     for i, a in enumerate(argv):
         if a in ("--out", "--preview", "--sex"):
             args[a[2:]] = argv[i + 1]
+        if a == "--pose-test":
+            args["pose_test"] = True
     return args
 
 
@@ -121,14 +132,48 @@ def set_macros(basemesh, gender, variant):
     bpy.context.view_layer.update()
 
 
-def evaluated(obj):
+def evaluated(obj, with_weights=False):
     dg = bpy.context.evaluated_depsgraph_get()
     ev = obj.evaluated_get(dg)
     me = ev.to_mesh()
     coords = [v.co.copy() for v in me.vertices]
     faces = [tuple(p.vertices) for p in me.polygons]
+    weights = None
+    if with_weights:
+        names = [g.name for g in obj.vertex_groups]
+        weights = []
+        for v in me.vertices:
+            ws = {}
+            for g in v.groups:
+                if g.group < len(names) and names[g.group].startswith(BONE_PREFIX) and g.weight > 1e-3:
+                    ws[names[g.group]] = g.weight
+            weights.append(normalize_weights(ws))
     ev.to_mesh_clear()
-    return coords, faces
+    return coords, faces, weights
+
+
+def normalize_weights(ws):
+    top = sorted(ws.items(), key=lambda kv: -kv[1])[:MAX_INFLUENCES]
+    total = sum(w for _, w in top)
+    return {k: w / total for k, w in top} if total > 0 else {}
+
+
+def fill_missing_weights(coords, weights):
+    """Vertices MPFB left unweighted copy their nearest weighted neighbour, so nothing
+    stays behind in rest pose when the skeleton moves."""
+    weighted = [i for i, w in enumerate(weights) if w]
+    if len(weighted) == len(weights) or not weighted:
+        return weights
+    kd = KDTree(len(weighted))
+    for n, i in enumerate(weighted):
+        kd.insert(coords[i], n)
+    kd.balance()
+    out = list(weights)
+    for i, w in enumerate(weights):
+        if not w:
+            _, n, _ = kd.find(coords[i])
+            out[i] = dict(weights[weighted[n]])
+    return out
 
 
 def capture(sex, cfg):
@@ -137,6 +182,8 @@ def capture(sex, cfg):
     macro["gender"] = cfg["gender"]
     macro.update(VARIANTS["basis"])
     bm = HumanService.create_human(macro_detail_dict=macro, scale=0.1)
+    # Rig first: clothes/proxies added afterwards get their weights set up by MPFB.
+    rig = HumanService.add_builtin_rig(bm, RIG, import_weights=True)
 
     sources = {"Body": HumanService.add_mhclo_asset(asset("proxymeshes", "proxy741", "proxy"), bm, asset_type="Proxymeshes", subdiv_levels=0, material_type="NONE")}
     for c in cfg["clothes"]:
@@ -145,7 +192,8 @@ def capture(sex, cfg):
 
     body = sources["Body"]
     for md in list(body.modifiers):  # MPFB's skin-under-clothes masks are too generous; we tuck skin instead
-        body.modifiers.remove(md)
+        if md.type == "MASK":
+            body.modifiers.remove(md)
     sub = body.modifiers.new("Subdiv", "SUBSURF")
     sub.levels = BODY_SUBDIV
     sub.render_levels = BODY_SUBDIV
@@ -154,16 +202,20 @@ def capture(sex, cfg):
     for variant in VARIANTS:
         set_macros(bm, cfg["gender"], variant)
         for name, obj in sources.items():
-            coords, faces = evaluated(obj)
+            coords, faces, weights = evaluated(obj, with_weights=variant == "basis")
             entry = captures.setdefault(name, {"faces": faces})
             if len(faces) != len(entry["faces"]):
                 raise RuntimeError(f"{sex}/{name}: topology changed in variant {variant}")
             entry[variant] = coords
+            if weights is not None:
+                entry["weights"] = fill_missing_weights(coords, weights)
         log(sex, "captured", variant)
+    # Leave the skeleton fitted to the lean basis body (the shape keys' rest shape).
+    set_macros(bm, cfg["gender"], "basis")
     for entry in captures.values():
         for key, k in EXAGGERATE.items():
             entry[key] = [b + (x - b) * k for b, x in zip(entry["basis"], entry[key])]
-    return bm, captures
+    return bm, rig, captures
 
 
 # ─── Mesh helpers ───────────────────────────────────────────────────────────
@@ -204,17 +256,30 @@ def subset(src, face_ids):
     out = {"faces": [tuple(remap[i] for i in f) for f in faces]}
     for variant in VARIANTS:
         out[variant] = [src[variant][i] for i in used]
+    if src.get("weights") is not None:
+        out["weights"] = [src["weights"][i] for i in used]
     return out
+
+
+def rigid(data, bone):
+    """Bind every vertex of a generated part to one bone."""
+    data["weights"] = [{bone: 1.0} for _ in data["basis"]]
+    return data
 
 
 def merge(pieces):
     out = {"faces": [], **{v: [] for v in VARIANTS}}
+    has_weights = all(d.get("weights") is not None for d, _ in pieces)
+    if has_weights:
+        out["weights"] = []
     mats = []
     for data, m in pieces:
         off = len(out["basis"])
         out["faces"] += [tuple(i + off for i in f) for f in data["faces"]]
         for v in VARIANTS:
             out[v] += data[v]
+        if has_weights:
+            out["weights"] += data["weights"]
         mats += [m] * len(data["faces"]) if isinstance(m, str) else m
     return out, mats
 
@@ -486,12 +551,13 @@ def hair(heads, style):
 
 # ─── Parts ──────────────────────────────────────────────────────────────────
 
-def build_parts(sex, cfg, captures):
+def build_parts(sex, cfg, captures, hand_bones):
     grounds = {v: min(p.z for cap in captures.values() for p in cap[v]) for v in VARIANTS}
     frames = {v: neck_frame(captures["Body"][v], grounds[v]) for v in VARIANTS}
     styl = {}
     for name, cap in captures.items():
         styl[name] = {"faces": cap["faces"], **{v: [p - Vector((0, 0, grounds[v])) for p in cap[v]] for v in VARIANTS}}
+        styl[name]["weights"] = cap.get("weights")
     for f, g in zip(frames.values(), grounds.values()):
         f["neck"].z -= g
 
@@ -523,7 +589,10 @@ def build_parts(sex, cfg, captures):
         return wrist + axis * 0.06 * grow, axis, b, c
 
     hs = cfg["head"]["scale"] ** 2  # smaller bodies get smaller mittens
-    mittens = [(oriented_ellipsoid(lambda v, s=side: mitten_frame(v, s), 0.068 * hs, 0.04 * hs, 0.026 * hs), "Skin") for side in (1, -1)]
+    mittens = [
+        (rigid(oriented_ellipsoid(lambda v, s=side: mitten_frame(v, s), 0.068 * hs, 0.04 * hs, 0.026 * hs), hand_bones[side]), "Skin")
+        for side in (1, -1)
+    ]
 
     # Cut the MakeHuman head off just above the neck ring.
     cut = frames["basis"]["neck"].z + 0.004
@@ -532,15 +601,16 @@ def build_parts(sex, cfg, captures):
 
     parts = {}
     heads = {v: CartoonHead(frames[v]["neck"], 1.0 if v == "fat" else 0.0, 1.0 if v == "muscle" else 0.0, cfg["head"]) for v in VARIANTS}
-    head = head_mesh(heads)
+    head = rigid(head_mesh(heads), HEAD_BONE)
     ears = [
-        (ellipsoid(lambda v, s=side: heads[v].on(88 * s, -3, 0.002), 0.011 * cfg["head"]["scale"], 0.02 * cfg["head"]["scale"], 0.03 * cfg["head"]["scale"]), "Skin")
+        (rigid(ellipsoid(lambda v, s=side: heads[v].on(88 * s, -3, 0.002), 0.011 * cfg["head"]["scale"], 0.02 * cfg["head"]["scale"], 0.03 * cfg["head"]["scale"]), HEAD_BONE), "Skin")
         for side in (1, -1)
     ]
     skin, skin_mats = merge([(body, "Skin"), (head, "Skin")] + ears + mittens)
     parts["Body"] = (skin, "Skin")
-    parts["Face"] = face_features(heads)
-    parts["Hair"] = (hair(heads, cfg["hair"]), "Hair")
+    face, face_mats = face_features(heads)
+    parts["Face"] = (rigid(face, HEAD_BONE), face_mats)
+    parts["Hair"] = (rigid(hair(heads, cfg["hair"]), HEAD_BONE), "Hair")
 
     # Clothes sit a few mm off the skin; skin they cover is tucked behind them.
     cloth = []
@@ -568,7 +638,7 @@ def build_parts(sex, cfg, captures):
         for fi in isl:
             mat_of[fi] = "Socks" if zmax > height * 0.085 else "Shoes"
     parts["Shoes"] = (shoes, [mat_of[i] for i in range(len(shoes["faces"]))])
-    return parts
+    return parts, grounds["basis"]
 
 
 # ─── Blender objects + export ───────────────────────────────────────────────
@@ -588,7 +658,7 @@ def material(name):
     return mat
 
 
-def make_object(name, data, mats, collection):
+def make_object(name, data, mats, collection, rig=None):
     me = bpy.data.meshes.new(name)
     me.from_pydata([tuple(c) for c in data["basis"]], [], data["faces"])
     me.update()
@@ -608,6 +678,17 @@ def make_object(name, data, mats, collection):
         kb = obj.shape_key_add(name=key, from_mix=False)
         for i, c in enumerate(data[key]):
             kb.data[i].co = c
+
+    if rig is not None and data.get("weights") is not None:
+        groups = {}
+        for i, ws in enumerate(data["weights"]):
+            for bone, w in ws.items():
+                if bone not in groups:
+                    groups[bone] = obj.vertex_groups.new(name=bone)
+                groups[bone].add([i], w, "REPLACE")
+        obj.parent = rig
+        mod = obj.modifiers.new("Armature", "ARMATURE")
+        mod.object = rig
     return obj
 
 
@@ -629,7 +710,9 @@ def export_glb(objects, path):
         "export_morph": True,
         "export_morph_normal": True,
         "export_morph_tangent": False,
-        "export_skins": False,
+        "export_skins": True,
+        "export_def_bones": True,
+        "export_rest_position_armature": True,
         "export_animations": False,
         "export_draco_mesh_compression_enable": False,
         "export_materials": "EXPORT",
@@ -684,7 +767,7 @@ def toon_material(src):
     return m
 
 
-def render_preview(built, path):
+def render_preview(built, rigs, path, pose_test=False):
     scene = bpy.context.scene
     engines = [e.identifier for e in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items]
     scene.render.engine = "BLENDER_EEVEE" if "BLENDER_EEVEE" in engines else "BLENDER_EEVEE_NEXT"
@@ -713,23 +796,38 @@ def render_preview(built, path):
         for o in objs:
             o.hide_render = True
 
-    def lineup(sex, states, rots, spacing):
+    def lineup(sex, states, rots, spacing, pose=None):
+        # Each figure gets its own copy of the skeleton, moved into place, so
+        # posing one doesn't bend (or mis-place) the others.
         coll = bpy.data.collections.new(f"Preview_{sex}")
         scene.collection.children.link(coll)
         x = 0.0
         for rot in rots:
             for fat, muscle in states:
+                r = rigs[sex].copy()
+                r.data = rigs[sex].data.copy()
+                coll.objects.link(r)
+                r.location = (x, 0, 0)
+                r.rotation_euler = (0, 0, math.radians(rot))
+                for bone, deg in (pose or {}).items():
+                    pb = r.pose.bones[bone]
+                    pb.rotation_mode = "XYZ"
+                    pb.rotation_euler = tuple(math.radians(a) for a in deg)
                 for o in built[sex]:
                     c = o.copy()
                     c.data = o.data.copy()
                     for i, slot in enumerate(c.data.materials):
                         c.data.materials[i] = toon_material(slot)
                     coll.objects.link(c)
+                    c.parent = r
+                    c.matrix_parent_inverse.identity()
+                    c.location = (0, 0, 0)
+                    for md in c.modifiers:
+                        if md.type == "ARMATURE":
+                            md.object = r
                     c.data.shape_keys.key_blocks["fat"].value = fat
                     c.data.shape_keys.key_blocks["muscle"].value = muscle
-                    c.rotation_euler = (0, 0, math.radians(rot))
                     c.hide_render = False
-                    c.location = (x, 0, 0)
                 x += spacing
         return coll, x - spacing
 
@@ -752,6 +850,37 @@ def render_preview(built, path):
         bpy.ops.render.render(write_still=True)
         bpy.data.collections.remove(coll)
 
+        if pose_test:
+            # Every major joint bent, front + three-quarter, lean / fat / muscle.
+            coll, width = lineup(sex, [(0, 0), (1, 0), (0, 1)], [0, -35], 0.9, pose=TEST_POSE)
+            scene.render.resolution_x, scene.render.resolution_y = 2400, 800
+            cam_data.ortho_scale = max(width + 1.1, 2.3 * 2400 / 800)
+            cam.location = (width / 2, -10, 0.98)
+            scene.render.filepath = f"{root}_{sex}_pose{ext}"
+            bpy.ops.render.render(write_still=True)
+            bpy.data.collections.remove(coll)
+
+
+def hand_bones_by_side(rig):
+    """Map side (+1 = +X, -1 = -X) to the hand bone on that side."""
+    left = rig.data.bones["mixamorig:LeftHand"].head_local.x
+    return {1: "mixamorig:LeftHand", -1: "mixamorig:RightHand"} if left > 0 else {1: "mixamorig:RightHand", -1: "mixamorig:LeftHand"}
+
+
+# A deliberately awkward test pose: every major joint bends, so bad weights show up.
+TEST_POSE = {
+    "mixamorig:LeftArm": (0, 0, -70),
+    "mixamorig:LeftForeArm": (0, 0, -60),
+    "mixamorig:RightArm": (60, 0, 20),
+    "mixamorig:RightForeArm": (0, 0, 90),
+    "mixamorig:Spine1": (0, 25, 0),
+    "mixamorig:Neck": (15, 0, 0),
+    "mixamorig:Head": (0, 0, 20),
+    "mixamorig:LeftUpLeg": (-60, 0, 0),
+    "mixamorig:LeftLeg": (80, 0, 0),
+    "mixamorig:RightUpLeg": (0, 0, 15),
+}
+
 
 # ─── Main ───────────────────────────────────────────────────────────────────
 
@@ -761,33 +890,49 @@ def main():
         bpy.data.objects.remove(o, do_unlink=True)
 
     built = {}
+    rigs = {}
     for sex, cfg in SEXES.items():
         if args["sex"] and args["sex"] != sex:
             continue
-        bm, captures = capture(sex, cfg)
-        parts = build_parts(sex, cfg, captures)
+        bm, rig, captures = capture(sex, cfg)
+        hand_bones = hand_bones_by_side(rig)
+        parts, ground = build_parts(sex, cfg, captures, hand_bones)
 
-        for child in list(bm.children):
+        # Drop MPFB's working meshes (they hang off the rig); keep the skeleton itself.
+        for child in list(rig.children_recursive):
             bpy.data.objects.remove(child, do_unlink=True)
-        bpy.data.objects.remove(bm, do_unlink=True)
+        rig.name = rig.data.name = "Armature"
+        # Our meshes were moved so the shoe soles touch z=0 — move the skeleton with them.
+        rig.location.z -= ground
+        bpy.ops.object.select_all(action="DESELECT")
+        rig.select_set(True)
+        bpy.context.view_layer.objects.active = rig
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 
         coll = bpy.data.collections.new(f"avatar_{sex}")
         bpy.context.scene.collection.children.link(coll)
-        objs = [make_object(name, data, mats, coll) for name, (data, mats) in parts.items() if data["faces"]]
+        for c in list(rig.users_collection):
+            c.objects.unlink(rig)
+        coll.objects.link(rig)
+        objs = [make_object(name, data, mats, coll, rig) for name, (data, mats) in parts.items() if data["faces"]]
         built[sex] = objs
+        rigs[sex] = rig
+        bones = len(rig.data.bones)
+        unweighted = sum(1 for o in objs for v in o.data.vertices if not v.groups)
+        log(sex, "rig", RIG, "bones", bones, "unweighted verts", unweighted)
         log(sex, "parts", {o.name: tri_count(o) for o in objs}, "total tris", sum(tri_count(o) for o in objs))
 
         if args["out"]:
             os.makedirs(args["out"], exist_ok=True)
             path = os.path.abspath(os.path.join(args["out"], f"avatar_{sex}.glb"))
-            export_glb(objs, path)
+            export_glb([rig, *objs], path)
             log(sex, "exported", path, os.path.getsize(path), "bytes")
 
-        for o in objs:  # free the plain names for the next sex's export
+        for o in [rig, *objs]:  # free the plain names for the next sex's export
             o.name = f"{sex}_{o.name}"
 
     if args["preview"]:
-        render_preview(built, os.path.abspath(args["preview"]))
+        render_preview(built, rigs, os.path.abspath(args["preview"]), pose_test=args["pose_test"])
         log("preview", args["preview"])
 
 

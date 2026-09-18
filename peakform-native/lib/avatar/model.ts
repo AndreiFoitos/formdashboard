@@ -33,6 +33,8 @@ export interface AvatarModel {
   apply(state: AvatarState): void
   /** Idle animation. `time` in seconds. */
   tick(time: number, effects: DailyEffects): void
+  /** Play an emote clip on loop (null = back to the idle pose). Rigged models only. */
+  setEmote?(clip: THREE.AnimationClip | null): void
   dispose(): void
 }
 

@@ -15,6 +15,12 @@ const GLB = {
   female: require('../../assets/avatar/avatar_female.glb'),
 }
 
+// Emote clips (~3.5 MB each) — only loaded by canvases that play an emote.
+const EMOTES_GLB = {
+  male: require('../../assets/avatar/emotes_male.glb'),
+  female: require('../../assets/avatar/emotes_female.glb'),
+}
+
 export type AvatarSource = 'glb' | 'placeholder'
 
 export interface AvatarCanvasHandle {
@@ -42,6 +48,8 @@ interface Props {
   errorFallback?: ReactNode
   /** Fires after the model is loaded and `state` has been applied (used for snapshots). */
   onReady?: () => void
+  /** Emote id to loop (MakeHuman model only). `undefined` = never load emote clips. */
+  emote?: string | null
 }
 
 export type AvatarFraming = 'full' | 'head'
@@ -91,7 +99,7 @@ class AvatarErrorBoundary extends Component<{ children: ReactNode; onError?: (e:
  * Rendering stops while the screen is not focused.
  */
 export const AvatarCanvas = forwardRef<AvatarCanvasHandle, Props>(function AvatarCanvas(
-  { base, source = 'glb', state, style, onFps, onError, framing = 'full', animate = true, interactive = true, errorFallback, onReady },
+  { base, source = 'glb', state, style, onFps, onError, framing = 'full', animate = true, interactive = true, errorFallback, onReady, emote },
   ref,
 ) {
   const [focused, setFocused] = useState(true)
@@ -140,7 +148,11 @@ export const AvatarCanvas = forwardRef<AvatarCanvasHandle, Props>(function Avata
         <directionalLight position={[1.5, 3, 2.5]} intensity={2.2} />
         <Suspense fallback={null}>
           {source === 'glb' ? (
-            <GlbAvatar key={base} base={base} state={state} spin={spin} onFps={onFps} onReady={onReady} snapshotFn={snapshotFn} />
+            emote !== undefined ? (
+              <GlbEmoteAvatar key={base} base={base} state={state} spin={spin} onFps={onFps} onReady={onReady} snapshotFn={snapshotFn} emote={emote} />
+            ) : (
+              <GlbAvatar key={base} base={base} state={state} spin={spin} onFps={onFps} onReady={onReady} snapshotFn={snapshotFn} />
+            )
           ) : (
             <PlaceholderAvatar key={base} base={base} state={state} spin={spin} onFps={onFps} onReady={onReady} snapshotFn={snapshotFn} />
           )}
@@ -181,6 +193,16 @@ interface SceneProps {
 function GlbAvatar(props: SceneProps) {
   const gltf = useLoader(GLTFLoader, GLB[props.base] as unknown as string)
   const model = useMemo(() => createGlbModel(gltf.scene), [gltf])
+  return <AvatarScene model={model} {...props} />
+}
+
+function GlbEmoteAvatar({ emote, ...props }: SceneProps & { emote: string | null }) {
+  const gltf = useLoader(GLTFLoader, GLB[props.base] as unknown as string)
+  const clips = useLoader(GLTFLoader, EMOTES_GLB[props.base] as unknown as string)
+  const model = useMemo(() => createGlbModel(gltf.scene), [gltf])
+  useEffect(() => {
+    model.setEmote?.(emote ? clips.animations.find((a) => a.name === emote) ?? null : null)
+  }, [model, clips, emote])
   return <AvatarScene model={model} {...props} />
 }
 
