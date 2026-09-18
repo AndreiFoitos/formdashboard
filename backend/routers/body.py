@@ -4,7 +4,7 @@ import uuid
 from datetime import date, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -14,7 +14,7 @@ from middleware.auth import get_current_user
 from models.user import User
 from models.body_metric import BodyMetric
 from services.ai_client import AINotConfigured
-from services.bf_estimate import estimate_bf_from_photo
+from services.bf_estimate import estimate_bf_from_photos
 
 
 MAX_PHOTO_BYTES = 5 * 1024 * 1024  # 5 MB; matches the nutrition photo cap
@@ -165,29 +165,59 @@ async def get_history(
 
 # ─── BF% estimate from photo ─────────────────────────────────────────────────
 #
-# Privacy stance: the captured image is forwarded to Claude for the estimate
+# Privacy stance: the captured images are forwarded to Claude for the estimate
 # and dropped from the request scope on return. We never persist user photos
 # server-side — progress photos were removed in 2026 for exactly this reason.
 
 
-@router.post("/estimate-bf")
-async def estimate_bf(
-    image: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-):
-    """Run Claude vision on a body photo and return an estimated BF% band.
-    The image is NOT persisted — the user gets the estimate back and can
-    decide separately whether to log a body_metric row from the midpoint."""
-    if image.content_type not in ALLOWED_PHOTO_MIME:
-        raise HTTPException(415, f"Unsupported image type: {image.content_type}")
-    body = await image.read()
+BF_VIEWS = ("front", "side", "back")
+MAX_BF_PHOTOS = len(BF_VIEWS)
+
+
+async def _read_photo(upload: UploadFile) -> bytes:
+    if upload.content_type not in ALLOWED_PHOTO_MIME:
+        raise HTTPException(415, f"Unsupported image type: {upload.content_type}")
+    body = await upload.read()
     if not body:
         raise HTTPException(400, "Empty image upload")
     if len(body) > MAX_PHOTO_BYTES:
         raise HTTPException(413, "Image too large (max 5MB)")
+    return body
+
+
+@router.post("/estimate-bf")
+async def estimate_bf(
+    images: Optional[list[UploadFile]] = File(None),
+    views: Optional[list[str]] = Form(None),
+    image: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_user),
+):
+    """Run Claude vision on body photos and return an estimated BF% band.
+
+    New clients send up to three `images` (front, side, back) with a matching
+    `views` field per image; builds before the multi-angle flow send a single
+    `image`. All photos go to Claude in ONE call. Nothing is persisted: the
+    user gets the estimate back and decides separately whether to log a
+    body_metric row from the midpoint."""
+    uploads = list(images or [])
+    if image is not None:
+        uploads.append(image)
+    if not uploads:
+        raise HTTPException(400, "No image uploaded")
+    if len(uploads) > MAX_BF_PHOTOS:
+        raise HTTPException(400, f"At most {MAX_BF_PHOTOS} photos")
+
+    names = list(views or [])
+    if names and len(names) != len(uploads):
+        raise HTTPException(400, "views must match images one-to-one")
+    if any(n not in BF_VIEWS for n in names):
+        raise HTTPException(400, f"views must be one of {', '.join(BF_VIEWS)}")
+
+    photos = [await _read_photo(u) for u in uploads]
+    labelled = list(zip(names or [None] * len(photos), photos))
 
     try:
-        return await estimate_bf_from_photo(body)
+        return await estimate_bf_from_photos(labelled)
     except AINotConfigured as e:
         raise HTTPException(503, str(e))
     except ValueError as e:
