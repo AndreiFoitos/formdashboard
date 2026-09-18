@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { Text, View } from 'react-native'
+import { Image, Text, View } from 'react-native'
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg'
 import Animated, {
   cancelAnimation,
@@ -53,11 +53,15 @@ interface Props {
   height: number
   /** Bumped on Replay so animations re-seed from 0. */
   runId: number
+  /** user_id -> avatar face image. Members without one keep the colored dot. */
+  heads?: Record<string, string>
 }
+
+const HEAD_SIZE = 22
 
 // ─── Main canvas ────────────────────────────────────────────────────────────
 
-export function RaceCanvas({ crew, width, height, runId }: Props) {
+export function RaceCanvas({ crew, width, height, runId, heads }: Props) {
   const chartW = width - PAD.left - PAD.right
   const chartH = height - PAD.top - PAD.bottom
 
@@ -114,6 +118,7 @@ export function RaceCanvas({ crew, width, height, runId }: Props) {
         <CrewMarker
           key={`marker-${member.user_id}`}
           member={member}
+          head={heads?.[member.user_id]}
           color={colorForUser(member.user_id)}
           yMax={yMax}
           chartW={chartW}
@@ -232,6 +237,7 @@ function CrewLine({
 
 function CrewMarker({
   member,
+  head,
   color,
   yMax,
   chartW,
@@ -240,6 +246,7 @@ function CrewMarker({
   progress,
 }: {
   member: RecapCrewMember
+  head?: string
   color: string
   yMax: number
   chartW: number
@@ -250,6 +257,7 @@ function CrewMarker({
   const cum = member.daily_cumulative_kg
   const userId = member.user_id
   const label = `@${member.username ?? member.name}`
+  const hasHead = !!head
 
   // Visibility — mirrors CrewLine so dot + line appear/disappear together.
   const initialVisible = isIn(visibilityByDay[0], userId)
@@ -288,7 +296,11 @@ function CrewMarker({
   const markerStyle = useAnimatedStyle(() => {
     const { x, y } = pointAt(cum, progress.value, chartW, chartH, yMax)
     return {
-      transform: [{ translateX: x - 4 }, { translateY: y - 12 }],
+      // Anchor the dot/face centre on the line's leading point.
+      transform: [
+        { translateX: x - (hasHead ? HEAD_SIZE / 2 : 4) },
+        { translateY: y - (hasHead ? HEAD_SIZE / 2 : 12) },
+      ],
       opacity: opacity.value,
     }
   })
@@ -309,15 +321,30 @@ function CrewMarker({
         markerStyle,
       ]}
     >
-      <View
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: 4,
-          backgroundColor: color,
-          marginRight: 4,
-        }}
-      />
+      {head ? (
+        <Image
+          source={{ uri: head }}
+          style={{
+            width: HEAD_SIZE,
+            height: HEAD_SIZE,
+            borderRadius: HEAD_SIZE / 2,
+            borderWidth: 2,
+            borderColor: color,
+            backgroundColor: '#18181b',
+            marginRight: 4,
+          }}
+        />
+      ) : (
+        <View
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: color,
+            marginRight: 4,
+          }}
+        />
+      )}
       <Text
         style={{
           color: '#fafafa',

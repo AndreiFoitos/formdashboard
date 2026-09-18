@@ -15,6 +15,9 @@ import { ChevronLeft } from 'lucide-react-native'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { extractErrorMessage } from '../lib/apiError'
+import { FEATURES } from '../lib/featureFlags'
+import { AvatarCanvas } from '../components/avatar/AvatarCanvas'
+import { bodyFromMetrics, DEFAULT_LOOK, toState } from '../lib/avatar/config'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -214,8 +217,8 @@ function Step2Stats({
     { key: 'weight_kg', label: 'Weight', unit: 'kg',  placeholder: '80' },
   ]
 
-  return (
-    <View style={{ gap: 16 }}>
+  const fieldsView = (
+    <View style={{ gap: 16, flex: 1 }}>
       {/* Sex */}
       <View>
         <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-1.5">
@@ -264,6 +267,42 @@ function Step2Stats({
           </View>
         </View>
       ))}
+    </View>
+  )
+
+  if (!FEATURES.avatarLab) return fieldsView
+
+  return (
+    <View className="flex-row" style={{ gap: 12 }}>
+      {fieldsView}
+      <StatsAvatarPreview form={form} />
+    </View>
+  )
+}
+
+/** Live 3D avatar that reshapes as the user types their stats. */
+function StatsAvatarPreview({ form }: { form: FormState }) {
+  const num = (v: string) => {
+    const n = parseFloat(v.replace(',', '.'))
+    return Number.isFinite(n) && n > 0 ? n : null
+  }
+  const age = num(form.age)
+  const height = num(form.height_cm)
+  const weight = num(form.weight_kg)
+  const base = form.sex ?? 'male'
+  const state = useMemo(
+    () => toState(DEFAULT_LOOK, bodyFromMetrics({ sex: base, age, heightCm: height, weightKg: weight })),
+    [base, age, height, weight],
+  )
+  return (
+    <View
+      className="rounded-3xl bg-zinc-900 overflow-hidden"
+      style={{ width: 124, height: 330, opacity: form.sex ? 1 : 0.55 }}
+    >
+      <AvatarCanvas base={base} state={state} interactive={false} style={{ flex: 1 }} errorFallback={null} />
+      {!form.sex && (
+        <Text className="absolute bottom-2 self-center text-zinc-500 text-[10px]">Pick your sex</Text>
+      )}
     </View>
   )
 }

@@ -32,13 +32,33 @@ interface Props {
   onFps?: (fps: number) => void
   /** Called when rendering or loading the model throws (the canvas shows the error instead of crashing). */
   onError?: (error: Error) => void
+  /** 'full' = whole body, 'head' = face close-up (header badge, race markers). */
+  framing?: AvatarFraming
+  /** false = render only when inputs change (no idle animation, no GPU work while static). */
+  animate?: boolean
+  /** false = no drag-to-turn; touches pass through to parents (e.g. a button). */
+  interactive?: boolean
+  /** Shown instead of the verbose error panel (small badges). */
+  errorFallback?: ReactNode
+  /** Fires after the model is loaded and `state` has been applied (used for snapshots). */
+  onReady?: () => void
 }
+
+export type AvatarFraming = 'full' | 'head'
+
+const FRAMING = {
+  full: { position: [0, 1.0, 3.9], target: [0, 0.95, 0], fov: 30, spin: 0.35 },
+  head: { position: [0, 0, 0.85], target: [0, 0, 0], fov: 30, spin: 0 },
+} as const
+
+// Head centre (chin to top of hair) at heightScale 1, measured from the GLBs.
+const HEAD_CENTER_Y: Record<AvatarBase, number> = { male: 1.665, female: 1.53 }
 
 /**
  * Keeps a GL / model-loading failure from taking the whole app down, and shows
  * the message so it can be reported (production builds have no dev red screen).
  */
-class AvatarErrorBoundary extends Component<{ children: ReactNode; onError?: (e: Error) => void }, { error: Error | null }> {
+class AvatarErrorBoundary extends Component<{ children: ReactNode; onError?: (e: Error) => void; fallback?: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null }
   static getDerivedStateFromError(error: Error) {
     return { error }
@@ -50,6 +70,7 @@ class AvatarErrorBoundary extends Component<{ children: ReactNode; onError?: (e:
   render() {
     const { error } = this.state
     if (!error) return this.props.children
+    if (this.props.fallback !== undefined) return this.props.fallback
     return (
       <View style={{ flex: 1, padding: 12, justifyContent: 'center' }}>
         <Text style={{ color: '#f87171', fontSize: 13, fontWeight: '600', marginBottom: 4 }}>3D avatar failed</Text>
@@ -70,7 +91,7 @@ class AvatarErrorBoundary extends Component<{ children: ReactNode; onError?: (e:
  * Rendering stops while the screen is not focused.
  */
 export const AvatarCanvas = forwardRef<AvatarCanvasHandle, Props>(function AvatarCanvas(
-  { base, source = 'glb', state, style, onFps, onError },
+  { base, source = 'glb', state, style, onFps, onError, framing = 'full', animate = true, interactive = true, errorFallback, onReady },
   ref,
 ) {
   const [focused, setFocused] = useState(true)
@@ -82,7 +103,8 @@ export const AvatarCanvas = forwardRef<AvatarCanvasHandle, Props>(function Avata
   )
 
   // Drag to turn. The overlay owns touches so the GL view never has to.
-  const spin = useRef(0.35)
+  const view = FRAMING[framing]
+  const spin = useRef<number>(view.spin)
   const spinStart = useRef(0)
   const pan = useMemo(
     () =>
@@ -104,37 +126,55 @@ export const AvatarCanvas = forwardRef<AvatarCanvasHandle, Props>(function Avata
   useImperativeHandle(ref, () => ({ snapshot: () => snapshotFn.current() }), [])
 
   return (
-    <View style={style}>
-      <AvatarErrorBoundary onError={onError}>
+    <View style={style} pointerEvents={interactive ? 'auto' : 'none'}>
+      <AvatarErrorBoundary onError={onError} fallback={errorFallback}>
       <Canvas
-        frameloop={focused ? 'always' : 'never'}
-        camera={{ position: [0, 1.0, 3.9], fov: 30 }}
+        frameloop={!focused ? 'never' : animate ? 'always' : 'demand'}
+        camera={{ position: [...view.position], fov: view.fov }}
         onCreated={(s) => {
-          s.camera.lookAt(0, 0.95, 0)
           s.gl.setClearColor(0x000000, 0)
         }}
       >
+        <CameraRig framing={framing} base={base} heightScale={state.heightScale} />
         <ambientLight intensity={1.1} />
         <directionalLight position={[1.5, 3, 2.5]} intensity={2.2} />
         <Suspense fallback={null}>
           {source === 'glb' ? (
-            <GlbAvatar key={base} base={base} state={state} spin={spin} onFps={onFps} snapshotFn={snapshotFn} />
+            <GlbAvatar key={base} base={base} state={state} spin={spin} onFps={onFps} onReady={onReady} snapshotFn={snapshotFn} />
           ) : (
-            <PlaceholderAvatar key={base} base={base} state={state} spin={spin} onFps={onFps} snapshotFn={snapshotFn} />
+            <PlaceholderAvatar key={base} base={base} state={state} spin={spin} onFps={onFps} onReady={onReady} snapshotFn={snapshotFn} />
           )}
         </Suspense>
       </Canvas>
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} {...pan.panHandlers} />
+      {interactive && <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} {...pan.panHandlers} />}
       </AvatarErrorBoundary>
     </View>
   )
 })
+
+/** Aims the camera; the head close-up follows the avatar's height. */
+function CameraRig({ framing, base, heightScale }: { framing: AvatarFraming; base: AvatarBase; heightScale: number }) {
+  const { camera, invalidate, size } = useThree()
+  const aspect = size.width / Math.max(1, size.height)
+  useEffect(() => {
+    const v = FRAMING[framing]
+    const y = framing === 'head' ? HEAD_CENTER_Y[base] * heightScale : 0
+    // Full body in a narrow view: back off until the A-pose arm span (~1.3m) fits.
+    const fitZ = 0.65 / (Math.tan(((v.fov / 2) * Math.PI) / 180) * aspect)
+    const z = framing === 'full' ? Math.max(v.position[2], fitZ) : v.position[2]
+    camera.position.set(v.position[0], v.position[1] + y + (framing === 'head' ? 0.01 : 0), z)
+    camera.lookAt(v.target[0], v.target[1] + y, v.target[2])
+    invalidate()
+  }, [camera, invalidate, framing, base, heightScale, aspect])
+  return null
+}
 
 interface SceneProps {
   base: AvatarBase
   state: AvatarState
   spin: React.MutableRefObject<number>
   onFps?: (fps: number) => void
+  onReady?: () => void
   snapshotFn: React.MutableRefObject<AvatarCanvasHandle['snapshot']>
 }
 
@@ -149,11 +189,17 @@ function PlaceholderAvatar(props: SceneProps) {
   return <AvatarScene model={model} {...props} />
 }
 
-function AvatarScene({ model, state, spin, onFps, snapshotFn }: SceneProps & { model: AvatarModel }) {
+function AvatarScene({ model, state, spin, onFps, onReady, snapshotFn }: SceneProps & { model: AvatarModel }) {
   useEffect(() => () => model.dispose(), [model])
-  useEffect(() => model.apply(state), [model, state])
+  const { gl, scene, camera, invalidate } = useThree()
+  useEffect(() => {
+    model.apply(state)
+    invalidate() // needed when the canvas only renders on demand
+    onReady?.()
+    // onReady is intentionally not a dependency: it should fire per applied state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, state, invalidate])
 
-  const { gl, scene, camera } = useThree()
   useEffect(() => {
     snapshotFn.current = async () => {
       gl.render(scene, camera)

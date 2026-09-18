@@ -4,7 +4,7 @@
 // total + days-trained fades up. Bar colors reuse the race palette
 // (colorForUser) so every friend keeps the same color across both scenes.
 import { useEffect, useMemo } from 'react'
-import { Text, useWindowDimensions, View } from 'react-native'
+import { Image, Text, useWindowDimensions, View } from 'react-native'
 import Animated, {
   cancelAnimation,
   Easing,
@@ -33,9 +33,11 @@ interface Props {
   crew: RecapCrewMember[]
   /** Bumped on Replay so the rise/drop animations re-seed from 0. */
   runId: number
+  /** user_id -> avatar face image (shown above the name when available). */
+  heads?: Record<string, string>
 }
 
-export function PodiumCanvas({ crew, runId }: Props) {
+export function PodiumCanvas({ crew, runId, heads }: Props) {
   const { width, height } = useWindowDimensions()
 
   const { top3, tail } = useMemo(
@@ -73,6 +75,7 @@ export function PodiumCanvas({ crew, runId }: Props) {
           <Stand
             key={s.rank}
             member={s.member}
+            head={s.member ? heads?.[s.member.user_id] : undefined}
             rank={s.rank}
             barW={barW}
             colW={colW}
@@ -96,6 +99,7 @@ export function PodiumCanvas({ crew, runId }: Props) {
 
 function Stand({
   member,
+  head,
   rank,
   barW,
   colW,
@@ -104,6 +108,7 @@ function Stand({
   runId,
 }: {
   member: RecapCrewMember | undefined
+  head?: string
   rank: 1 | 2 | 3
   barW: number
   colW: number
@@ -164,6 +169,20 @@ function Stand({
         <Animated.View style={medalStyle}>
           <Icon size={26} color={medalColor} strokeWidth={2} />
         </Animated.View>
+        {head && (
+          <Image
+            source={{ uri: head }}
+            style={{
+              width: rank === 1 ? 52 : 42,
+              height: rank === 1 ? 52 : 42,
+              borderRadius: 999,
+              borderWidth: 2,
+              borderColor: medalColor,
+              backgroundColor: '#18181b',
+              marginTop: 4,
+            }}
+          />
+        )}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 }}>
           <Text
             numberOfLines={1}

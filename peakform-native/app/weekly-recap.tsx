@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Text,
@@ -16,6 +16,9 @@ import { hapticLight } from '../lib/haptics'
 import { RaceCanvas } from '../components/recap/RaceCanvas'
 import { PodiumCanvas } from '../components/recap/PodiumCanvas'
 import { RACE_DURATION_MS } from '../components/recap/recapShared'
+import { useAvatarHeads, type HeadRequest } from '../components/avatar/AvatarHeadSnapshots'
+import { stateForFriend, type PublicAvatar } from '../lib/avatar/config'
+import { FEATURES } from '../lib/featureFlags'
 
 // ─── Types (mirror backend /friends/recap/race shape) ───────────────────────
 
@@ -34,6 +37,9 @@ export interface RecapCrewMember {
   trusted_crossed_on_day: number | null
   sus_crossed_on_day: number | null
   is_me: boolean
+  /** Look + (if shared) body shape weights. Null = default look. */
+  avatar?: PublicAvatar | null
+  sex?: 'male' | 'female' | null
 }
 
 export interface RecapRaceData {
@@ -71,6 +77,16 @@ export default function WeeklyRecapScreen() {
     queryFn: () => api.get('/friends/recap/race?week_offset=0').then((r) => r.data),
     enabled: !!user,
   })
+
+  // Avatar faces for the race markers + podium, rendered once to images.
+  const headRequests = useMemo<HeadRequest[]>(
+    () =>
+      FEATURES.avatarLab && data
+        ? data.crew.map((m) => ({ id: m.user_id, base: m.sex ?? 'male', state: stateForFriend(m.avatar) }))
+        : [],
+    [data],
+  )
+  const { heads, renderer: headRenderer } = useAvatarHeads(headRequests)
 
   // Once we have data, kick the state machine into intro.
   useEffect(() => {
@@ -111,7 +127,7 @@ export default function WeeklyRecapScreen() {
         <StatusBar hidden />
         <ActivityIndicator color="#a1a1aa" />
         <Text className="text-zinc-500 text-xs mt-3">Loading the week…</Text>
-        <CloseButton onPress={handleClose} />
+      <CloseButton onPress={handleClose} />
       </View>
     )
   }
@@ -137,12 +153,13 @@ export default function WeeklyRecapScreen() {
       {/* Phase content — each is a placeholder until task #11/#12 fills them in. */}
       {phase === 'intro' && <IntroScene data={data} />}
       {(phase === 'race' || phase === 'transition') && (
-        <RaceScene data={data} phase={phase} runId={runId} />
+        <RaceScene data={data} phase={phase} runId={runId} heads={heads} />
       )}
       {(phase === 'podium' || phase === 'outro') && (
-        <PodiumScene data={data} phase={phase} runId={runId} />
+        <PodiumScene data={data} phase={phase} runId={runId} heads={heads} />
       )}
 
+      {headRenderer}
       <CloseButton onPress={handleClose} />
 
       {phase === 'outro' && <ReplayButton onPress={handleReplay} />}
@@ -173,10 +190,12 @@ function RaceScene({
   data,
   phase,
   runId,
+  heads,
 }: {
   data: RecapRaceData
   phase: Phase
   runId: number
+  heads: Record<string, string>
 }) {
   const { width, height } = useWindowDimensions()
   // Reserve room for week label at top and day labels/replay button at bottom.
@@ -196,6 +215,7 @@ function RaceScene({
         width={width}
         height={canvasH}
         runId={runId}
+        heads={heads}
       />
       {phase === 'transition' && (
         <View className="items-center mt-6">
@@ -212,10 +232,12 @@ function PodiumScene({
   data,
   phase,
   runId,
+  heads,
 }: {
   data: RecapRaceData
   phase: Phase
   runId: number
+  heads: Record<string, string>
 }) {
   return (
     <View className="flex-1">
@@ -227,7 +249,7 @@ function PodiumScene({
           {formatWeekLabel(data.week_start, data.week_end)}
         </Text>
       </View>
-      <PodiumCanvas crew={data.crew} runId={runId} />
+      <PodiumCanvas crew={data.crew} runId={runId} heads={heads} />
       {phase === 'outro' && (
         <Text className="text-zinc-600 text-xs text-center mb-24">
           Tap replay to watch again

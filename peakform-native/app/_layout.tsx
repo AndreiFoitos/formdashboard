@@ -175,6 +175,8 @@ function RootLayout() {
               <Stack.Screen name="methodology/sources" />
               {/* Internal 3D avatar spike — gated by FEATURES.avatarLab */}
               <Stack.Screen name="avatar-lab" />
+              <Stack.Screen name="avatar-edit" />
+              <Stack.Screen name="combo-dex" />
               {/* Cinematic full-screen Weekly Race recap (Sun-Mon hero card → modal) */}
               <Stack.Screen
                 name="weekly-recap"

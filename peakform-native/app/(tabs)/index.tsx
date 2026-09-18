@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native'
-import { useCallback } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { api } from '../../api/client'
@@ -18,6 +18,11 @@ import { hapticLight, hapticSuccess } from '../../lib/haptics'
 import { router } from 'expo-router'
 import { Play, UserPlus } from 'lucide-react-native'
 import { SettingsIcon } from '../../components/TabIcons'
+import { AvatarBadge } from '../../components/avatar/AvatarBadge'
+import { FEATURES } from '../../lib/featureFlags'
+import { effectsForToday } from '../../lib/avatar/config'
+import { useRewards } from '../../hooks/useRewards'
+import { UnlockModal } from '../../components/avatar/UnlockModal'
 import { AiDigest } from '../../components/AiDigest'
 import { CaffeineCurve, type CurveData } from '../../components/CaffeineCurve'
 import { UndoToast } from '../../components/UndoToast'
@@ -513,6 +518,21 @@ export default function DashboardScreen() {
   })
 
   const firstName = user?.name?.split(' ')[0] ?? null
+  const avatarEffects = useMemo(
+    () => effectsForToday(summary, targets?.water_target_ml),
+    [summary?.trained, summary?.water_ml, summary?.caffeine_mg, targets?.water_target_ml],
+  )
+
+  // Combos are recorded by the rewards endpoint, so re-sync whenever today's
+  // logged numbers change (e.g. after logging water or a workout).
+  const rewards = useRewards()
+  const summaryKey = summary
+    ? [summary.trained, summary.water_ml, summary.caffeine_mg, summary.protein_g, summary.calories_eaten].join('|')
+    : ''
+  useEffect(() => {
+    if (FEATURES.avatarLab && summaryKey) rewards.refetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summaryKey])
 
   return (
     <SafeAreaView className="flex-1 bg-black" edges={['top']}>
@@ -530,6 +550,16 @@ export default function DashboardScreen() {
       >
         {/* Header */}
         <View className="pt-6 pb-5 flex-row items-start justify-between">
+          {FEATURES.avatarLab && (
+            <View className="mr-3 mt-1">
+              <AvatarBadge
+                size={48}
+                effects={avatarEffects}
+                todayCombos={rewards.data?.today.combos}
+                onPress={() => router.push('/avatar-edit')}
+              />
+            </View>
+          )}
           <View className="flex-1">
             <Text className="text-zinc-400 text-xs uppercase tracking-widest font-semibold">
               {today}
@@ -613,6 +643,7 @@ export default function DashboardScreen() {
       </ScrollView>
 
       <UndoToast />
+      {FEATURES.avatarLab && <UnlockModal items={rewards.data?.new ?? []} />}
     </SafeAreaView>
   )
 }

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { AvatarConfig } from '../lib/avatar/config'
 
 interface User {
   id: string
@@ -15,6 +16,8 @@ interface User {
   protein_target_g: number | null
   water_target_ml: number | null
   calorie_target: number | null
+  /** 3D avatar settings; null until the user saves one. */
+  avatar?: AvatarConfig | null
   created_at: string
 }
 

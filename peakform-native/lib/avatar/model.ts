@@ -4,6 +4,7 @@
 
 import * as THREE from 'three'
 import type { DailyEffects } from './bodyParams'
+import type { AvatarExtras } from './rewards'
 
 export type HeadStyle = 'human' | 'gorilla'
 
@@ -22,6 +23,8 @@ export interface AvatarState {
   heightScale: number
   look: AvatarLook
   effects: DailyEffects
+  /** Reward visuals: aura, eye color, tired look, definition. */
+  extras?: AvatarExtras
 }
 
 export interface AvatarModel {
