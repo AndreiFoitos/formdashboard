@@ -29,6 +29,9 @@ interface EstimateItem {
   carbs_g: number
   source: 'usda' | 'claude_fallback'
   usda_name: string | null
+  // USDA household portion the amount was picked from, e.g. "1.5 × 1 cup,
+  // cooked". Absent on older backends and when the amount was a gram guess.
+  portion?: string | null
 }
 
 interface Estimate {
@@ -96,6 +99,13 @@ function IngredientRow({
       {item.usda_name && (
         <Text className="text-zinc-600 text-xs mt-0.5" numberOfLines={1}>
           matched: {item.usda_name}
+        </Text>
+      )}
+      {/* The portion describes the unscaled amount, so hide it once the user
+          changes the multiplier rather than show a label that no longer fits. */}
+      {item.portion && multiplier === 1 && (
+        <Text className="text-zinc-600 text-xs mt-0.5" numberOfLines={1}>
+          portion: {item.portion}
         </Text>
       )}
     </View>

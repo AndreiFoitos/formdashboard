@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { CameraView, useCameraPermissions } from 'expo-camera'
-import { X } from 'lucide-react-native'
+import { Check, X } from 'lucide-react-native'
 import { api } from '../api/client'
 import { PressableScale } from '../components/PressableScale'
 import { hapticSuccess } from '../lib/haptics'
@@ -63,15 +63,67 @@ function PermissionGate({ onRequest, canAskAgain }: PermissionGateProps) {
 
 // ─── Analyzing Overlay ────────────────────────────────────────────────────────
 
+// The backend runs these three steps in this order (services/nutrition_estimate.py).
+// The client can't see server progress, so each stage starts at the point it
+// typically begins (measured: ~5 s vision call, then USDA lookup, then ~6 s
+// portion pick). The last stage holds until the response arrives.
+const ANALYZE_STAGES = [
+  { label: 'Identifying foods', startsAtMs: 0 },
+  { label: 'Matching to USDA database', startsAtMs: 5500 },
+  { label: 'Choosing portions', startsAtMs: 7500 },
+]
+const SLOW_HINT_AFTER_MS = 20_000
+
 function AnalyzingOverlay() {
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    const start = Date.now()
+    const id = setInterval(() => setElapsed(Date.now() - start), 250)
+    return () => clearInterval(id)
+  }, [])
+
+  const current = ANALYZE_STAGES.reduce(
+    (idx, s, i) => (elapsed >= s.startsAtMs ? i : idx),
+    0,
+  )
+
   return (
     <View
-      className="absolute inset-0 bg-black/85 items-center justify-center"
+      className="absolute inset-0 bg-black/85 items-center justify-center px-10"
       pointerEvents="auto"
     >
-      <ActivityIndicator size="large" color="#ffffff" />
-      <Text className="text-white text-base font-medium mt-4">Analyzing your meal…</Text>
-      <Text className="text-zinc-400 text-xs mt-1">Identifying ingredients and portions</Text>
+      <Text className="text-white text-base font-medium mb-5">Analyzing your meal…</Text>
+      <View style={{ gap: 14 }}>
+        {ANALYZE_STAGES.map((s, i) => {
+          const done = i < current
+          const active = i === current
+          return (
+            <View key={s.label} className="flex-row items-center" style={{ gap: 12 }}>
+              <View className="w-5 h-5 items-center justify-center">
+                {done ? (
+                  <Check size={16} color="#86efac" strokeWidth={2.5} />
+                ) : active ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <View className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
+                )}
+              </View>
+              <Text
+                className="text-sm"
+                style={{ color: done ? '#a1a1aa' : active ? '#ffffff' : '#52525b' }}
+              >
+                {s.label}
+              </Text>
+            </View>
+          )
+        })}
+      </View>
+      {elapsed > SLOW_HINT_AFTER_MS && (
+        <Text className="text-zinc-500 text-xs mt-6 text-center">
+          Taking a little longer than usual…
+        </Text>
+      )}
     </View>
   )
 }
