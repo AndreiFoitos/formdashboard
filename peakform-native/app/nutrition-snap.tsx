@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { CameraView, useCameraPermissions } from 'expo-camera'
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator'
 import { Check, X } from 'lucide-react-native'
 import { api } from '../api/client'
 import { PressableScale } from '../components/PressableScale'
@@ -161,10 +162,11 @@ export default function NutritionSnapScreen() {
         skipProcessing: false,
       })
       if (!photo?.uri) throw new Error('Capture failed')
+      const uri = await shrink(photo.uri, photo.width, photo.height)
 
       const formData = new FormData()
       formData.append('image', {
-        uri: photo.uri,
+        uri,
         type: 'image/jpeg',
         name: 'meal.jpg',
       } as unknown as Blob)
@@ -234,4 +236,15 @@ export default function NutritionSnapScreen() {
       </View>
     </SafeAreaView>
   )
+}
+
+// Long edge sent to Claude. Image tokens scale with pixel area, so 1024px is
+// ~0.6x the tokens of the API's own 1568px downscale; a plate needs no more.
+const MAX_EDGE = 1024
+
+async function shrink(uri: string, width?: number, height?: number): Promise<string> {
+  if (Math.max(width ?? Infinity, height ?? Infinity) <= MAX_EDGE) return uri
+  const resize = (height ?? 0) >= (width ?? 0) ? { height: MAX_EDGE } : { width: MAX_EDGE }
+  const out = await manipulateAsync(uri, [{ resize }], { compress: 0.8, format: SaveFormat.JPEG })
+  return out.uri
 }

@@ -9,6 +9,8 @@ async def call_claude_vision(
     prompt: str,
     media_type: str = "image/jpeg",
     max_tokens: int = 1000,
+    model: str = CLAUDE_MODEL,
+    effort: str | None = None,
 ) -> str:
     """Single Messages API vision call. Returns the concatenated text content.
 
@@ -17,6 +19,9 @@ async def call_claude_vision(
     once against the daily call cap; only the input tokens grow (~1.6k/image
     at the API's default downscale). A label, when given, is placed as a text
     block right before its image so the model knows which view it's looking at.
+
+    `effort` ("low" / "medium" / ...) caps how much Sonnet 5 thinks. Leave it
+    None for Haiku 4.5, which rejects the parameter.
     """
     if isinstance(images, bytes):
         images = [(None, images)]
@@ -40,10 +45,12 @@ async def call_claude_vision(
         )
     content.append({"type": "text", "text": prompt})
 
+    extra = {"output_config": {"effort": effort}} if effort else {}
     resp = await client.messages.create(
-        model=CLAUDE_MODEL,
+        model=model,
         max_tokens=max_tokens,
         system=system,
         messages=[{"role": "user", "content": content}],
+        **extra,
     )
     return "".join(b.text for b in resp.content if b.type == "text").strip()

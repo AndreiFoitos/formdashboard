@@ -12,6 +12,8 @@ four fixed cameras. Conditions:
     v1usda overhead only, run with USDA enabled (same prompt as v1 at run time)
     v1fndds   overhead only, FNDDS added to the USDA search, grams path (no pick step)
     v1portion overhead only, FNDDS + pick step (entry and household portion chosen by the model)
+    v1pick_haiku  v1portion with the pick step on Haiku 4.5
+    v1low         v1pick_haiku with the step-1 vision call at effort "low"
 
 Each condition runs through the production pipeline (services.nutrition_estimate:
 Claude vision -> USDA / Claude fallback -> totals), so the calorie error is what
@@ -48,9 +50,13 @@ SIDE_FRAME_INDEX = 3  # skip the first frames in case the capture was settling
 SAFETY_FRAMES = 3  # complete frames required after the chosen one
 MAX_EDGE = 1568  # same as the app's client-side resize
 
-# Sonnet 5 list prices, $/token. Keep in sync with services/ai_client.CLAUDE_MODEL.
-PRICE_IN = 2.00 / 1_000_000
-PRICE_OUT = 10.00 / 1_000_000
+# List prices, $/token (input, output). Rows written before per-call pricing
+# have no "cost" field and are priced as Sonnet 5.
+PRICES = {
+    "claude-sonnet-5": (2.00 / 1_000_000, 10.00 / 1_000_000),
+    "claude-haiku-4-5": (1.00 / 1_000_000, 5.00 / 1_000_000),
+}
+PRICE_IN, PRICE_OUT = PRICES["claude-sonnet-5"]
 
 
 # ─── prepare ──────────────────────────────────────────────────────────────────
@@ -200,8 +206,10 @@ class UsageMeter:
         async def create(*args, **kwargs):
             resp = await original(*args, **kwargs)
             u = resp.usage
+            p_in, p_out = PRICES[kwargs["model"]]
             meter.rows.append({
                 "tag": meter.tag.get(),
+                "cost": u.input_tokens * p_in + u.output_tokens * p_out,
                 "vision": any(
                     isinstance(b, dict) and b.get("type") == "image"
                     for m in kwargs.get("messages", [])
@@ -237,7 +245,11 @@ def _memoize_usda(enabled: bool) -> None:
     ne.search_foods = search_foods
 
 
-CONDITIONS = {"v1": 0, "v2": 1, "v3": 2, "v1cal": 0, "v1usda": 0, "v1fndds": 0, "v1portion": 0}  # number of side angles added to overhead
+CONDITIONS = {
+    "v1": 0, "v2": 1, "v3": 2, "v1cal": 0, "v1usda": 0, "v1fndds": 0, "v1portion": 0,
+    "v1pick_haiku": 0, "v1low": 0,
+}  # number of side angles added to overhead
+PICK_CONDITIONS = {"v1portion", "v1pick_haiku", "v1low"}
 
 # Prompt variants, keyed by condition. Anything not listed uses the production prompt.
 PORTION_CALIBRATION = (
@@ -294,7 +306,9 @@ async def run(data: Path, conditions: list[str], limit: int | None, concurrency:
                 est = await estimate_from_photos(
                     images,
                     system=_system_for(cond),
-                    pick_portions=cond == "v1portion",
+                    pick_portions=cond in PICK_CONDITIONS,
+                    pick_model="claude-haiku-4-5" if cond in ("v1pick_haiku", "v1low") else None,
+                    vision_effort="low" if cond == "v1low" else None,
                 )
                 row.update(
                     ok=True,
@@ -315,6 +329,7 @@ async def run(data: Path, conditions: list[str], limit: int | None, concurrency:
             row["vision_out"] = sum(u["out"] for u in calls if u["vision"])
             row["fallback_in"] = sum(u["in"] for u in calls if not u["vision"])
             row["fallback_out"] = sum(u["out"] for u in calls if not u["vision"])
+            row["cost"] = sum(u["cost"] for u in calls)
             row["stop"] = next((u["stop"] for u in calls if u["vision"]), None)
             async with lock:
                 results.append(row)
@@ -342,6 +357,8 @@ def report(results: list[dict], conditions: list[str]) -> None:
     common = set.intersection(*({d for d, r in by[c].items() if r.get("ok")} for c in conditions))
 
     def cost(r: dict) -> float:
+        if "cost" in r:
+            return r["cost"]
         return (r["vision_in"] + r["fallback_in"]) * PRICE_IN + (r["vision_out"] + r["fallback_out"]) * PRICE_OUT
 
     print(f"\n{len(common)} dishes scored in every condition\n")

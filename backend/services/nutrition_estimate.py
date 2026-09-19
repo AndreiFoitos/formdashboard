@@ -22,7 +22,7 @@ import re
 import anthropic
 import httpx
 
-from services.ai_client import call_claude
+from services.ai_client import CLAUDE_MODEL, call_claude
 from services.ai_vision import call_claude_vision
 from services.usda import (
     MATCH_THRESHOLD,
@@ -117,6 +117,15 @@ PORTION_GUARD = 2.0
 
 # Step 3 on/off. The offline eval (scripts/eval_food_views.py) compares both.
 PICK_PORTIONS = True
+
+# Cost knobs, tried in the offline eval (conditions v1pick_haiku, v1low).
+# 2026-09-19, 100 Nutrition5k plates: Haiku for step 3 cut $/scan 0.0102 ->
+# 0.0073 but raised kcal MAE 108 -> 119 (worse on 62/100); adding effort
+# "low" on step 1 gave 0.0069 at MAE 116. Kept on Sonnet at default effort:
+# accuracy is the product and the saving is ~$0.003/scan.
+# Re-run the eval before changing either.
+PICK_MODEL = CLAUDE_MODEL
+VISION_EFFORT: str | None = None
 
 
 def _extract_json(text: str) -> dict:
@@ -253,7 +262,7 @@ def _pick_prompt(foods: list[dict], cands: list[list[dict]]) -> str:
 
 
 async def _pick(
-    images: list[bytes], foods: list[dict], cands: list[list[dict]]
+    images: list[bytes], foods: list[dict], cands: list[list[dict]], model: str
 ) -> list[dict | None]:
     """Step 3. Returns one resolved item (or None to drop it) per food; raises
     on a malformed reply so the caller can fall back to the grams path."""
@@ -261,7 +270,9 @@ async def _pick(
         images[0] if len(images) == 1
         else [(f"Angle {i + 1}", img) for i, img in enumerate(images)]
     )
-    raw = await call_claude_vision(PICK_SYSTEM, photo, _pick_prompt(foods, cands), max_tokens=2000)
+    raw = await call_claude_vision(
+        PICK_SYSTEM, photo, _pick_prompt(foods, cands), max_tokens=2000, model=model
+    )
     picks = {int(p.get("item", 0)): p for p in _extract_json(raw).get("items") or []}
 
     out: list[dict | None] = []
@@ -309,19 +320,23 @@ async def estimate_from_photos(
     images: list[bytes],
     system: str = VISION_SYSTEM,
     pick_portions: bool | None = None,
+    pick_model: str | None = None,
+    vision_effort: str | None = None,
 ) -> dict:
     """Same pipeline for one or more angles of one plate. One image uses the
-    exact single-photo prompt. `system` and `pick_portions` let the offline
-    eval try variants without touching the production defaults."""
+    exact single-photo prompt. The keyword arguments let the offline eval try
+    variants without touching the production defaults."""
     if pick_portions is None:
         pick_portions = PICK_PORTIONS
+    pick_model = pick_model or PICK_MODEL
+    vision_effort = vision_effort or VISION_EFFORT
 
     if len(images) == 1:
-        raw = await call_claude_vision(system, images[0], VISION_PROMPT)
+        raw = await call_claude_vision(system, images[0], VISION_PROMPT, effort=vision_effort)
     else:
         labelled = [(f"Angle {i + 1}", img) for i, img in enumerate(images)]
         raw = await call_claude_vision(
-            system, labelled, VISION_PROMPT_MULTI.format(n=len(images))
+            system, labelled, VISION_PROMPT_MULTI.format(n=len(images)), effort=vision_effort
         )
     try:
         parsed = _extract_json(raw)
@@ -349,7 +364,7 @@ async def estimate_from_photos(
             picked: list[dict | None] | None = None
             if pick_portions and any(cands):
                 try:
-                    picked = await _pick(images, foods, cands)
+                    picked = await _pick(images, foods, cands, pick_model)
                 except (
                     json.JSONDecodeError, ValueError, TypeError, AttributeError,
                     anthropic.APIError,
