@@ -13,6 +13,7 @@ import {
   handleQuickLogResponse,
   setupNotificationHandlers,
 } from '../lib/notifications'
+import { syncPurchasesUser } from '../lib/purchases'
 
 // ── Sentry — fire-and-forget crash + JS error reporting ──────────────────────
 // DSN comes from EXPO_PUBLIC_SENTRY_DSN set per-profile in eas.json. When the
@@ -60,6 +61,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
     lastUserId.current = currentId
   }, [user?.id, qc])
+
+  // RevenueCat follows the signed-in user, so purchases land on the right
+  // account (backend matches RevenueCat's app user id to users.id).
+  useEffect(() => {
+    if (!hydrated) return
+    syncPurchasesUser(user?.id ?? null).catch(() => {})
+  }, [hydrated, user?.id])
 
   // Once a user is authed, make sure notifications are wired and the push
   // token is registered with the backend. Idempotent — no-ops if already set up.
@@ -177,6 +185,8 @@ function RootLayout() {
               <Stack.Screen name="avatar-lab" />
               <Stack.Screen name="avatar-edit" />
               <Stack.Screen name="combo-dex" />
+              {/* Plans (Free / Plus / Pro) — opened on a limit or from Settings */}
+              <Stack.Screen name="paywall" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
               {/* Cinematic full-screen Weekly Race recap (Sun-Mon hero card → modal) */}
               <Stack.Screen
                 name="weekly-recap"

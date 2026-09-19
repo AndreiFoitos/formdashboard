@@ -26,7 +26,20 @@ class Pack:
     items: dict[str, frozenset[str]] = field(default_factory=dict)
 
 
-PACKS: dict[str, Pack] = {}
+def _emotes(*ids: str) -> dict[str, frozenset[str]]:
+    return {"emote": frozenset(ids)}
+
+
+# Emote clips come from Mixamo (tools/avatar/build_emotes.py; FBX named <id>.fbx).
+# Prices: $1.99, or $0.99 on the .pro product.
+PACKS: dict[str, Pack] = {
+    p.id: p
+    for p in (
+        Pack("dance_floor", "Dance Floor", _emotes("samba", "robot_dance", "gangnam_style", "chicken_dance", "thriller")),
+        Pack("warm_up", "Warm-Up", _emotes("push_ups", "jumping_jacks", "air_squat", "burpee", "sit_ups")),
+        Pack("fight_night", "Fight Night", _emotes("boxing_combo", "hurricane_kick", "capoeira", "flying_knee", "mma_kick")),
+    )
+}
 
 
 def product_ids(pack_id: str) -> tuple[str, str]:

@@ -36,11 +36,33 @@ export const EMOTE_NAMES: Record<string, string> = {
   swing_dancing: 'Swing dance',
 }
 
+// Paid packs (backend/services/avatar_packs.py). Kept out of ALL_EMOTES so
+// they never show as "earn it" locks; the editor lists them in the pack shop
+// and in the picker once owned.
+export const PACK_EMOTE_NAMES: Record<string, string> = {
+  samba: 'Samba',
+  robot_dance: 'Robot',
+  gangnam_style: 'Gangnam',
+  chicken_dance: 'Chicken dance',
+  thriller: 'Thriller',
+  push_ups: 'Push-ups',
+  jumping_jacks: 'Jumping jacks',
+  air_squat: 'Air squats',
+  burpee: 'Burpees',
+  sit_ups: 'Sit-ups',
+  boxing_combo: 'Boxing combo',
+  hurricane_kick: 'Hurricane kick',
+  capoeira: 'Capoeira',
+  flying_knee: 'Flying knee',
+  mma_kick: 'MMA kick',
+}
+
 export const FREE_EMOTES = ['wave', 'clap', 'cheer', 'fist_pump', 'thumbs_up', 'salute', 'point', 'victory_jump', 'blow_kiss', 'bicep_curl']
 
 export const ALL_EMOTES = Object.keys(EMOTE_NAMES)
 
-export const emoteName = (id: string | null | undefined) => (id ? EMOTE_NAMES[id] ?? id : '')
+export const emoteName = (id: string | null | undefined) =>
+  id ? EMOTE_NAMES[id] ?? PACK_EMOTE_NAMES[id] ?? id : ''
 
 /** Deterministic "random" free emote, so a replay can reshuffle by changing the seed. */
 export function randomFreeEmote(seed: string): string {

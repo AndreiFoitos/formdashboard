@@ -16,6 +16,8 @@ import { api } from '../api/client'
 import { PressableScale } from '../components/PressableScale'
 import { hapticSuccess } from '../lib/haptics'
 import { extractErrorMessage } from '../lib/apiError'
+import { handleLimitError, usePlan, useSetPlan } from '../hooks/usePlan'
+import { ScanLimitCard, ScanQuotaPill } from '../components/ScanQuota'
 
 // ─── Permission Gate ──────────────────────────────────────────────────────────
 
@@ -135,6 +137,10 @@ export default function NutritionSnapScreen() {
   const [permission, requestPermission] = useCameraPermissions()
   const [busy, setBusy] = useState(false)
   const cameraRef = useRef<CameraView>(null)
+  const { data: plan } = usePlan()
+  const refreshPlan = useSetPlan()
+  const usage = plan?.scans.food
+  const outOfScans = usage?.remaining === 0
 
   // Permission states: null = loading, granted false = denied, true = good to go.
   if (!permission) {
@@ -177,11 +183,17 @@ export default function NutritionSnapScreen() {
       })
 
       hapticSuccess()
+      refreshPlan()
       router.replace({
         pathname: '/nutrition-confirm',
         params: { estimate: JSON.stringify(estimate) },
       })
     } catch (err: any) {
+      setBusy(false)
+      if (handleLimitError(err)) {
+        refreshPlan()
+        return
+      }
       const msg =
         err?.response?.status === 503
           ? 'AI service is not configured. Add ANTHROPIC_API_KEY to backend/.env.'
@@ -190,7 +202,6 @@ export default function NutritionSnapScreen() {
               'Could not analyze the photo. Try again or type the meal in manually.',
             )
       Alert.alert("Couldn't analyze meal", msg)
-      setBusy(false)
     }
   }
 
@@ -219,18 +230,32 @@ export default function NutritionSnapScreen() {
           <View style={{ width: 40 }} />
         </View>
 
-        {/* Bottom bar — shutter + hint */}
-        <View className="absolute bottom-0 left-0 right-0 pb-8 pt-6 items-center">
-          <Text className="text-white/80 text-xs mb-4">Tap to capture</Text>
-          <PressableScale haptic onPress={handleCapture} disabled={busy}>
-            <View
-              className="w-20 h-20 rounded-full items-center justify-center"
-              style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-            >
-              <View className="w-16 h-16 rounded-full bg-white" />
+        {/* Bottom bar — shutter + hint, or the plan limit */}
+        {outOfScans && usage ? (
+          <View className="absolute bottom-0 left-0 right-0 pb-8">
+            <ScanLimitCard
+              kind="food"
+              usage={usage}
+              onAlternative={() => router.back()}
+              alternativeLabel="Log the meal by hand instead"
+            />
+          </View>
+        ) : (
+          <View className="absolute bottom-0 left-0 right-0 pb-8 pt-6 items-center">
+            <View className="mb-3">
+              <ScanQuotaPill kind="food" usage={usage} />
             </View>
-          </PressableScale>
-        </View>
+            <Text className="text-white/80 text-xs mb-4">Tap to capture</Text>
+            <PressableScale haptic onPress={handleCapture} disabled={busy}>
+              <View
+                className="w-20 h-20 rounded-full items-center justify-center"
+                style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+              >
+                <View className="w-16 h-16 rounded-full bg-white" />
+              </View>
+            </PressableScale>
+          </View>
+        )}
 
         {busy && <AnalyzingOverlay />}
       </View>

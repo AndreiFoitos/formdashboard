@@ -21,6 +21,8 @@ import { api } from '../api/client'
 import { PressableScale } from '../components/PressableScale'
 import { hapticLight, hapticMedium, hapticSuccess } from '../lib/haptics'
 import { extractErrorMessage } from '../lib/apiError'
+import { handleLimitError, usePlan, useSetPlan, type ScanUsage } from '../hooks/usePlan'
+import { ScanLimitCard, ScanQuotaPill } from '../components/ScanQuota'
 
 // BF% estimator, three-angle version. The user props the phone up, steps
 // back, and a spoken countdown walks them through front → side → back while
@@ -122,7 +124,14 @@ function StepPills({ current, done }: { current: View3 | null; done: Partial<Rec
   )
 }
 
-function IntroCard({ onStart }: { onStart: () => void }) {
+function IntroCard({ onStart, usage }: { onStart: () => void; usage?: ScanUsage }) {
+  if (usage?.remaining === 0) {
+    return (
+      <View className="absolute left-0 right-0 bottom-0 pb-8">
+        <ScanLimitCard kind="bf" usage={usage} />
+      </View>
+    )
+  }
   const tips = [
     'Prop your phone up at about waist height.',
     'Step back 2–3 m until your whole body is in frame.',
@@ -131,7 +140,10 @@ function IntroCard({ onStart }: { onStart: () => void }) {
   return (
     <View className="absolute left-0 right-0 bottom-0 px-4 pb-8">
       <View className="bg-black/80 border border-zinc-800 rounded-3xl p-5">
-        <Text className="text-white text-lg font-semibold mb-1">3-angle scan</Text>
+        <View className="flex-row items-center justify-between mb-1">
+          <Text className="text-white text-lg font-semibold">3-angle scan</Text>
+          <ScanQuotaPill kind="bf" usage={usage} />
+        </View>
         <Text className="text-zinc-400 text-xs mb-4">
           Three angles give a more reliable estimate than one. Takes about 20 seconds.
         </Text>
@@ -366,6 +378,8 @@ export default function BodyCompSnapScreen() {
   // id it started with is no longer current.
   const runId = useRef(0)
   const qc = useQueryClient()
+  const { data: plan } = usePlan()
+  const refreshPlan = useSetPlan()
 
   const saveMutation = useMutation({
     mutationFn: (bf: number) =>
@@ -521,7 +535,12 @@ export default function BodyCompSnapScreen() {
 
       hapticSuccess()
       setResult(data)
+      refreshPlan()
     } catch (err: any) {
+      if (handleLimitError(err)) {
+        refreshPlan()
+        return
+      }
       const msg =
         err?.response?.status === 503
           ? 'AI service is not configured. Add ANTHROPIC_API_KEY to backend/.env.'
@@ -641,7 +660,7 @@ export default function BodyCompSnapScreen() {
           </View>
         )}
 
-        {phase === 'intro' && <IntroCard onStart={startFull} />}
+        {phase === 'intro' && <IntroCard onStart={startFull} usage={plan?.scans.bf} />}
       </View>
     </SafeAreaView>
   )

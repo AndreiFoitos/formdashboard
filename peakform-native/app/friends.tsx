@@ -23,6 +23,8 @@ import { PressableScale } from '../components/PressableScale'
 import { hapticSuccess, hapticLight, hapticSelection } from '../lib/haptics'
 import { TrustedShield } from '../components/icons/TrustedShield'
 import { SusFace } from '../components/icons/SusFace'
+import { extractErrorMessage } from '../lib/apiError'
+import { PLAN_KEY, handleLimitError } from '../hooks/usePlan'
 
 // ─── Exercise catalogue (mirror of training.tsx for the picker) ──────────────
 
@@ -678,7 +680,8 @@ function FriendsTab() {
       qc.invalidateQueries({ queryKey: ['friends-list'] })
     },
     onError: (err: any) => {
-      Alert.alert('Invite failed', err.response?.data?.detail ?? 'Try again')
+      if (handleLimitError(err)) return
+      Alert.alert('Invite failed', extractErrorMessage(err, 'Try again'))
     },
   })
 
@@ -688,6 +691,11 @@ function FriendsTab() {
       hapticSuccess()
       qc.invalidateQueries({ queryKey: ['friends-list'] })
       qc.invalidateQueries({ queryKey: ['friends-leaderboard'] })
+      qc.invalidateQueries({ queryKey: PLAN_KEY })
+    },
+    onError: (err: any) => {
+      if (handleLimitError(err)) return
+      Alert.alert("Couldn't accept", extractErrorMessage(err, 'Try again'))
     },
   })
 

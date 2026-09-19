@@ -15,7 +15,7 @@
 </head>
 <body>
 <h1>Privacy Policy</h1>
-<small>Last updated: 2026-09-15</small>
+<small>Last updated: 2026-09-19</small>
 
 <p>GainRace ("the app", "we") is a personal performance-tracking tool. This policy explains what data we collect, why, and how to remove it.</p>
 
@@ -25,7 +25,8 @@
   <li><strong>Profile:</strong> age, biological sex, height, weight, body-fat percentage (if you choose to log it), bedtime hour, and daily targets (protein, water, calories).</li>
   <li><strong>Logs you create:</strong> hydration entries, caffeine/stimulant entries, food entries (with optional photos), training entries (exercise, sets, reps, weight), body weight history, and notes.</li>
   <li><strong>Device:</strong> Expo push notification token (used to send reminders), app version, OS version, timezone.</li>
-  <li><strong>AI usage:</strong> the prompts you send to the "Ask" feature and the daily-digest text the model generates for you.</li>
+  <li><strong>AI usage:</strong> the prompts you send to the "Ask" feature and the daily-digest text the model generates for you, and a count of the AI camera scans you use (time and type only, not the photo) to apply your plan's limits.</li>
+  <li><strong>Purchases:</strong> your plan (Free, Plus or Pro), when it renews or ends, and which avatar packs you bought. We never receive your payment details; Apple handles payment.</li>
 </ul>
 <p>We do not collect contacts, location, browsing history, advertising identifiers, or analytics events for behavioural advertising.</p>
 
@@ -41,7 +42,8 @@
 <h2>3. Third parties we share data with</h2>
 <p>We send the minimum data needed to each service to provide functionality. None of these parties use your data for advertising.</p>
 <ul>
-  <li><strong>Anthropic (Claude API)</strong> — receives your "Ask" prompt + the recent-data summary, and food-photo image bytes for the nutrition estimator. Anthropic's policy: <a href="https://www.anthropic.com/legal/privacy">anthropic.com/legal/privacy</a>.</li>
+  <li><strong>Anthropic (Claude API)</strong> — receives your "Ask" prompt + the recent-data summary, and food-photo image bytes for the nutrition estimator, and body photos for the body-fat estimate. Photos are sent for the estimate only and are not stored by us. Anthropic's policy: <a href="https://www.anthropic.com/legal/privacy">anthropic.com/legal/privacy</a>.</li>
+  <li><strong>RevenueCat</strong> — processes App Store purchase receipts for subscriptions and avatar packs, linked to your GainRace user ID (not your name or email). Policy: <a href="https://www.revenuecat.com/privacy">revenuecat.com/privacy</a>.</li>
   <li><strong>Supabase</strong> — managed Postgres host for your account row and all logs. Policy: <a href="https://supabase.com/privacy">supabase.com/privacy</a>.</li>
   <li><strong>Render</strong> — application hosting for the API server (Frankfurt, EU). Policy: <a href="https://render.com/privacy">render.com/privacy</a>.</li>
   <li><strong>USDA FoodData Central</strong> — receives the food name strings extracted from your photos so we can look up nutrition data. No personal identifiers are sent. Policy: <a href="https://www.usda.gov/privacy-policy">usda.gov/privacy-policy</a>.</li>

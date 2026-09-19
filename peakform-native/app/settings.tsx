@@ -20,6 +20,9 @@ import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { removeToken } from '../lib/storage'
 import { FEATURES } from '../lib/featureFlags'
+import { extractErrorMessage } from '../lib/apiError'
+import { PLAN_NAMES, openPaywall, usePlan, useSetPlan } from '../hooks/usePlan'
+import { manageSubscription, restorePurchases } from '../lib/purchases'
 import { hapticSuccess } from '../lib/haptics'
 import {
   PRIVACY_POLICY_URL,
@@ -42,6 +45,65 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         {children}
       </View>
     </View>
+  )
+}
+
+// ─── Plan ──────────────────────────────────────────────────────────────────────
+
+function PlanSection() {
+  const { data: plan } = usePlan()
+  const setPlan = useSetPlan()
+  const [restoring, setRestoring] = useState(false)
+  if (!plan) return null
+  const paid = plan.plan !== 'free'
+  const { food, bf } = plan.scans
+  const renews = plan.plan_expires_at
+    ? new Date(plan.plan_expires_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+    : null
+
+  async function restore() {
+    setRestoring(true)
+    try {
+      const updated = await restorePurchases()
+      setPlan(updated)
+      Alert.alert(
+        'Purchases restored',
+        updated.plan === 'free' ? 'No active subscription was found for this Apple ID.' : `You're on ${PLAN_NAMES[updated.plan]}.`,
+      )
+    } catch (e) {
+      Alert.alert("Couldn't restore", extractErrorMessage(e, 'Try again in a moment.'))
+    } finally {
+      setRestoring(false)
+    }
+  }
+
+  return (
+    <Section title="Plan">
+      <TouchableOpacity onPress={() => openPaywall()} className="px-4 py-4 border-b border-zinc-800">
+        <View className="flex-row items-center justify-between">
+          <View className="flex-1 pr-3">
+            <Text className="text-white text-sm font-medium">GainRace {PLAN_NAMES[plan.plan]}</Text>
+            <Text className="text-zinc-500 text-xs mt-0.5">
+              {food.remaining}/{food.limit} food scans left {food.window === 'day' ? 'today' : 'this week'} ·{' '}
+              {bf.remaining}/{bf.limit} body-fat {bf.window === 'day' ? 'today' : 'this week'} · {plan.friends.count}/
+              {plan.friends.limit} friends
+            </Text>
+            {paid && renews && <Text className="text-zinc-500 text-xs mt-0.5">Renews or ends {renews}</Text>}
+          </View>
+          <Text className="text-sm font-semibold" style={{ color: paid ? '#a1a1aa' : '#facc15' }}>
+            {plan.plan === 'pro' ? '›' : 'Upgrade ›'}
+          </Text>
+        </View>
+      </TouchableOpacity>
+      {paid && (
+        <TouchableOpacity onPress={() => manageSubscription()} className="px-4 py-4 border-b border-zinc-800">
+          <Text className="text-white text-sm font-medium">Manage subscription</Text>
+        </TouchableOpacity>
+      )}
+      <TouchableOpacity onPress={restore} disabled={restoring} className="px-4 py-4">
+        <Text className="text-zinc-300 text-sm font-medium">{restoring ? 'Restoring…' : 'Restore purchases'}</Text>
+      </TouchableOpacity>
+    </Section>
   )
 }
 
@@ -558,6 +620,8 @@ export default function SettingsScreen() {
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
       >
+        <PlanSection />
+
         <ProfileSection />
 
         <NudgesSection />

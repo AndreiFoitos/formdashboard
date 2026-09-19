@@ -7,7 +7,8 @@ import { AvatarCanvas } from '../components/avatar/AvatarCanvas'
 import { useMyAvatar, useSaveAvatar } from '../hooks/useMyAvatar'
 import { appliedBody, PALETTE, toState, type AvatarConfig, type LookColors } from '../lib/avatar/config'
 import { useRewards } from '../hooks/useRewards'
-import { ALL_EMOTES, emoteName, FREE_EMOTES } from '../lib/avatar/emotes'
+import { ALL_EMOTES, emoteName, FREE_EMOTES, PACK_EMOTE_NAMES } from '../lib/avatar/emotes'
+import { EmotePackShop } from '../components/EmotePackShop'
 import {
   EXCLUSIVE_PALETTE,
   extrasFor,
@@ -39,6 +40,8 @@ export default function AvatarEditScreen() {
   const [frozen, setFrozen] = useState(!!config.frozen)
   const [shareBody, setShareBody] = useState(config.share_body ?? true)
   const [equipped, setEquipped] = useState<Equipped>(config.equipped ?? {})
+  // A pack emote being previewed from the shop; not saved, cleared on any pick.
+  const [previewEmote, setPreviewEmote] = useState<string | null>(null)
   const rewards = useRewards()
   const owned = rewards.data?.owned ?? []
   const [savedFlash, setSavedFlash] = useState(false)
@@ -126,7 +129,7 @@ export default function AvatarEditScreen() {
       </View>
 
       <View style={{ height: 360 }} className="mx-4 rounded-3xl bg-zinc-900 overflow-hidden">
-        <AvatarCanvas base={base} state={state} emote={equipped.emote ?? null} style={{ flex: 1 }} />
+        <AvatarCanvas base={base} state={state} emote={previewEmote ?? equipped.emote ?? null} style={{ flex: 1 }} />
         <Text pointerEvents="none" className="absolute bottom-3 self-center text-zinc-600 text-[11px]">
           Drag to turn
         </Text>
@@ -237,15 +240,24 @@ export default function AvatarEditScreen() {
             <View className="flex-row flex-wrap" style={{ gap: 8 }}>
               <Chip
                 label="Random free"
-                selected={!equipped.emote}
-                onPress={() => setEquipped((e) => ({ ...e, emote: null }))}
+                selected={!equipped.emote && !previewEmote}
+                onPress={() => {
+                  setPreviewEmote(null)
+                  setEquipped((e) => ({ ...e, emote: null }))
+                }}
               />
-              {ALL_EMOTES.filter((id) => FREE_EMOTES.includes(id) || owned.includes(id)).map((id) => (
+              {[
+                ...ALL_EMOTES.filter((id) => FREE_EMOTES.includes(id) || owned.includes(id)),
+                ...Object.keys(PACK_EMOTE_NAMES).filter((id) => owned.includes(id)),
+              ].map((id) => (
                 <Chip
                   key={id}
                   label={emoteName(id)}
-                  selected={equipped.emote === id}
-                  onPress={() => setEquipped((e) => ({ ...e, emote: id }))}
+                  selected={!previewEmote && equipped.emote === id}
+                  onPress={() => {
+                    setPreviewEmote(null)
+                    setEquipped((e) => ({ ...e, emote: id }))
+                  }}
                 />
               ))}
               {ALL_EMOTES.filter((id) => !FREE_EMOTES.includes(id) && !owned.includes(id)).map((id) => (
@@ -254,6 +266,8 @@ export default function AvatarEditScreen() {
             </View>
           </View>
         </View>
+
+        <EmotePackShop onPreview={setPreviewEmote} />
 
         <TouchableOpacity
           onPress={() => router.push('/combo-dex')}
