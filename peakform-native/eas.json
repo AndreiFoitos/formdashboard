@@ -9,21 +9,21 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "http://192.168.178.240:8000",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": ""
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_pchQCznKFmwjjLmgvwJqibbQqqP"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.gainrace.com",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": ""
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_pchQCznKFmwjjLmgvwJqibbQqqP"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.gainrace.com",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": ""
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_pchQCznKFmwjjLmgvwJqibbQqqP"
       }
     }
   },
