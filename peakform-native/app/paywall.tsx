@@ -65,7 +65,9 @@ export default function PaywallScreen() {
         setPackages(pkgs)
         setEligible(await trialEligible(Object.keys(pkgs)).catch(() => new Set<string>()))
       } catch (e) {
-        setLoadError(extractErrorMessage(e, "Couldn't load prices from the App Store."))
+        // RevenueCat's own message is developer-facing (config / "offerings empty").
+        console.warn('Paywall: loading packages failed', e)
+        setLoadError("Couldn't load prices from the App Store. Check your connection and try again later.")
       }
     })()
   }, [])
