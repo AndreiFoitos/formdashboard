@@ -12,7 +12,7 @@ from sqlalchemy.orm import selectinload
 import httpx
 
 from core.database import get_db
-from core.redis import get_redis, incr_with_ttl
+from core.redis import get_redis
 from core.timezone import user_today
 from middleware.auth import get_current_user
 from models.user import User
@@ -21,6 +21,7 @@ from models.saved_meal import DismissedMealPattern, SavedMeal, SavedMealItem
 from services.ai_client import AINotConfigured
 from services.daily import increment_daily_field
 from services.nutrition_estimate import estimate_from_photo
+from services.plans import FOOD, consume_scan, refund_scan
 from core.config import settings
 from services.usda import (
     USDANotConfigured,
@@ -226,18 +227,11 @@ async def delete_nutrition(
     await db.commit()
 
 
-PHOTO_DAILY_LIMIT = 10
-"""Per-user daily cap on Claude Vision food-photo calls. Vision is the most
-expensive op in the app — at scale a buggy or hostile client can burn through
-the entire daily Anthropic budget on this endpoint alone. 10/day is generous
-for a real user (a heavy logger averages 4 meals) and falls comfortably under
-the global ceiling in services.ai_client."""
-
-
 @router.post("/estimate/photo")
 async def estimate_from_photo_endpoint(
     image: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Identify ingredients from a food photo and return estimated macros.
 
@@ -245,28 +239,29 @@ async def estimate_from_photo_endpoint(
     return a structured estimate the user can review and edit before logging.
     Nothing is persisted here — the phone calls POST /nutrition/log on confirm.
     """
-    # HIGH-27 per-user rate limit. Pre-deducts before the upload bytes are
-    # read so a hot loop can't even pay the network cost of repeated tries.
-    rate_key = f"photo_estimate:{current_user.id}:{date.today().isoformat()}"
-    count = await incr_with_ttl(rate_key, 86400)
-    if count > PHOTO_DAILY_LIMIT:
-        raise HTTPException(429, f"Daily photo estimate limit reached ({PHOTO_DAILY_LIMIT}/day)")
-
-    if image.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(415, f"Unsupported image type: {image.content_type}")
-    body = await image.read()
-    if not body:
-        raise HTTPException(400, "Empty image upload")
-    if len(body) > MAX_IMAGE_BYTES:
-        raise HTTPException(413, "Image too large (max 5MB)")
-
+    # Plan quota (services/plans.py). Reserved before the upload bytes are
+    # read so a hot loop can't even pay the network cost of repeated tries,
+    # and handed back below if the scan doesn't produce a result.
+    scan_id = await consume_scan(current_user, FOOD, db)
     try:
-        return await estimate_from_photo(body)
-    except AINotConfigured as e:
-        raise HTTPException(503, str(e))
-    except ValueError as e:
-        # Vision model returned malformed JSON or similar parsing failure.
-        raise HTTPException(502, str(e))
+        if image.content_type not in ALLOWED_IMAGE_TYPES:
+            raise HTTPException(415, f"Unsupported image type: {image.content_type}")
+        body = await image.read()
+        if not body:
+            raise HTTPException(400, "Empty image upload")
+        if len(body) > MAX_IMAGE_BYTES:
+            raise HTTPException(413, "Image too large (max 5MB)")
+
+        try:
+            return await estimate_from_photo(body)
+        except AINotConfigured as e:
+            raise HTTPException(503, str(e))
+        except ValueError as e:
+            # Vision model returned malformed JSON or similar parsing failure.
+            raise HTTPException(502, str(e))
+    except Exception:
+        await refund_scan(scan_id, db)
+        raise
 
 
 # ─── Food autocomplete ───────────────────────────────────────────────────────

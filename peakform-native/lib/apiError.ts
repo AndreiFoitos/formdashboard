@@ -16,6 +16,8 @@ export function extractErrorMessage(err: any, fallback = 'Something went wrong')
   }
   const detail = err?.response?.data?.detail
   if (typeof detail === 'string') return detail
+  // Plan limits (402) send { code, message, ... } so the paywall can use the rest.
+  if (detail && typeof detail.message === 'string') return detail.message
   if (Array.isArray(detail)) {
     const msgs = detail
       .map((d) => (d && typeof d.msg === 'string' ? d.msg : null))

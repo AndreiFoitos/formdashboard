@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
 from middleware.auth import get_current_user
+from services.plans import ensure_friend_room, friend_count, plan_for
 from models.user import User
 from schemas.avatar import public_avatar
 from models.training_log import TrainingLog
@@ -144,6 +145,9 @@ async def invite_friend(
     )
     if existing.scalar_one_or_none():
         raise HTTPException(409, "Already invited or already friends")
+    # Early, friendlier stop for a full list; accept_friend is the real gate.
+    if await friend_count(current_user.id, db) >= plan_for(current_user).friends:
+        await ensure_friend_room(current_user, target, db)
 
     friendship = Friendship(
         requester_id=current_user.id,
@@ -222,6 +226,11 @@ async def accept_friend(
         raise HTTPException(404, "Friend request not found")
     if f.status == "accepted":
         return {"id": str(f.id), "status": f.status}
+
+    requester = (await db.execute(select(User).where(User.id == f.requester_id))).scalar_one_or_none()
+    if not requester:
+        raise HTTPException(404, "Friend request not found")
+    await ensure_friend_room(current_user, requester, db)
 
     f.status = "accepted"
     f.accepted_at = sqlfunc.now()

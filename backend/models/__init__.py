@@ -17,6 +17,7 @@ from models.saved_meal import SavedMeal, SavedMealItem, DismissedMealPattern
 from models.custom_exercise import CustomExercise
 from models.user_split import UserSplit
 from models.avatar_achievement import AvatarAchievement
+from models.billing import AiScan, Purchase
 
 __all__ = [
     "AvatarAchievement",
@@ -40,4 +41,6 @@ __all__ = [
     "DismissedMealPattern",
     "CustomExercise",
     "UserSplit",
+    "AiScan",
+    "Purchase",
 ]

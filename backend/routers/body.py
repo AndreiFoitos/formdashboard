@@ -15,6 +15,7 @@ from models.user import User
 from models.body_metric import BodyMetric
 from services.ai_client import AINotConfigured
 from services.bf_estimate import estimate_bf_from_photos
+from services.plans import BF, consume_scan, refund_scan
 
 
 MAX_PHOTO_BYTES = 5 * 1024 * 1024  # 5 MB; matches the nutrition photo cap
@@ -191,6 +192,7 @@ async def estimate_bf(
     views: Optional[list[str]] = Form(None),
     image: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Run Claude vision on body photos and return an estimated BF% band.
 
@@ -213,15 +215,21 @@ async def estimate_bf(
     if any(n not in BF_VIEWS for n in names):
         raise HTTPException(400, f"views must be one of {', '.join(BF_VIEWS)}")
 
-    photos = [await _read_photo(u) for u in uploads]
-    labelled = list(zip(names or [None] * len(photos), photos))
-
+    # Plan quota (services/plans.py), handed back if no estimate comes out.
+    scan_id = await consume_scan(current_user, BF, db)
     try:
-        return await estimate_bf_from_photos(labelled)
-    except AINotConfigured as e:
-        raise HTTPException(503, str(e))
-    except ValueError as e:
-        raise HTTPException(502, str(e))
+        photos = [await _read_photo(u) for u in uploads]
+        labelled = list(zip(names or [None] * len(photos), photos))
+
+        try:
+            return await estimate_bf_from_photos(labelled)
+        except AINotConfigured as e:
+            raise HTTPException(503, str(e))
+        except ValueError as e:
+            raise HTTPException(502, str(e))
+    except Exception:
+        await refund_scan(scan_id, db)
+        raise
 
 
 @router.delete("/{metric_id}", status_code=204)

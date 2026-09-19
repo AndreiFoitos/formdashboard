@@ -49,6 +49,14 @@ class Settings(BaseSettings):
     GOOGLE_ANDROID_CLIENT_ID: str = ""
     GOOGLE_WEB_CLIENT_ID: str = ""
 
+    # RevenueCat (services/billing.py). The secret API key (dashboard ->
+    # Project -> API keys -> "Secret", v1) lets the server read what a user
+    # has actually paid for. The webhook auth value is any long random string,
+    # entered both here and in RevenueCat's webhook "Authorization header"
+    # field. Both empty = billing endpoints answer 503 and everyone stays free.
+    REVENUECAT_SECRET_API_KEY: str = ""
+    REVENUECAT_WEBHOOK_AUTH: str = ""
+
     model_config = SettingsConfigDict(
             env_file=".env",
             extra="ignore",

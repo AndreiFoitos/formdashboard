@@ -32,6 +32,8 @@ from models.streak import Streak
 from models.training_log import TrainingLog
 from models.user import User
 from models.vouch import Vouch
+from services import avatar_packs
+from services.billing import owned_pack_products
 from services.social_notifications import BODYWEIGHT_EXERCISES
 from services.stimulants import get_caffeine_curve
 
@@ -220,6 +222,9 @@ EQUIP_SLOTS: dict[str, set[str]] = {
     "eyes": {"eyes_demon"},
     "emote": ALL_EMOTES,
 }
+# Paid pack items are equippable too (ownership is still checked on save).
+for _slot, _items in avatar_packs.slot_items().items():
+    EQUIP_SLOTS.setdefault(_slot, set()).update(_items)
 
 RARITY_ORDER = {"common": 0, "rare": 1, "epic": 2, "legendary": 3}
 
@@ -389,8 +394,10 @@ def owned_items(rows: list[AvatarAchievement]) -> set[str]:
 
 
 async def load_owned(user_id: uuid.UUID, db: AsyncSession) -> set[str]:
+    """Earned items plus items from bought packs."""
     rows = (await db.execute(select(AvatarAchievement).where(AvatarAchievement.user_id == user_id))).scalars().all()
-    return owned_items(list(rows))
+    bought = avatar_packs.items_from_products(await owned_pack_products(user_id, db))
+    return owned_items(list(rows)) | bought
 
 
 async def sync_and_describe(user: User, db: AsyncSession) -> dict:
@@ -433,7 +440,7 @@ async def sync_and_describe(user: User, db: AsyncSession) -> dict:
     await db.commit()
 
     rows = list((await db.execute(select(AvatarAchievement).where(AvatarAchievement.user_id == user.id))).scalars().all())
-    owned = owned_items(rows)
+    owned = owned_items(rows) | avatar_packs.items_from_products(await owned_pack_products(user.id, db))
     days_by_key: dict[str, int] = defaultdict(int)
     for r in rows:
         days_by_key[r.key] += 1

@@ -40,6 +40,11 @@ class User(Base):
     # 3D avatar: chosen look + last applied body (schemas/avatar.py AvatarConfig).
     avatar: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
+    # Subscription: "free" | "plus" | "pro", synced from RevenueCat
+    # (services/billing.py). Past plan_expires_at the user is treated as free.
+    plan: Mapped[str] = mapped_column(String(16), default="free", server_default="free")
+    plan_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     # Form Score unlock state
     form_score_unlocked: Mapped[bool] = mapped_column(Boolean, default=False)
 

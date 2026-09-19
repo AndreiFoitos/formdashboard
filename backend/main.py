@@ -49,6 +49,7 @@ from routers.body import router as body_router
 from routers.ai import router as ai_router
 from routers.friends import router as friends_router
 from routers.avatar import router as avatar_router
+from routers.billing import router as billing_router
 from routers.notifications import notif_router, quick_log_router
 
 
@@ -113,6 +114,7 @@ app.include_router(body_router)
 app.include_router(ai_router)
 app.include_router(friends_router)
 app.include_router(avatar_router)
+app.include_router(billing_router)
 app.include_router(notif_router)
 app.include_router(quick_log_router)
 
