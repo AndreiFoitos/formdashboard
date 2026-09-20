@@ -83,7 +83,7 @@ export default function WeeklyRecapScreen() {
   // Avatar faces for the race markers + podium, rendered once to images.
   const headRequests = useMemo<HeadRequest[]>(
     () =>
-      FEATURES.avatarLab && data
+      FEATURES.avatar && data
         ? data.crew.map((m) => ({ id: m.user_id, base: m.sex ?? 'male', state: stateForFriend(m.avatar) }))
         : [],
     [data],
@@ -93,7 +93,7 @@ export default function WeeklyRecapScreen() {
   // Top 3 perform their chosen emote on the podium; no pick = a random free
   // one, reshuffled on every replay.
   const podiumAvatars = useMemo<Record<string, PodiumAvatar>>(() => {
-    if (!FEATURES.avatarLab || !data) return {}
+    if (!FEATURES.avatar || !data) return {}
     const out: Record<string, PodiumAvatar> = {}
     for (const m of data.crew.slice(0, 3)) {
       out[m.user_id] = {

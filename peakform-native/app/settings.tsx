@@ -673,6 +673,20 @@ export default function SettingsScreen() {
 
         <ProfileSection />
 
+        {FEATURES.avatar && (
+          <Section title="Avatar">
+            <TouchableOpacity onPress={() => router.push('/avatar-edit')} className="px-4 py-4">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1 pr-3">
+                  <Text className="text-white text-sm font-medium">Edit avatar</Text>
+                  <Text className="text-zinc-500 text-xs mt-0.5">Colors, body shape level-ups and privacy.</Text>
+                </View>
+                <Text className="text-zinc-500 text-base">›</Text>
+              </View>
+            </TouchableOpacity>
+          </Section>
+        )}
+
         <NudgesSection />
 
         <Section title="Your data">
@@ -707,17 +721,8 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </Section>
 
-        {FEATURES.avatarLab && (
+        {FEATURES.avatarDevTools && (
           <Section title="Labs">
-            <TouchableOpacity onPress={() => router.push('/avatar-edit')} className="px-4 py-4 border-b border-zinc-800">
-              <View className="flex-row items-center justify-between">
-                <View className="flex-1 pr-3">
-                  <Text className="text-white text-sm font-medium">Edit avatar</Text>
-                  <Text className="text-zinc-500 text-xs mt-0.5">Colors, body shape level-ups and privacy.</Text>
-                </View>
-                <Text className="text-zinc-500 text-base">›</Text>
-              </View>
-            </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/avatar-lab')} className="px-4 py-4">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-3">

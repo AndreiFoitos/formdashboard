@@ -181,7 +181,8 @@ function RootLayout() {
               <Stack.Screen name="methodology/index" />
               <Stack.Screen name="methodology/[topic]" />
               <Stack.Screen name="methodology/sources" />
-              {/* Internal 3D avatar spike — gated by FEATURES.avatarLab */}
+              {/* Internal renderer instrumentation — reachable from Settings
+                  only when FEATURES.avatarDevTools is on (ships off) */}
               <Stack.Screen name="avatar-lab" />
               <Stack.Screen name="avatar-edit" />
               <Stack.Screen name="combo-dex" />

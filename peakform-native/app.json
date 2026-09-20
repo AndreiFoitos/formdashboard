@@ -180,7 +180,8 @@
       "features": {
         "appleSignIn": true,
         "googleSignIn": true,
-        "avatarLab": true
+        "avatar": true,
+        "avatarDevTools": false
       },
       "googleSignIn": {
         "iosClientId": "471688772354-jk87n5u0alesh9c2o3qei7t9b5tvqu5b.apps.googleusercontent.com",

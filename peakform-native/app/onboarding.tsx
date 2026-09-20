@@ -270,7 +270,7 @@ function Step2Stats({
     </View>
   )
 
-  if (!FEATURES.avatarLab) return fieldsView
+  if (!FEATURES.avatar) return fieldsView
 
   return (
     <View className="flex-row" style={{ gap: 12 }}>

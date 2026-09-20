@@ -536,7 +536,7 @@ export default function DashboardScreen() {
     ? [summary.trained, summary.water_ml, summary.caffeine_mg, summary.protein_g, summary.calories_eaten].join('|')
     : ''
   useEffect(() => {
-    if (FEATURES.avatarLab && summaryKey) rewards.refetch()
+    if (FEATURES.avatar && summaryKey) rewards.refetch()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [summaryKey])
 
@@ -556,7 +556,7 @@ export default function DashboardScreen() {
       >
         {/* Header */}
         <View className="pt-6 pb-5 flex-row items-start justify-between">
-          {FEATURES.avatarLab && (
+          {FEATURES.avatar && (
             <View className="mr-3 mt-1">
               <AvatarBadge
                 size={48}
@@ -650,7 +650,7 @@ export default function DashboardScreen() {
       </ScrollView>
 
       <UndoToast />
-      {FEATURES.avatarLab && <UnlockModal items={rewards.data?.new ?? []} />}
+      {FEATURES.avatar && <UnlockModal items={rewards.data?.new ?? []} />}
     </SafeAreaView>
   )
 }
