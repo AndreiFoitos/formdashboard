@@ -12,7 +12,7 @@ from middleware.auth import get_current_user
 from models.user import User
 from services.ai_client import AINotConfigured
 from services.ai_features import generate_daily_digest, answer_question
-from services.plans import ASK, consume_scan, refund_scan
+from services.plans import ASK, consume_scan, plan_for, refund_scan
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -63,7 +63,10 @@ async def ask(
     try:
         history = [t.model_dump() for t in payload.history] if payload.history else []
         try:
-            answer = await answer_question(current_user, payload.question, history, db)
+            answer = await answer_question(
+                current_user, payload.question, history, db,
+                days=plan_for(current_user).history_days,
+            )
         except AINotConfigured:
             raise HTTPException(503, "AI is not configured on the server")
         return {"answer": answer}

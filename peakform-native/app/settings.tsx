@@ -21,6 +21,8 @@ import { useAuthStore } from '../store/auth'
 import { removeToken } from '../lib/storage'
 import { FEATURES } from '../lib/featureFlags'
 import { extractErrorMessage } from '../lib/apiError'
+import { File, Paths } from 'expo-file-system'
+import { Share } from 'react-native'
 import { PLAN_NAMES, openPaywall, usePlan, useSetPlan } from '../hooks/usePlan'
 import { manageSubscription, restorePurchases } from '../lib/purchases'
 import { hapticSuccess } from '../lib/haptics'
@@ -580,6 +582,53 @@ function DeleteAccountSection() {
   )
 }
 
+// ─── Export ────────────────────────────────────────────────────────────────────
+
+function ExportRow() {
+  const { data: plan } = usePlan()
+  const [busy, setBusy] = useState(false)
+
+  async function exportData() {
+    if (busy) return
+    if (!plan?.export) {
+      openPaywall('export')
+      return
+    }
+    setBusy(true)
+    try {
+      const token = useAuthStore.getState().accessToken
+      const stamp = new Date().toISOString().slice(0, 10)
+      const file = await File.downloadFileAsync(
+        `${api.defaults.baseURL}/users/me/export`,
+        new File(Paths.cache, `gainrace-export-${stamp}.zip`),
+        { headers: { Authorization: `Bearer ${token}` }, idempotent: true },
+      )
+      // iOS share sheet: save to Files, AirDrop, mail it to yourself.
+      await Share.share({ url: file.uri, title: 'GainRace export' })
+    } catch (e) {
+      Alert.alert("Couldn't export", extractErrorMessage(e, 'Try again in a moment.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <TouchableOpacity onPress={exportData} disabled={busy} className="px-4 py-4">
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1 pr-3">
+          <Text className="text-white text-sm font-medium">
+            {busy ? 'Preparing your file…' : 'Export everything (CSV)'}
+          </Text>
+          <Text className="text-zinc-500 text-xs mt-0.5">
+            A zip of your logs, one spreadsheet per type.{plan?.export ? '' : ' Pro feature.'}
+          </Text>
+        </View>
+        <Text className="text-zinc-500 text-base">{plan?.export ? '›' : 'Pro ›'}</Text>
+      </View>
+    </TouchableOpacity>
+  )
+}
+
 // ─── Settings Screen ─────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
@@ -625,6 +674,21 @@ export default function SettingsScreen() {
         <ProfileSection />
 
         <NudgesSection />
+
+        <Section title="Your data">
+          <TouchableOpacity onPress={() => router.push('/trends')} className="px-4 py-4 border-b border-zinc-800">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1 pr-3">
+                <Text className="text-white text-sm font-medium">Trends</Text>
+                <Text className="text-zinc-500 text-xs mt-0.5">
+                  Form Score, weight, volume and protein over time.
+                </Text>
+              </View>
+              <Text className="text-zinc-500 text-base">›</Text>
+            </View>
+          </TouchableOpacity>
+          <ExportRow />
+        </Section>
 
         <Section title="How it works">
           <TouchableOpacity

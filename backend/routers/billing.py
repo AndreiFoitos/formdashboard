@@ -31,6 +31,9 @@ async def _describe(user: User, db: AsyncSession) -> dict:
         "plan_expires_at": user.plan_expires_at.isoformat() if plan.id != "free" and user.plan_expires_at else None,
         "scans": await usage(user, db),
         "friends": {"count": await friend_count(user.id, db), "limit": plan.friends},
+        # Trends/Ask look-back window and CSV export, both plan perks.
+        "history_days": plan.history_days,
+        "export": plan.export,
         "packs": [
             {
                 "id": p.id,

@@ -185,6 +185,8 @@ function RootLayout() {
               <Stack.Screen name="avatar-lab" />
               <Stack.Screen name="avatar-edit" />
               <Stack.Screen name="combo-dex" />
+              {/* Long-range charts; how far back depends on the plan */}
+              <Stack.Screen name="trends" />
               {/* Plans (Free / Plus / Pro) — opened on a limit or from Settings */}
               <Stack.Screen name="paywall" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
               {/* Cinematic full-screen Weekly Race recap (Sun-Mon hero card → modal) */}

@@ -25,21 +25,32 @@ type Period = 'monthly' | 'yearly'
 
 // Mirrors backend/services/plans.py. Pro's food cap is fair use, stated in the footnote.
 const FEATURES: Record<Tier, string[]> = {
-  plus: ['4 food scans a day', '3 body-fat scans a week', '15 AI questions a day', 'Up to 50 friends'],
+  plus: [
+    '4 food scans a day',
+    '3 body-fat scans a week',
+    '15 AI questions a day',
+    '90 days of trends',
+    'Up to 50 friends',
+  ],
   pro: [
     'Unlimited food scans*',
     'A body-fat scan every day',
     '50 AI questions a day',
+    'A full year of trends',
+    'Export your data',
     'Up to 150 friends',
     'Emote packs at a discount',
   ],
 }
-const FREE_LINE = 'Free: 1 food scan a day, 1 body-fat scan a week, 3 questions a day, 15 friends.'
+const FREE_LINE =
+  'Free: 1 food scan a day, 1 body-fat scan a week, 3 questions a day, 30 days of trends, 15 friends.'
 
 const HEADLINES: Record<PaywallReason | 'default', { title: string; sub: string }> = {
   food: { title: "You've used today's food scan", sub: 'Upgrade to keep snapping meals.' },
   bf: { title: "You've used this week's body-fat scan", sub: 'Upgrade to track your progress more often.' },
   ask: { title: "You've used today's questions", sub: 'Upgrade to keep asking about your data.' },
+  history: { title: 'See further back', sub: 'Plus shows 90 days of trends, Pro a full year.' },
+  export: { title: 'Export your data', sub: 'Pro members can download everything they logged.' },
   friends: { title: 'Your friends list is full', sub: 'Upgrade to race with more friends.' },
   default: { title: 'Level up your race', sub: 'More scans, more friends, more flex.' },
 }

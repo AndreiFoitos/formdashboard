@@ -47,13 +47,29 @@ class Plan:
     # cached per user per day (~$0.002) and it is what brings people back.
     ask: Limit
     friends: int
+    # How far back trends/charts and the Ask context may reach. Raw logs and
+    # existing history screens are NOT limited by this: a user can always see
+    # and export everything they logged; only the long-range views are a
+    # paid perk (and a longer Ask window genuinely costs more tokens).
+    history_days: int
+    # CSV export of everything, Pro only.
+    export: bool
 
 
 PLANS: dict[str, Plan] = {
-    "free": Plan("free", food=Limit(1, "day"), bf=Limit(1, "week"), ask=Limit(3, "day"), friends=15),
-    "plus": Plan("plus", food=Limit(4, "day"), bf=Limit(3, "week"), ask=Limit(15, "day"), friends=50),
+    "free": Plan(
+        "free", food=Limit(1, "day"), bf=Limit(1, "week"), ask=Limit(3, "day"),
+        friends=15, history_days=30, export=False,
+    ),
+    "plus": Plan(
+        "plus", food=Limit(4, "day"), bf=Limit(3, "week"), ask=Limit(15, "day"),
+        friends=50, history_days=90, export=False,
+    ),
     # "Unlimited" in the app; these are fair-use caps against abuse.
-    "pro": Plan("pro", food=Limit(12, "day"), bf=Limit(1, "day"), ask=Limit(50, "day"), friends=150),
+    "pro": Plan(
+        "pro", food=Limit(12, "day"), bf=Limit(1, "day"), ask=Limit(50, "day"),
+        friends=150, history_days=365, export=True,
+    ),
 }
 
 
@@ -144,6 +160,24 @@ async def consume_scan(user: User, kind: str, db: AsyncSession) -> uuid.UUID:
 async def refund_scan(scan_id: uuid.UUID, db: AsyncSession) -> None:
     await db.execute(delete(AiScan).where(AiScan.id == scan_id))
     await db.commit()
+
+
+def history_window(user: User, requested: int | None) -> tuple[int, bool]:
+    """(days to actually use, whether the plan cut the request short)."""
+    allowed = plan_for(user).history_days
+    if requested is None:
+        return allowed, False
+    days = max(1, requested)
+    return min(days, allowed), days > allowed
+
+
+def ensure_export(user: User) -> None:
+    if not plan_for(user).export:
+        raise HTTPException(402, {
+            "code": "export_locked",
+            "plan": plan_for(user).id,
+            "message": "Exporting your data is a Pro feature.",
+        })
 
 
 # ─── Friends ─────────────────────────────────────────────────────────────────

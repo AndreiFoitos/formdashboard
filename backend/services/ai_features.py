@@ -130,7 +130,7 @@ Bodyweight: {user.weight_kg}kg, bedtime hour: {user.sleep_hour}:00"""
 
 # ── Ask your data ─────────────────────────────────────────────────────────────
 
-def _build_context(rows: list[DailySummary], user) -> str:
+def _build_context(rows: list[DailySummary], user, days: int) -> str:
     # Sleep / HRV columns are not surfaced (HIGH-16 Path A) — see _week_averages
     # for rationale. Estimated rows are excluded entirely (MEDIUM-33) so the AI
     # only reasons over real logs.
@@ -139,7 +139,7 @@ def _build_context(rows: list[DailySummary], user) -> str:
         f"User: bodyweight={user.weight_kg}kg, "
         f"targets: protein={user.protein_target_g}g water={user.water_target_ml}ml, bedtime={user.sleep_hour}:00",
         "",
-        "Last 30 days (date | form | water_ml | protein_g | caffeine_mg | trained):",
+        f"Last {days} days (date | form | water_ml | protein_g | caffeine_mg | trained):",
     ]
     for r in real_rows:
         lines.append(
@@ -150,9 +150,15 @@ def _build_context(rows: list[DailySummary], user) -> str:
     return "\n".join(lines)
 
 
-async def answer_question(user, question: str, history: list[dict], db: AsyncSession) -> str:
-    rows = await _last_n_days(user.id, 30, db)
-    context = _build_context(rows, user)
+async def answer_question(
+    user, question: str, history: list[dict], db: AsyncSession, days: int = 30
+) -> str:
+    """`days` is how far back the model may look — a plan perk (30 / 90 / 365,
+    services/plans.py). A longer window is more input tokens per question,
+    which is exactly why it is worth paying for; past ~1k tokens of context
+    the cache breakpoint below also starts paying off."""
+    rows = await _last_n_days(user.id, days, db)
+    context = _build_context(rows, user, days)
 
     # The 30-day data block is large and stable across a conversation's turns —
     # cache it so follow-up questions only pay full price for the new question.

@@ -2,7 +2,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import date, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sqlfunc, delete as sa_delete
@@ -17,6 +17,8 @@ from models.body_metric import BodyMetric
 from schemas.user import UserOut, UserUpdate, USERNAME_PATTERN, RESERVED_USERNAMES
 from services.apple_revoke import revoke_refresh_token
 from services.avatar_rewards import load_owned, ownership_errors
+from services.export import build_zip
+from services.plans import ensure_export
 
 log = logging.getLogger(__name__)
 
@@ -87,6 +89,22 @@ class DeleteAccountRequest(BaseModel):
     user to type their email."""
     confirmation: str | None = None
     email_confirmation: str | None = None
+
+
+@router.get("/me/export")
+async def export_my_data(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Everything this user logged, as a ZIP of CSV files. Pro only."""
+    ensure_export(current_user)
+    blob = await build_zip(current_user, db)
+    stamp = date.today().isoformat()
+    return Response(
+        content=blob,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="gainrace-export-{stamp}.zip"'},
+    )
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)

@@ -29,6 +29,10 @@ export interface PlanPayload {
   plan_expires_at: string | null
   scans: Record<ScanKind, ScanUsage>
   friends: { count: number; limit: number }
+  /** How far back trends and the Ask context may reach. */
+  history_days: number
+  /** CSV export of everything (Pro). */
+  export: boolean
   packs: PackInfo[]
 }
 
@@ -55,14 +59,18 @@ export function useSetPlan() {
   }
 }
 
-export type PaywallReason = 'food' | 'bf' | 'ask' | 'friends'
+export type PaywallReason = 'food' | 'bf' | 'ask' | 'friends' | 'history' | 'export'
 
 /** If the error is a plan limit (HTTP 402), open the paywall and return true. */
 export function handleLimitError(err: any): boolean {
   const detail = err?.response?.data?.detail
   if (err?.response?.status !== 402 || !detail?.code) return false
   const reason: PaywallReason =
-    detail.code === 'friend_limit' ? 'friends' : (detail.kind as PaywallReason) ?? 'food'
+    detail.code === 'friend_limit'
+      ? 'friends'
+      : detail.code === 'export_locked'
+        ? 'export'
+        : (detail.kind as PaywallReason) ?? 'food'
   openPaywall(reason)
   return true
 }
