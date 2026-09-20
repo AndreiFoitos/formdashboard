@@ -19,6 +19,7 @@ from models.custom_exercise import CustomExercise
 from models.user_split import UserSplit
 from services.daily import get_or_create_today
 from services.one_rm import estimate as estimate_one_rm
+from services.plans import history_window
 from services.social_notifications import (
     notify_pr_if_applicable,
     notify_weekly_volume_overtakes,
@@ -50,6 +51,17 @@ class LogExerciseRequest(BaseModel):
     sets: list[LogSetRequest]
     notes: Optional[str] = None
     date: Optional[date] = None
+
+
+def _effective_weight_kg(log: TrainingLog, user_weight_kg: float | None) -> float:
+    """Weight moved by one set. Bodyweight exercises count the lifter's own
+    mass, matching friends._effective_weight so session volume agrees with
+    the leaderboard."""
+    if log.weight_kg is not None:
+        return float(log.weight_kg)
+    if log.type in BODYWEIGHT_EXERCISES and user_weight_kg is not None:
+        return float(user_weight_kg)
+    return 0.0
 
 
 def _log_dict(t: TrainingLog) -> dict:
@@ -239,6 +251,110 @@ async def get_history(
     return [_log_dict(t) for t in result.scalars().all()]
 
 
+@router.get("/sessions")
+async def get_sessions(
+    days: int | None = None,
+    limit: int = 30,
+    offset: int = 0,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Training history as SESSIONS, newest first — one entry per day trained.
+
+    /history returns raw sets in one flat list, which is fine for a feed but
+    useless for "what did I do last Tuesday". This groups a day's sets into a
+    session with a summary (exercises, set count, volume, top lift) and pages
+    over days rather than rows, so a long history stays cheap to browse.
+    """
+    window, clamped = history_window(current_user, days)
+    cutoff = date.today() - timedelta(days=window)
+
+    # Page over distinct DAYS, not rows, so a limit of 30 means 30 sessions.
+    day_rows = await db.execute(
+        select(TrainingLog.date)
+        .where(TrainingLog.user_id == current_user.id, TrainingLog.date >= cutoff)
+        .group_by(TrainingLog.date)
+        .order_by(TrainingLog.date.desc())
+        .limit(max(1, min(limit, 100)))
+        .offset(max(0, offset))
+    )
+    dates = [d for (d,) in day_rows.all()]
+    if not dates:
+        return {"sessions": [], "window_days": window, "clamped": clamped, "has_more": False}
+
+    result = await db.execute(
+        select(TrainingLog)
+        .where(TrainingLog.user_id == current_user.id, TrainingLog.date.in_(dates))
+        .order_by(TrainingLog.date.desc(), TrainingLog.logged_at.asc())
+    )
+    by_day: dict[date, list[TrainingLog]] = defaultdict(list)
+    for log in result.scalars().all():
+        by_day[log.date].append(log)
+
+    sessions = []
+    for d in dates:
+        logs = by_day.get(d, [])
+        by_exercise: dict[str, list[TrainingLog]] = defaultdict(list)
+        for log in logs:
+            by_exercise[log.type].append(log)
+
+        volume = sum(
+            _effective_weight_kg(log, current_user.weight_kg) * (log.reps or 0)
+            for log in logs
+        )
+        top = max(
+            (l for l in logs if l.weight_kg is not None and l.reps),
+            key=lambda l: float(l.weight_kg or 0),
+            default=None,
+        )
+        sessions.append({
+            "date": d.isoformat(),
+            "exercises": [
+                {
+                    "type": key,
+                    "sets": len(sets),
+                    "top_weight_kg": max(
+                        (float(x.weight_kg) for x in sets if x.weight_kg is not None),
+                        default=None,
+                    ),
+                    "top_reps": next(
+                        (x.reps for x in sorted(
+                            sets,
+                            key=lambda y: float(y.weight_kg or 0),
+                            reverse=True,
+                        )),
+                        None,
+                    ),
+                }
+                for key, sets in by_exercise.items()
+            ],
+            "exercise_count": len(by_exercise),
+            "set_count": len(logs),
+            "volume_kg": round(volume, 1),
+            "top_lift": (
+                {"type": top.type, "weight_kg": float(top.weight_kg), "reps": top.reps}
+                if top else None
+            ),
+            "duration_min": next((l.duration_min for l in logs if l.duration_min), None),
+        })
+
+    # One extra day beyond the page tells the client whether to keep paging.
+    more = await db.execute(
+        select(TrainingLog.date)
+        .where(TrainingLog.user_id == current_user.id, TrainingLog.date >= cutoff)
+        .group_by(TrainingLog.date)
+        .order_by(TrainingLog.date.desc())
+        .limit(1)
+        .offset(max(0, offset) + len(dates))
+    )
+    return {
+        "sessions": sessions,
+        "window_days": window,
+        "clamped": clamped,
+        "has_more": more.first() is not None,
+    }
+
+
 @router.get("/today")
 async def get_today(
     current_user: User = Depends(get_current_user),
@@ -301,7 +417,11 @@ async def get_by_exercise(
     db: AsyncSession = Depends(get_db),
 ):
     """All logs for a specific exercise, grouped by session date, plus PR progression."""
-    cutoff = date.today() - timedelta(days=days)
+    # The range picker offers 7/30/90/365; the plan decides how far back it can
+    # actually reach (free 30, plus 90, pro 365), and `clamped` lets the app say
+    # so rather than silently showing a shorter chart than the button promised.
+    window, clamped = history_window(current_user, days)
+    cutoff = date.today() - timedelta(days=window)
 
     result = await db.execute(
         select(TrainingLog)
@@ -343,6 +463,8 @@ async def get_by_exercise(
         "exercise": exercise_key,
         "progression": progression,
         "logs": [_log_dict(t) for t in logs],
+        "window_days": window,
+        "clamped": clamped,
     }
 
 

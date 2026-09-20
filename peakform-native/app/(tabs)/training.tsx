@@ -17,6 +17,7 @@ import { Award, Trophy, X } from 'lucide-react-native'
 import { api } from '../../api/client'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { SkeletonCard } from '../../components/Skeleton'
+import { openPaywall } from '../../hooks/usePlan'
 import { PressableScale } from '../../components/PressableScale'
 import { hapticSuccess, hapticSelection, hapticLight } from '../../lib/haptics'
 import { TrustedShield } from '../../components/icons/TrustedShield'
@@ -233,6 +234,36 @@ interface ExerciseProgress {
     sets: number
   }[]
   logs: TrainingLog[]
+  /** Days actually covered after the plan's history window was applied. */
+  window_days: number
+  /** True when the plan cut the requested range short. */
+  clamped: boolean
+}
+
+type RangeDays = 7 | 30 | 90 | 365
+
+interface SessionExercise {
+  type: string
+  sets: number
+  top_weight_kg: number | null
+  top_reps: number | null
+}
+
+interface TrainingSession {
+  date: string
+  exercises: SessionExercise[]
+  exercise_count: number
+  set_count: number
+  volume_kg: number
+  top_lift: { type: string; weight_kg: number; reps: number } | null
+  duration_min: number | null
+}
+
+interface SessionsResponse {
+  sessions: TrainingSession[]
+  window_days: number
+  clamped: boolean
+  has_more: boolean
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -1229,10 +1260,191 @@ function OneRMCard() {
   )
 }
 
+// ─── Range picker ─────────────────────────────────────────────────────────────
+//
+// Drives both the per-exercise chart and the session list. Ranges past the
+// plan's history window still render, but the server clamps them and says so —
+// showing a shorter chart than the button promised, silently, is worse than a
+// one-line explanation.
+
+const RANGES: { days: RangeDays; label: string }[] = [
+  { days: 7, label: '7d' },
+  { days: 30, label: '30d' },
+  { days: 90, label: '90d' },
+  { days: 365, label: '1y' },
+]
+
+function RangePicker({
+  value,
+  onChange,
+  clamped,
+  windowDays,
+}: {
+  value: RangeDays
+  onChange: (d: RangeDays) => void
+  clamped?: boolean
+  windowDays?: number
+}) {
+  return (
+    <View>
+      <View className="flex-row" style={{ gap: 6 }}>
+        {RANGES.map(r => {
+          const active = r.days === value
+          return (
+            <TouchableOpacity
+              key={r.days}
+              onPress={() => onChange(r.days)}
+              className="flex-1 py-2 rounded-xl border items-center"
+              style={{
+                backgroundColor: active ? '#ffffff' : '#18181b',
+                borderColor: active ? '#ffffff' : '#3f3f46',
+              }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+            >
+              <Text
+                className="text-xs font-semibold"
+                style={{ color: active ? '#09090b' : '#a1a1aa' }}
+              >
+                {r.label}
+              </Text>
+            </TouchableOpacity>
+          )
+        })}
+      </View>
+      {clamped && windowDays != null && (
+        <TouchableOpacity onPress={() => openPaywall()} className="mt-2">
+          <Text className="text-zinc-500 text-xs">
+            Your plan stores {windowDays} days of history — showing that.{' '}
+            <Text className="text-yellow-500 font-medium">Upgrade for more ›</Text>
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  )
+}
+
+// ─── Session history ──────────────────────────────────────────────────────────
+
+function sessionDateLabel(iso: string): string {
+  const n = daysAgo(iso)
+  if (n === 0) return 'Today'
+  if (n === 1) return 'Yesterday'
+  // Parse as local, not UTC: new Date('2026-09-18') is UTC midnight, which
+  // renders as the previous day for anyone behind UTC.
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  })
+}
+
+function SessionRow({
+  session,
+  nameForKey,
+}: {
+  session: TrainingSession
+  nameForKey: (key: string) => string
+}) {
+  const [open, setOpen] = useState(false)
+  const summary = session.exercises
+    .map(e => nameForKey(e.type))
+    .slice(0, 3)
+    .join(', ')
+  const extra = session.exercise_count - Math.min(3, session.exercises.length)
+
+  return (
+    <View className="border-b border-zinc-800">
+      <TouchableOpacity
+        onPress={() => setOpen(o => !o)}
+        className="px-4 py-3.5"
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+      >
+        <View className="flex-row items-center justify-between">
+          <Text className="text-white text-sm font-medium">
+            {sessionDateLabel(session.date)}
+          </Text>
+          <Text className="text-zinc-500 text-xs">
+            {Math.round(session.volume_kg).toLocaleString()} kg {open ? '▾' : '▸'}
+          </Text>
+        </View>
+        <Text className="text-zinc-500 text-xs mt-0.5" numberOfLines={open ? undefined : 1}>
+          {session.exercise_count} exercises · {session.set_count} sets
+          {summary ? ` · ${summary}` : ''}
+          {extra > 0 && !open ? ` +${extra}` : ''}
+        </Text>
+      </TouchableOpacity>
+
+      {open && (
+        <View className="px-4 pb-3.5" style={{ gap: 6 }}>
+          {session.exercises.map(e => (
+            <View key={e.type} className="flex-row items-center justify-between">
+              <Text className="text-zinc-300 text-xs flex-1 pr-3" numberOfLines={1}>
+                {nameForKey(e.type)}
+              </Text>
+              <Text className="text-zinc-500 text-xs">
+                {e.sets} {e.sets === 1 ? 'set' : 'sets'}
+                {e.top_weight_kg != null
+                  ? ` · top ${e.top_weight_kg}kg×${e.top_reps ?? '?'}`
+                  : ''}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  )
+}
+
+function SessionHistory({
+  data,
+  isLoading,
+  nameForKey,
+}: {
+  data: SessionsResponse | undefined
+  isLoading: boolean
+  nameForKey: (key: string) => string
+}) {
+  if (isLoading) return <SkeletonCard height={200} />
+
+  const sessions = data?.sessions ?? []
+
+  return (
+    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+      <View className="px-4 pt-4 pb-2">
+        <Text className="text-zinc-500 text-xs uppercase tracking-widest">History</Text>
+      </View>
+      {sessions.length === 0 ? (
+        <View className="px-4 pb-4">
+          <Text className="text-zinc-600 text-sm">
+            No sessions in this range. Log a lift and it'll show up here.
+          </Text>
+        </View>
+      ) : (
+        sessions.map(sess => (
+          <SessionRow key={sess.date} session={sess} nameForKey={nameForKey} />
+        ))
+      )}
+      {data?.has_more && (
+        <View className="px-4 py-3">
+          <Text className="text-zinc-600 text-xs">
+            Showing your most recent {sessions.length} sessions.
+          </Text>
+        </View>
+      )}
+    </View>
+  )
+}
+
 export default function TrainingScreen() {
   const { user } = useRequireAuth()
 
   const [selectedExercise, setSelectedExercise] = useState('bench_press')
+  // Chart range. The server clamps this to the plan's history window and
+  // reports back when it had to, so the picker can say why.
+  const [rangeDays, setRangeDays] = useState<RangeDays>(90)
   const [logExercise, setLogExercise] = useState<string | null>(null)
   const [showPicker, setShowPicker] = useState(false)
   // When set, opens a group-filtered picker. Tapping a muscle-group tile
@@ -1246,8 +1458,16 @@ export default function TrainingScreen() {
   })
 
   const prQ = useQuery<ExerciseProgress>({
-    queryKey: ['exercise-history', selectedExercise],
-    queryFn: () => api.get(`/training/by-exercise/${selectedExercise}?days=90`).then(r => r.data),
+    queryKey: ['exercise-history', selectedExercise, rangeDays],
+    queryFn: () =>
+      api.get(`/training/by-exercise/${selectedExercise}?days=${rangeDays}`).then(r => r.data),
+    enabled: !!user,
+  })
+
+  // Training history, grouped into sessions, newest first.
+  const sessionsQ = useQuery<SessionsResponse>({
+    queryKey: ['training-sessions', rangeDays],
+    queryFn: () => api.get(`/training/sessions?days=${rangeDays}&limit=30`).then(r => r.data),
     enabled: !!user,
   })
 
@@ -1410,6 +1630,13 @@ export default function TrainingScreen() {
 
             <VolumeChart data={volumeQ.data} />
 
+            <RangePicker
+              value={rangeDays}
+              onChange={setRangeDays}
+              clamped={prQ.data?.clamped || sessionsQ.data?.clamped}
+              windowDays={prQ.data?.window_days ?? sessionsQ.data?.window_days}
+            />
+
             <PRChart
               data={prQ.data}
               exerciseKey={selectedExercise}
@@ -1417,6 +1644,12 @@ export default function TrainingScreen() {
             />
 
             <OneRMCard />
+
+            <SessionHistory
+              data={sessionsQ.data}
+              isLoading={sessionsQ.isLoading}
+              nameForKey={(k) => nameForKey(k, customKeyToName)}
+            />
 
             {/* Muscle-group tiles. Tap one to open a group-filtered picker;
                 pick an exercise → opens LogExerciseModal. The detected split
