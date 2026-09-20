@@ -13,6 +13,7 @@
  */
 import { Platform } from 'react-native'
 import Purchases, {
+  LOG_LEVEL,
   PRODUCT_CATEGORY,
   PURCHASES_ERROR_CODE,
   type PurchasesPackage,
@@ -38,6 +39,9 @@ export async function syncPurchasesUser(userId: string | null): Promise<void> {
   if (!purchasesEnabled || userId === currentUserId) return
   try {
     if (userId && !configured) {
+      // DEBUG prints the store's own reason when products or prices fail to
+      // load (e.g. an App Store product that isn't available yet).
+      await Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.WARN)
       Purchases.configure({ apiKey: IOS_KEY, appUserID: userId })
       configured = true
     } else if (userId) {

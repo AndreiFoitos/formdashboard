@@ -53,6 +53,8 @@ export default function PaywallScreen() {
   const [packages, setPackages] = useState<Record<string, PurchasesPackage> | null>(null)
   const [eligible, setEligible] = useState<Set<string>>(new Set())
   const [loadError, setLoadError] = useState<string | null>(null)
+  // Kept so the message can reveal the store's own words when tapped.
+  const [loadErrorDetail, setLoadErrorDetail] = useState<string | null>(null)
   const [tier, setTier] = useState<Tier>('pro')
   const [period, setPeriod] = useState<Period>('yearly')
   const [busy, setBusy] = useState<'buy' | 'restore' | null>(null)
@@ -68,6 +70,7 @@ export default function PaywallScreen() {
         // RevenueCat's own message is developer-facing (config / "offerings empty").
         console.warn('Paywall: loading packages failed', e)
         setLoadError("Couldn't load prices from the App Store. Check your connection and try again later.")
+        setLoadErrorDetail(extractErrorMessage(e, 'No details'))
       }
     })()
   }, [])
@@ -219,7 +222,15 @@ export default function PaywallScreen() {
         {!purchasesEnabled && (
           <Text className="text-amber-400 text-sm mt-6">Purchases aren't available in this build.</Text>
         )}
-        {loadError && <Text className="text-amber-400 text-sm mt-6">{loadError}</Text>}
+        {loadError && (
+          <TouchableOpacity
+            onPress={() => loadErrorDetail && Alert.alert('Details', loadErrorDetail)}
+            activeOpacity={0.7}
+          >
+            <Text className="text-amber-400 text-sm mt-6">{loadError}</Text>
+            <Text className="text-zinc-600 text-xs mt-1">Tap for details</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       {/* Buy */}
