@@ -162,9 +162,15 @@ function FormScoreCard({ summary }: { summary: Summary | undefined }) {
 
   return (
     <View className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-4">
-        Form Score
-      </Text>
+      <View className="flex-row items-center justify-between mb-4">
+        <Text className="text-zinc-500 text-xs uppercase tracking-widest">
+          Form Score
+        </Text>
+        <TouchableOpacity onPress={() => router.push('/trends')} hitSlop={10} className="flex-row items-center" style={{ gap: 4 }}>
+          <Text className="text-zinc-400 text-xs font-medium">Trends</Text>
+          <Text className="text-zinc-500 text-xs">›</Text>
+        </TouchableOpacity>
+      </View>
       <View className="flex-row items-center gap-5">
         <View
           className="w-20 h-20 rounded-full items-center justify-center border-2"
