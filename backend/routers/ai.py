@@ -12,10 +12,10 @@ from middleware.auth import get_current_user
 from models.user import User
 from services.ai_client import AINotConfigured
 from services.ai_features import generate_daily_digest, answer_question
+from services.plans import ASK, consume_scan, refund_scan
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
-ASK_DAILY_LIMIT = 20
 # Digest is cached per-user per-day, so the first call of the day costs a full
 # Claude turn and subsequent calls are free. 5/day covers cache-busting edge
 # cases (timezone hop on travel, redis flush in dev) without letting a hostile
@@ -58,15 +58,15 @@ async def ask(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Rate limit: 20 questions per user per day.
-    rate_key = f"ask_rate:{current_user.id}:{date.today().isoformat()}"
-    count = await incr_with_ttl(rate_key, 86400)
-    if count > ASK_DAILY_LIMIT:
-        raise HTTPException(429, f"Daily question limit reached ({ASK_DAILY_LIMIT}/day)")
-
-    history = [t.model_dump() for t in payload.history] if payload.history else []
+    # Plan quota (services/plans.py), handed back if no answer comes out.
+    scan_id = await consume_scan(current_user, ASK, db)
     try:
-        answer = await answer_question(current_user, payload.question, history, db)
-    except AINotConfigured:
-        raise HTTPException(503, "AI is not configured on the server")
-    return {"answer": answer}
+        history = [t.model_dump() for t in payload.history] if payload.history else []
+        try:
+            answer = await answer_question(current_user, payload.question, history, db)
+        except AINotConfigured:
+            raise HTTPException(503, "AI is not configured on the server")
+        return {"answer": answer}
+    except Exception:
+        await refund_scan(scan_id, db)
+        raise

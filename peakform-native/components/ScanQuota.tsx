@@ -2,7 +2,7 @@ import { Text, TouchableOpacity, View } from 'react-native'
 import { PressableScale } from './PressableScale'
 import { openPaywall, resetsLabel, type ScanKind, type ScanUsage } from '../hooks/usePlan'
 
-const NOUN: Record<ScanKind, string> = { food: 'food scan', bf: 'body-fat scan' }
+const NOUN: Record<ScanKind, string> = { food: 'food scan', bf: 'body-fat scan', ask: 'question' }
 
 /** "2 food scans left today" pill; nothing while loading. */
 export function ScanQuotaPill({ kind, usage }: { kind: ScanKind; usage?: ScanUsage }) {

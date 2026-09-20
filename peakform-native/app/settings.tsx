@@ -56,7 +56,7 @@ function PlanSection() {
   const [restoring, setRestoring] = useState(false)
   if (!plan) return null
   const paid = plan.plan !== 'free'
-  const { food, bf } = plan.scans
+  const { food, bf, ask } = plan.scans
   const renews = plan.plan_expires_at
     ? new Date(plan.plan_expires_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
     : null
@@ -85,8 +85,8 @@ function PlanSection() {
             <Text className="text-white text-sm font-medium">GainRace {PLAN_NAMES[plan.plan]}</Text>
             <Text className="text-zinc-500 text-xs mt-0.5">
               {food.remaining}/{food.limit} food scans left {food.window === 'day' ? 'today' : 'this week'} ·{' '}
-              {bf.remaining}/{bf.limit} body-fat {bf.window === 'day' ? 'today' : 'this week'} · {plan.friends.count}/
-              {plan.friends.limit} friends
+              {bf.remaining}/{bf.limit} body-fat {bf.window === 'day' ? 'today' : 'this week'} · {ask.remaining}/
+              {ask.limit} questions · {plan.friends.count}/{plan.friends.limit} friends
             </Text>
             {paid && renews && <Text className="text-zinc-500 text-xs mt-0.5">Renews or ends {renews}</Text>}
           </View>

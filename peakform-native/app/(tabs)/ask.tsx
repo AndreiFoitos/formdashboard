@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useMutation } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
+import { handleLimitError, openPaywall, usePlan, useSetPlan } from '../../hooks/usePlan'
 
 interface Turn {
   role: 'user' | 'assistant'
@@ -30,6 +31,9 @@ export default function AskScreen() {
   useRequireAuth()
   const [turns, setTurns] = useState<Turn[]>([])
   const [input, setInput] = useState('')
+  const { data: plan } = usePlan()
+  const refreshPlan = useSetPlan()
+  const asksLeft = plan?.scans.ask
   const scrollRef = useRef<ScrollView>(null)
 
   const scrollDown = () =>
@@ -42,12 +46,17 @@ export default function AskScreen() {
         .then((r) => r.data.answer as string),
     onSuccess: (answer) => {
       setTurns((t) => [...t, { role: 'assistant', content: answer }])
+      refreshPlan()
       scrollDown()
     },
     onError: (e: any) => {
       const status = e?.response?.status
-      const msg =
-        status === 503
+      // 402 = plan limit: open the paywall and say so in the thread.
+      const hitLimit = handleLimitError(e)
+      if (hitLimit) refreshPlan()
+      const msg = hitLimit
+        ? "You've used your questions for today. Upgrade for more, or come back tomorrow."
+        : status === 503
           ? "AI isn't set up yet — add an Anthropic API key on the server to enable this."
           : status === 429
             ? "You've hit the daily question limit. Try again tomorrow."
@@ -74,7 +83,16 @@ export default function AskScreen() {
       >
         <View className="px-4 pt-6 pb-3">
           <Text className="text-zinc-400 text-xs uppercase tracking-widest font-semibold">Ask</Text>
-          <Text className="text-white text-3xl font-bold mt-1.5">Your Data</Text>
+          <View className="flex-row items-end justify-between">
+            <Text className="text-white text-3xl font-bold mt-1.5">Your Data</Text>
+            {asksLeft && (
+              <TouchableOpacity onPress={() => openPaywall('ask')} hitSlop={10} className="pb-1.5">
+                <Text className="text-zinc-500 text-xs">
+                  {asksLeft.remaining}/{asksLeft.limit} questions left today
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         <ScrollView

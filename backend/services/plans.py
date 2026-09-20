@@ -28,6 +28,8 @@ from models.user import User
 
 FOOD = "food"
 BF = "bf"
+ASK = "ask"
+KINDS = (FOOD, BF, ASK)
 
 
 @dataclass(frozen=True)
@@ -41,14 +43,17 @@ class Plan:
     id: str
     food: Limit
     bf: Limit
+    # "Ask your data" questions. The daily digest is free on every plan: it is
+    # cached per user per day (~$0.002) and it is what brings people back.
+    ask: Limit
     friends: int
 
 
 PLANS: dict[str, Plan] = {
-    "free": Plan("free", food=Limit(1, "day"), bf=Limit(1, "week"), friends=15),
-    "plus": Plan("plus", food=Limit(4, "day"), bf=Limit(3, "week"), friends=50),
+    "free": Plan("free", food=Limit(1, "day"), bf=Limit(1, "week"), ask=Limit(3, "day"), friends=15),
+    "plus": Plan("plus", food=Limit(4, "day"), bf=Limit(3, "week"), ask=Limit(15, "day"), friends=50),
     # "Unlimited" in the app; these are fair-use caps against abuse.
-    "pro": Plan("pro", food=Limit(12, "day"), bf=Limit(1, "day"), friends=150),
+    "pro": Plan("pro", food=Limit(12, "day"), bf=Limit(1, "day"), ask=Limit(50, "day"), friends=150),
 }
 
 
@@ -70,7 +75,7 @@ def _window_start(user: User, window: str) -> datetime:
 
 
 def _limit(plan: Plan, kind: str) -> Limit:
-    return plan.food if kind == FOOD else plan.bf
+    return {FOOD: plan.food, BF: plan.bf, ASK: plan.ask}[kind]
 
 
 async def _used(user: User, kind: str, window: str, db: AsyncSession) -> tuple[int, datetime | None]:
@@ -94,7 +99,7 @@ async def usage(user: User, db: AsyncSession) -> dict:
     """Remaining scans per kind, for the app's counters and paywall."""
     plan = plan_for(user)
     out = {}
-    for kind in (FOOD, BF):
+    for kind in KINDS:
         lim = _limit(plan, kind)
         used, oldest = await _used(user, kind, lim.window, db)
         out[kind] = {
@@ -122,7 +127,7 @@ async def consume_scan(user: User, kind: str, db: AsyncSession) -> uuid.UUID:
     used, oldest = await _used(user, kind, lim.window, db)
     if used > lim.count:
         await refund_scan(scan.id, db)
-        noun = "food scan" if kind == FOOD else "body-fat scan"
+        noun = {FOOD: "food scan", BF: "body-fat scan", ASK: "question"}[kind]
         period = "today" if lim.window == "day" else "this week"
         raise HTTPException(402, {
             "code": "scan_limit",

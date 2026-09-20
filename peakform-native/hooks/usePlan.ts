@@ -4,7 +4,7 @@ import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 
 export type PlanId = 'free' | 'plus' | 'pro'
-export type ScanKind = 'food' | 'bf'
+export type ScanKind = 'food' | 'bf' | 'ask'
 
 export interface ScanUsage {
   limit: number
@@ -55,14 +55,14 @@ export function useSetPlan() {
   }
 }
 
-export type PaywallReason = 'food' | 'bf' | 'friends'
+export type PaywallReason = 'food' | 'bf' | 'ask' | 'friends'
 
 /** If the error is a plan limit (HTTP 402), open the paywall and return true. */
 export function handleLimitError(err: any): boolean {
   const detail = err?.response?.data?.detail
   if (err?.response?.status !== 402 || !detail?.code) return false
   const reason: PaywallReason =
-    detail.code === 'friend_limit' ? 'friends' : detail.kind === 'bf' ? 'bf' : 'food'
+    detail.code === 'friend_limit' ? 'friends' : (detail.kind as PaywallReason) ?? 'food'
   openPaywall(reason)
   return true
 }
