@@ -5,13 +5,14 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native'
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { api } from '../../api/client'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { CountUp } from '../../components/CountUp'
 import { AnimatedBar } from '../../components/AnimatedBar'
+import { SwipeableRow } from '../../components/SwipeableRow'
 import { SkeletonCard } from '../../components/Skeleton'
 import { PressableScale } from '../../components/PressableScale'
 import { hapticLight, hapticSuccess } from '../../lib/haptics'
@@ -236,6 +237,17 @@ function StatTile({
 
 const WATER_PRESETS = [250, 500, 750] as const
 
+interface HydrationEntry {
+  id: string
+  amount_ml: number
+  source: string
+  logged_at: string
+}
+
+function timeLabel(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+}
+
 function HydrationQuickLog({
   waterMl,
   targetMl,
@@ -244,6 +256,24 @@ function HydrationQuickLog({
   targetMl: number | null
 }) {
   const qc = useQueryClient()
+  // Entries were never listed here, so once the undo toast expired a mistyped
+  // log was permanent. Collapsed by default to keep the card compact.
+  const [showLog, setShowLog] = useState(false)
+
+  const todayQ = useQuery<{ entries: HydrationEntry[] }>({
+    queryKey: ['hydration-today'],
+    queryFn: () => api.get('/hydration/today').then((r) => r.data),
+    enabled: showLog,
+  })
+
+  const removeEntry = useMutation({
+    mutationFn: (id: string) => api.delete(`/hydration/${id}`),
+    onSuccess: () => {
+      hapticSuccess()
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['hydration-today'] })
+    },
+  })
 
   const { mutateAsync, isPending } = useMutation({
     mutationFn: (ml: number) =>
@@ -268,11 +298,13 @@ function HydrationQuickLog({
       const entry = await mutateAsync(ml)
       hapticSuccess()
       qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['hydration-today'] })
       showUndo({
         label: `+${ml.toLocaleString()} ml water`,
         onUndo: async () => {
           await api.delete(`/hydration/${entry.id}`)
           qc.invalidateQueries({ queryKey: ['dashboard'] })
+          qc.invalidateQueries({ queryKey: ['hydration-today'] })
         },
       })
     } catch {
@@ -308,6 +340,49 @@ function HydrationQuickLog({
           </PressableScale>
         ))}
       </View>
+
+      {/* Today's entries — swipe any row to delete it, for when the undo
+          toast has already gone. */}
+      <TouchableOpacity
+        onPress={() => setShowLog((v: boolean) => !v)}
+        className="mt-3 pt-3 border-t border-zinc-800"
+        accessibilityRole="button"
+        accessibilityState={{ expanded: showLog }}
+      >
+        <Text className="text-zinc-500 text-xs">
+          {showLog ? 'Hide today’s log ▾' : 'Today’s log ▸'}
+        </Text>
+      </TouchableOpacity>
+
+      {showLog && (
+        <View className="mt-2 rounded-xl overflow-hidden border border-zinc-800">
+          {(todayQ.data?.entries ?? []).length === 0 ? (
+            <Text className="text-zinc-600 text-xs px-3 py-3">
+              {todayQ.isLoading ? 'Loading…' : 'Nothing logged yet today.'}
+            </Text>
+          ) : (
+            (todayQ.data?.entries ?? []).map((entry, i, arr) => (
+              <SwipeableRow key={entry.id} onDelete={() => removeEntry.mutate(entry.id)}>
+                <View
+                  className="flex-row items-center justify-between bg-zinc-900 px-3 py-2.5"
+                  style={{
+                    borderBottomWidth: i === arr.length - 1 ? 0 : 1,
+                    borderBottomColor: '#27272a',
+                  }}
+                >
+                  <Text className="text-zinc-300 text-xs">
+                    {entry.amount_ml.toLocaleString()} ml
+                    {entry.source && entry.source !== 'water'
+                      ? ` · ${entry.source.replace(/_/g, ' ')}`
+                      : ''}
+                  </Text>
+                  <Text className="text-zinc-600 text-xs">{timeLabel(entry.logged_at)}</Text>
+                </View>
+              </SwipeableRow>
+            ))
+          )}
+        </View>
+      )}
     </View>
   )
 }

@@ -21,6 +21,7 @@ import Svg, {
   Text as SvgText,
 } from 'react-native-svg'
 import { api } from '../api/client'
+import { SwipeableRow } from './SwipeableRow'
 import { showUndo } from '../store/undo'
 import { hapticLight, hapticSuccess } from '../lib/haptics'
 
@@ -32,6 +33,13 @@ interface CurvePoint {
   caffeine_mg: number
   in_past: boolean
   zone: 'low' | 'optimal' | 'elevated' | 'high'
+}
+
+interface StimulantEntry {
+  id: string
+  substance: string
+  caffeine_mg: number
+  logged_at: string
 }
 
 export interface CurveData {
@@ -538,6 +546,25 @@ interface Props {
 
 export function CaffeineCurve({ data, isLoading }: Props) {
   const [showLog, setShowLog] = useState(false)
+  // Same gap hydration had: caffeine entries were only removable through the
+  // undo toast, so a mistake outlived the toast permanently.
+  const [showEntries, setShowEntries] = useState(false)
+
+  // GET /stimulants/today returns a bare array, not a wrapper object.
+  const entriesQ = useQuery<StimulantEntry[]>({
+    queryKey: ['stimulants-today'],
+    queryFn: () => api.get('/stimulants/today').then((r) => r.data),
+    enabled: showEntries,
+  })
+
+  const removeEntry = useMutation({
+    mutationFn: (id: string) => api.delete(`/stimulants/${id}`),
+    onSuccess: () => {
+      hapticSuccess()
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      qc.invalidateQueries({ queryKey: ['stimulants-today'] })
+    },
+  })
   const qc = useQueryClient()
 
   const { mutateAsync, isPending } = useMutation({
@@ -646,6 +673,50 @@ export function CaffeineCurve({ data, isLoading }: Props) {
         {/* Footer — a real warning once bedtime caffeine actually matters,
             and a quiet line when it doesn't. */}
         {data && <BedtimeImpact data={data} />}
+
+        {/* Today's entries — swipe to delete once the undo toast is gone. */}
+        <TouchableOpacity
+          onPress={() => setShowEntries((v: boolean) => !v)}
+          className="mt-3 pt-3 border-t border-zinc-800"
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showEntries }}
+        >
+          <Text className="text-zinc-500 text-xs">
+            {showEntries ? 'Hide today’s log ▾' : 'Today’s log ▸'}
+          </Text>
+        </TouchableOpacity>
+
+        {showEntries && (
+          <View className="mt-2 rounded-xl overflow-hidden border border-zinc-800">
+            {(entriesQ.data ?? []).length === 0 ? (
+              <Text className="text-zinc-600 text-xs px-3 py-3">
+                {entriesQ.isLoading ? 'Loading…' : 'No caffeine logged today.'}
+              </Text>
+            ) : (
+              (entriesQ.data ?? []).map((e, i, arr) => (
+                <SwipeableRow key={e.id} onDelete={() => removeEntry.mutate(e.id)}>
+                  <View
+                    className="flex-row items-center justify-between bg-zinc-900 px-3 py-2.5"
+                    style={{
+                      borderBottomWidth: i === arr.length - 1 ? 0 : 1,
+                      borderBottomColor: '#27272a',
+                    }}
+                  >
+                    <Text className="text-zinc-300 text-xs">
+                      {e.substance.replace(/_/g, ' ')} · {e.caffeine_mg}mg
+                    </Text>
+                    <Text className="text-zinc-600 text-xs">
+                      {new Date(e.logged_at).toLocaleTimeString(undefined, {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+                </SwipeableRow>
+              ))
+            )}
+          </View>
+        )}
       </View>
 
       {showLog && <LogModal onClose={() => setShowLog(false)} />}
