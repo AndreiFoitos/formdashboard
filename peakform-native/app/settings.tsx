@@ -10,7 +10,7 @@ import {
   Linking,
   Platform,
 } from 'react-native'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -166,6 +166,29 @@ function ProfileSection() {
   const [bedtime, setBedtime] = useState<number>(user?.sleep_hour ?? 23)
   const [saved, setSaved] = useState(false)
   const [usernameError, setUsernameError] = useState<string | null>(null)
+  // useState only seeds on first mount, and the store's user can still be
+  // missing targets at that point (onboarding writes them server-side without
+  // putting them back in the store). Re-seed whenever the stored values
+  // change, unless the user has already typed something into that field.
+  const [touched, setTouched] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    if (!user) return
+    if (!touched.protein) {
+      setProtein(user.protein_target_g != null ? String(Math.round(user.protein_target_g)) : '')
+    }
+    if (!touched.water) setWater(user.water_target_ml != null ? String(user.water_target_ml) : '')
+    if (!touched.calories) setCalories(user.calorie_target != null ? String(user.calorie_target) : '')
+    if (!touched.username) setUsername(user.username ?? '')
+    if (!touched.bedtime) setBedtime(user.sleep_hour ?? 23)
+  }, [
+    user?.protein_target_g,
+    user?.water_target_ml,
+    user?.calorie_target,
+    user?.username,
+    user?.sleep_hour,
+  ])
+
+  const markTouched = (k: string) => setTouched((t) => (t[k] ? t : { ...t, [k]: true }))
 
   const usernameValid = /^[a-z0-9_]{3,24}$/.test(username)
   const usernameDirty = username !== (user?.username ?? '')
@@ -200,12 +223,16 @@ function ProfileSection() {
       return
     }
     setUsernameError(null)
+    // An empty field means "leave this alone", NOT "clear it". Sending null
+    // here used to wipe targets the user never saw, because the fields render
+    // empty whenever the store hasn't got the values yet. The backend uses
+    // exclude_unset, so undefined is simply not written.
     save.mutate({
       username: usernameDirty ? username : undefined,
       sleep_hour: bedtime,
-      protein_target_g: protein.trim() ? parseFloat(protein) : null,
-      water_target_ml: water.trim() ? parseInt(water) : null,
-      calorie_target: calories.trim() ? parseInt(calories) : null,
+      protein_target_g: protein.trim() ? parseFloat(protein) : undefined,
+      water_target_ml: water.trim() ? parseInt(water) : undefined,
+      calorie_target: calories.trim() ? parseInt(calories) : undefined,
     })
   }
 
@@ -220,6 +247,7 @@ function ProfileSection() {
           <TextInput
             value={username}
             onChangeText={(v) => {
+              markTouched('username')
               setUsername(v.replace(/^@/, '').toLowerCase())
               setUsernameError(null)
             }}
@@ -236,9 +264,15 @@ function ProfileSection() {
         )}
       </View>
 
-      <TargetRow label="Protein target" value={protein} onChangeText={setProtein} unit="g" placeholder="160" />
-      <TargetRow label="Water target" value={water} onChangeText={setWater} unit="ml" placeholder="2800" />
-      <TargetRow label="Calorie target" value={calories} onChangeText={setCalories} unit="kcal" placeholder="2400" />
+      {/* Placeholders read as "e.g." so an empty field can't be mistaken for a
+          real target — that confusion is what made the wipe-on-save bug above
+          invisible. */}
+      <TargetRow label="Protein target" value={protein} unit="g" placeholder="e.g. 160"
+        onChangeText={(v) => { markTouched('protein'); setProtein(v) }} />
+      <TargetRow label="Water target" value={water} unit="ml" placeholder="e.g. 2800"
+        onChangeText={(v) => { markTouched('water'); setWater(v) }} />
+      <TargetRow label="Calorie target" value={calories} unit="kcal" placeholder="e.g. 2400"
+        onChangeText={(v) => { markTouched('calories'); setCalories(v) }} />
 
       {/* Bedtime */}
       <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-zinc-800">
@@ -248,7 +282,7 @@ function ProfileSection() {
         </View>
         <View className="flex-row items-center" style={{ gap: 10 }}>
           <TouchableOpacity
-            onPress={() => setBedtime((h) => (h + 23) % 24)}
+            onPress={() => { markTouched('bedtime'); setBedtime((h) => (h + 23) % 24) }}
             className="w-8 h-8 rounded-full bg-zinc-800 items-center justify-center"
           >
             <Text className="text-white text-lg leading-5">−</Text>
@@ -257,7 +291,7 @@ function ProfileSection() {
             {hourLabel(bedtime)}
           </Text>
           <TouchableOpacity
-            onPress={() => setBedtime((h) => (h + 1) % 24)}
+            onPress={() => { markTouched('bedtime'); setBedtime((h) => (h + 1) % 24) }}
             className="w-8 h-8 rounded-full bg-zinc-800 items-center justify-center"
           >
             <Text className="text-white text-lg leading-5">+</Text>

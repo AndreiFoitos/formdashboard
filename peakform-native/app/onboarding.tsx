@@ -1,4 +1,5 @@
 import {
+  Alert,
   View,
   Text,
   TouchableOpacity,
@@ -14,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { ChevronLeft } from 'lucide-react-native'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
+import { removeToken } from '../lib/storage'
 import { extractErrorMessage } from '../lib/apiError'
 import { FEATURES } from '../lib/featureFlags'
 import { AvatarCanvas } from '../components/avatar/AvatarCanvas'
@@ -38,6 +40,8 @@ interface FormState {
   protein_target_g: string
   water_target_ml: string
   calorie_target: string
+  /** True once the user hand-edits a target, so recomputing from weight stops. */
+  targets_edited: boolean
   sleep_hour: number
 }
 
@@ -147,7 +151,10 @@ const SURPLUS_KCAL = 300
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/
 
-type UsernameState = 'idle' | 'checking' | 'ok' | 'taken' | 'format'
+type UsernameState = 'idle' | 'checking' | 'ok' | 'taken' | 'reserved' | 'format'
+
+// States that should paint the field red.
+const BAD_USERNAME = new Set<UsernameState>(['taken', 'reserved', 'format'])
 
 function Step1Username({
   value,
@@ -162,7 +169,7 @@ function Step1Username({
     <View>
       <View
         className="flex-row items-center bg-zinc-900 border rounded-2xl px-4 py-1"
-        style={{ borderColor: state === 'taken' || state === 'format' ? '#7f1d1d' : '#3f3f46' }}
+        style={{ borderColor: BAD_USERNAME.has(state) ? '#7f1d1d' : '#3f3f46' }}
       >
         <Text className="text-zinc-500 text-base">@</Text>
         <TextInput
@@ -182,14 +189,13 @@ function Step1Username({
       </View>
       <Text
         className="text-xs mt-2"
-        style={{
-          color:
-            state === 'taken' || state === 'format' ? '#f87171' : '#71717a',
-        }}
+        style={{ color: BAD_USERNAME.has(state) ? '#f87171' : '#71717a' }}
       >
         {state === 'taken'
           ? 'That handle is taken — try another.'
-          : '3–24 chars; lowercase letters, numbers, underscores only.'}
+          : state === 'reserved'
+            ? 'That handle is reserved — pick another.'
+            : '3–24 chars; lowercase letters, numbers, underscores only.'}
       </Text>
     </View>
   )
@@ -581,7 +587,24 @@ function Step4Targets({
 // ─── Onboarding Screen ────────────────────────────────────────────────────────
 
 export default function OnboardingScreen() {
-  const { user, updateUser } = useAuthStore()
+  const { user, updateUser, clearAuth } = useAuthStore()
+
+  // Onboarding is the only screen a signed-in-but-unonboarded user can reach,
+  // so signing out is the only way back to the login screen.
+  function confirmSignOut() {
+    Alert.alert('Sign out?', 'Your account stays — you can finish setting up next time you sign in.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign out',
+        style: 'destructive',
+        onPress: async () => {
+          await removeToken('refresh_token')
+          clearAuth()
+          router.replace('/login')
+        },
+      },
+    ])
+  }
   const [step, setStep] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -600,19 +623,38 @@ export default function OnboardingScreen() {
     protein_target_g: '',
     water_target_ml: '',
     calorie_target: '',
+    targets_edited: false,
     sleep_hour: user?.sleep_hour ?? 23,
   })
 
+  // Only the two weight-derived targets. calorie_target is never recomputed by
+  // autoFillTargets, so picking a calorie goal must not pin protein and water.
+  const TARGET_KEYS = ['protein_target_g', 'water_target_ml']
+
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }))
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+      // Hand-editing a target pins it, so going back and fixing your weight
+      // no longer silently overwrites a number you chose.
+      ...(TARGET_KEYS.includes(key as string) ? { targets_edited: true } : null),
+    }))
   }
 
+  // Targets derive from bodyweight, so they must follow it. The old version
+  // used `prev.protein_target_g || ...`, which locked in whatever the FIRST
+  // weight produced — correcting a typo left the derived targets stale.
+  // Anything the user typed by hand is still theirs and is left alone.
   function autoFillTargets(weight: number | null) {
     if (!weight) return
     setForm((prev) => ({
       ...prev,
-      protein_target_g: prev.protein_target_g || String(Math.round(weight * 2)),
-      water_target_ml: prev.water_target_ml || String(Math.round(weight * 35)),
+      protein_target_g: prev.targets_edited
+        ? prev.protein_target_g
+        : String(Math.round(weight * 2)),
+      water_target_ml: prev.targets_edited
+        ? prev.water_target_ml
+        : String(Math.round(weight * 35)),
     }))
   }
 
@@ -668,7 +710,11 @@ export default function OnboardingScreen() {
         const { data } = await api.get('/users/username-available', {
           params: { username: u },
         })
-        setUsernameState(data.available ? 'ok' : 'taken')
+        // The server distinguishes reserved handles (admin, gainrace, ...)
+        // from ones simply already in use; surface that difference.
+        setUsernameState(
+          data.available ? 'ok' : data.reason === 'reserved' ? 'reserved' : 'taken',
+        )
       } catch {
         setUsernameState('idle')
       }
@@ -759,7 +805,15 @@ export default function OnboardingScreen() {
           training_frequency: form.training_frequency,
           caffeine_habit: form.caffeine_habit,
         })
-        updateUser({ onboarding_complete: true })
+        // Re-read the profile so the store carries the targets we just wrote.
+        // Settings seeds its fields from the store; without this it renders
+        // empty and a plain "Save changes" used to wipe these values.
+        try {
+          const { data: me } = await api.get('/users/me')
+          updateUser({ ...me, onboarding_complete: true })
+        } catch {
+          updateUser({ onboarding_complete: true })
+        }
         router.replace('/')
       } catch (err: any) {
         setError(extractErrorMessage(err))
@@ -791,7 +845,12 @@ export default function OnboardingScreen() {
                 <Text className="text-zinc-300 text-base font-medium">Back</Text>
               </TouchableOpacity>
             ) : (
-              <View />
+              /* Step 0 has nothing behind it, and onboarding is the only route
+                 a signed-in-but-unonboarded user can reach — without this the
+                 screen is a dead end with no way out but deleting the app. */
+              <TouchableOpacity onPress={confirmSignOut} hitSlop={12} className="-ml-1 px-2 py-2">
+                <Text className="text-zinc-400 text-base font-medium">Sign out</Text>
+              </TouchableOpacity>
             )}
             <Text className="text-zinc-600 text-xs font-medium">
               {step + 1} / {STEPS.length}
