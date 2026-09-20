@@ -1,5 +1,6 @@
 import '../global.css'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { ActivityIndicator, Text, View } from 'react-native'
 import { Stack, router } from 'expo-router'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
@@ -135,11 +136,35 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     hydrate()
   }, [])
 
-  // Don't render anything until we know auth state.
-  // This prevents a flash of the login screen for returning users.
-  if (!hydrated) return null
+  // Returning `null` here used to leave a blank white screen for as long as
+  // the refresh call took — up to the full 30s axios timeout when Render's
+  // free tier has spun the backend down. No splash, no spinner, no error:
+  // indistinguishable from a crash, and the first thing a cold reviewer sees.
+  if (!hydrated) return <BootScreen />
 
   return <>{children}</>
+}
+
+/** Shown while auth hydrates. Says something after a few seconds, because a
+ *  cold backend can take ~50s to wake and silence reads as a hang. */
+function BootScreen() {
+  const [slow, setSlow] = useState(false)
+
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 4000)
+    return () => clearTimeout(t)
+  }, [])
+
+  return (
+    <View className="flex-1 bg-black items-center justify-center px-8">
+      <ActivityIndicator color="#ffffff" />
+      {slow && (
+        <Text className="text-zinc-500 text-sm text-center mt-4">
+          Waking the server up — this can take up to a minute the first time.
+        </Text>
+      )}
+    </View>
+  )
 }
 
 function RootLayout() {

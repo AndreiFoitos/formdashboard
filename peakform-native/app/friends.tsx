@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { Award, ChevronLeft, HelpCircle, MoreHorizontal, Trophy, X } from 'lucide-react-native'
 import { api } from '../api/client'
+import { useExerciseName } from '../hooks/useExerciseName'
 import { useAuthStore } from '../store/auth'
 import { useRequireAuth } from '../hooks/useRequireAuth'
 import { SkeletonCard } from '../components/Skeleton'
@@ -352,11 +353,12 @@ function LiftRowSusVouch({
   onSus: () => void
   busy?: boolean
 }) {
+  const displayName = useExerciseName(EXERCISE_NAME)
   return (
     <View className="rounded-2xl bg-zinc-900 border border-zinc-800 px-4 py-3 flex-row items-center">
       <View className="flex-1 pr-2">
         <Text className="text-white text-sm font-semibold">
-          {EXERCISE_NAME[lift.type] ?? lift.type}
+          {displayName(lift.type)}
         </Text>
         <Text className="text-zinc-500 text-xs mt-0.5">
           {new Date(lift.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}

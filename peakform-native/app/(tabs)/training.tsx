@@ -8,13 +8,14 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import Svg, { Polyline, Circle, Line as SvgLine } from 'react-native-svg'
 import { Award, Trophy, X } from 'lucide-react-native'
 import { api } from '../../api/client'
+import { useExerciseName } from '../../hooks/useExerciseName'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { SkeletonCard } from '../../components/Skeleton'
 import { openPaywall } from '../../hooks/usePlan'
@@ -342,6 +343,7 @@ function PRChart({
   exerciseKey: string
   onPickExercise: () => void
 }) {
+  const displayName = useExerciseName(EXERCISE_NAME)
   const points = data?.progression.filter(p => p.top_weight_kg != null) ?? []
   const last = points[points.length - 1]
   const pr = points.reduce<typeof points[0] | null>(
@@ -379,7 +381,7 @@ function PRChart({
           className="flex-row items-center gap-1 px-3 py-1 rounded-full border border-zinc-700"
         >
           <Text className="text-white text-xs font-medium">
-            {EXERCISE_NAME[exerciseKey] ?? exerciseKey}
+            {displayName(exerciseKey)}
           </Text>
           <Text className="text-zinc-500 text-xs">▾</Text>
         </TouchableOpacity>
@@ -671,6 +673,7 @@ function LogExerciseModal({
   onClose: () => void
 }) {
   const qc = useQueryClient()
+  const displayName = useExerciseName(EXERCISE_NAME)
 
   // Pull recent logs for this exercise so we can show "last session" and prefill.
   const { data: history } = useQuery<ExerciseProgress>({
@@ -752,7 +755,7 @@ function LogExerciseModal({
 
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
           <Text className="text-white font-semibold">
-            {EXERCISE_NAME[exerciseKey] ?? exerciseKey}
+            {displayName(exerciseKey)}
           </Text>
           <TouchableOpacity
             onPress={onClose}
@@ -1158,6 +1161,57 @@ function MuscleGroupTile({
   )
 }
 
+const WEEK_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+/** The whole detected week at a glance, so the split is findable on any day. */
+function SplitWeekStrip({
+  split,
+  todayWeekday,
+}: {
+  split: UserSplitRow[]
+  todayWeekday: number
+}) {
+  if (!split.length) return null
+  const byDay = new Map(split.map(r => [r.weekday, r]))
+
+  return (
+    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-3">
+        Your weekly split
+      </Text>
+      <View className="flex-row" style={{ gap: 4 }}>
+        {WEEK_SHORT.map((label, i) => {
+          const row = byDay.get(i)
+          const colour = row ? GROUPS.find(g => g.name === row.group_name)?.colour ?? '#52525b' : '#27272a'
+          const isToday = i === todayWeekday
+          return (
+            <View
+              key={label}
+              className="flex-1 items-center rounded-xl py-2"
+              style={{
+                backgroundColor: row ? `${colour}1A` : '#18181b',
+                borderWidth: 1,
+                borderColor: isToday ? '#ffffff55' : row ? `${colour}44` : '#27272a',
+              }}
+            >
+              <Text className="text-[10px] font-semibold" style={{ color: isToday ? '#ffffff' : '#71717a' }}>
+                {label}
+              </Text>
+              <Text
+                className="text-[9px] mt-1 text-center"
+                numberOfLines={1}
+                style={{ color: row ? colour : '#3f3f46' }}
+              >
+                {row ? row.group_name : 'Rest'}
+              </Text>
+            </View>
+          )
+        })}
+      </View>
+    </View>
+  )
+}
+
 function TodaysSplitBanner({
   todaysGroup,
   weekdayLabel,
@@ -1165,6 +1219,10 @@ function TodaysSplitBanner({
   todaysGroup: { group_name: string; confidence: number } | null
   weekdayLabel: string
 }) {
+  // Previously this returned null whenever today had no detected group, so on
+  // a rest day — or before detection had ever run — the split was invisible
+  // with no hint it existed. The week strip below always renders once any
+  // split is known.
   if (!todaysGroup) return null
   const match = GROUPS.find(g => g.name === todaysGroup.group_name)
   const colour = match?.colour ?? '#a1a1aa'
@@ -1216,6 +1274,7 @@ function OneRMCard() {
     staleTime: 5 * 60 * 1000,
   })
 
+  const displayName = useExerciseName(EXERCISE_NAME)
   const top = (data?.estimates ?? []).slice(0, 5)
 
   return (
@@ -1242,7 +1301,7 @@ function OneRMCard() {
             >
               <View className="flex-1 pr-2">
                 <Text className="text-white text-sm" numberOfLines={1}>
-                  {EXERCISE_NAME[row.exercise] ?? row.exercise}
+                  {displayName(row.exercise)}
                 </Text>
                 <Text className="text-zinc-600 text-[10px] mt-0.5">
                   from {row.source.weight_kg}kg × {row.source.reps}
@@ -1479,12 +1538,24 @@ export default function TrainingScreen() {
   })
 
   // Auto-detected weekly split. Backend job updates this nightly; we just read.
+  // Split detection runs nightly (03:45 UTC). Asking for a refresh when we
+  // have nothing on file means a user with history sees their split right
+  // away instead of waiting up to a day for the job — which is why this
+  // feature looked missing entirely.
+  const [splitRefreshed, setSplitRefreshed] = useState(false)
   const splitQ = useQuery<{ split: UserSplitRow[] }>({
-    queryKey: ['training-split'],
-    queryFn: () => api.get('/training/split').then(r => r.data),
+    queryKey: ['training-split', splitRefreshed],
+    queryFn: () =>
+      api.get(`/training/split${splitRefreshed ? '?refresh=true' : ''}`).then(r => r.data),
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
   })
+
+  useEffect(() => {
+    if (!splitRefreshed && splitQ.data && splitQ.data.split.length === 0) {
+      setSplitRefreshed(true)
+    }
+  }, [splitQ.data, splitRefreshed])
 
   // Custom exercises — used to resolve custom_<uuid> keys to a muscle group
   // for the tile last-session lookup.
@@ -1660,6 +1731,12 @@ export default function TrainingScreen() {
                 todaysGroup={todaysSplit}
                 weekdayLabel={WEEKDAY_LABEL_FULL[todayWeekday]}
               />
+              <View style={{ marginTop: todaysSplit ? 10 : 0 }}>
+                <SplitWeekStrip
+                  split={splitQ.data?.split ?? []}
+                  todayWeekday={todayWeekday}
+                />
+              </View>
               <View style={{ marginTop: todaysSplit ? 12 : 0, gap: 10 }}>
                 {/* Render in pairs so each row is two tiles. */}
                 {Array.from({ length: Math.ceil(GROUPS.length / 2) }, (_, rowIdx) => (

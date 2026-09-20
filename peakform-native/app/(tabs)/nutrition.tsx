@@ -412,7 +412,11 @@ function BuildMealModal({
         <ScrollView
           className="flex-1"
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 32 }}
+          // The keyboard used to sit on top of "Log manually", so the button
+          // was unreachable right after typing the calories. This insets the
+          // scroll view by the keyboard height instead of covering it.
+          automaticallyAdjustKeyboardInsets
+          contentContainerStyle={{ paddingBottom: 48 }}
         >
           {/* Meal name */}
           <View className="px-4 pt-4">

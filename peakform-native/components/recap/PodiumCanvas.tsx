@@ -58,8 +58,18 @@ export function PodiumCanvas({ crew, runId, heads, avatars }: Props) {
 
   const colW = Math.min(120, (width - 40 - 20) / 3)
   const barW = Math.min(88, colW * 0.66)
-  const maxBarH = Math.min(220, height * 0.4)
-  const rowH = maxBarH + 108
+
+  // Everything that rides ON TOP of the bar — medal, avatar, name, stats —
+  // has to fit inside rowH too. The old budget of `maxBarH + 108` was smaller
+  // than that stack needs on its own (~250px for 1st place), so the taller the
+  // bar got the further the avatar was pushed past the top of the screen.
+  // Size the avatar to the viewport first, then give the bar whatever is left.
+  const avatarH = Math.min(170, Math.max(96, height * 0.2))
+  const MEDAL_STACK = 26 + 8 // medal icon + its gap
+  const LABEL_STACK = 46 // name + stats lines under the avatar
+  const contentH = MEDAL_STACK + avatarH + LABEL_STACK
+  const maxBarH = Math.max(56, Math.min(220, height * 0.74 - contentH))
+  const rowH = maxBarH + contentH
 
   // Visual left-to-right order: 2nd, 1st (center, tallest), 3rd.
   const stands = useMemo(
@@ -92,6 +102,7 @@ export function PodiumCanvas({ crew, runId, heads, avatars }: Props) {
             barW={barW}
             colW={colW}
             barH={maxBarH * HEIGHT_RATIO[s.rank]}
+            avatarH={s.rank === 1 ? avatarH : avatarH * 0.82}
             // Reveal 3rd first, climax on 1st.
             delay={(3 - s.rank) * 450}
             runId={runId}
@@ -117,6 +128,7 @@ function Stand({
   barW,
   colW,
   barH,
+  avatarH,
   delay,
   runId,
 }: {
@@ -127,6 +139,7 @@ function Stand({
   barW: number
   colW: number
   barH: number
+  avatarH: number
   delay: number
   runId: number
 }) {
@@ -204,7 +217,7 @@ function Stand({
             state={avatar.state}
             emote={avatar.emote}
             interactive={false}
-            style={{ width: colW, height: rank === 1 ? 170 : 140 }}
+            style={{ width: colW, height: avatarH }}
             errorFallback={headImage}
           />
         ) : (
