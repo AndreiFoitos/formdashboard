@@ -25,3 +25,6 @@ HANDOFF.md
 TODO_BEFORE_LAUNCH.md
 # Nutrition5k eval sample (backend/scripts/eval_food_views.py)
 backend/scripts/.n5k_data/
+
+# Local one-off scripts (e.g. test-data seeding that deletes users)
+backend/scripts/_*.py
