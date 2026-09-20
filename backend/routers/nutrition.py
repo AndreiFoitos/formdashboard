@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sqlfunc
 from sqlalchemy.orm import selectinload
 
+import logging
+
 import httpx
 
 from core.database import get_db
@@ -29,6 +31,8 @@ from services.usda import (
     search_food,
     search_foods,
 )
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
@@ -311,7 +315,21 @@ async def search_nutrition(
             foods = await search_foods(q, n=8, client=http)
     except USDANotConfigured:
         raise HTTPException(503, "Food search is unavailable on this server")
-    except httpx.HTTPError:
+    except httpx.HTTPStatusError as e:
+        # USDA answered and refused us. Distinguished from a network failure
+        # because the two need completely different fixes, and collapsing them
+        # into one message once cost a debugging round-trip: a stray whitespace
+        # in the deployed USDA_API_KEY looked identical to "USDA is down".
+        body = e.response.text[:200]
+        log.warning("USDA rejected search (%s): %s", e.response.status_code, body)
+        if e.response.status_code in (401, 403):
+            raise HTTPException(502, "Food search is misconfigured on this server.")
+        if e.response.status_code == 429:
+            raise HTTPException(429, "Food search is busy right now. Try again shortly.")
+        raise HTTPException(502, "The food database returned an error. Try again.")
+    except httpx.HTTPError as e:
+        # Connect/read timeout, DNS, TLS — USDA never answered.
+        log.warning("USDA unreachable: %r", e)
         raise HTTPException(502, "Could not reach the food database. Try again.")
 
     return {"results": [_per_100g_payload(f) for f in foods]}
