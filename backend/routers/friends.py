@@ -524,6 +524,44 @@ class SusVoteRequest(BaseModel):
     training_log_id: uuid.UUID | None = None
 
 
+async def _clear_opposing_verdict(
+    model,
+    voter_id: uuid.UUID,
+    target_user_id: uuid.UUID,
+    week_start,
+    training_log_id: uuid.UUID | None,
+    db: AsyncSession,
+) -> bool:
+    """Drop this voter's opposite verdict in the same scope.
+
+    Sus and vouch are two sides of one judgement — "I think this is fake" vs
+    "I'll back this" — so holding both at once is incoherent, and the two
+    endpoints used to write to their own table without ever looking at the
+    other. Casting one now retracts the other rather than erroring: changing
+    your mind is the normal case, and a rejection would just force the user to
+    un-vote first. Returns True if something was retracted.
+    """
+    if training_log_id is not None:
+        # Per-lift scope is keyed on the lift alone; the log already pins the
+        # target and the week.
+        stmt = select(model).where(
+            model.voter_id == voter_id,
+            model.training_log_id == training_log_id,
+        )
+    else:
+        stmt = select(model).where(
+            model.voter_id == voter_id,
+            model.target_user_id == target_user_id,
+            model.week_start == week_start,
+            model.training_log_id.is_(None),
+        )
+    row = (await db.execute(stmt)).scalar_one_or_none()
+    if row is None:
+        return False
+    await db.delete(row)
+    return True
+
+
 @router.post("/vote-sus/{target_user_id}")
 async def vote_sus(
     target_user_id: uuid.UUID,
@@ -571,10 +609,14 @@ async def vote_sus(
     # One-tap toggle, symmetric with vouch: a second tap on the same scope
     # clears the vote.
     row = existing.scalar_one_or_none()
+    retracted_vouch = False
     if row:
         await db.delete(row)
         await db.commit()
     else:
+        retracted_vouch = await _clear_opposing_verdict(
+            Vouch, current_user.id, target_user_id, monday, body.training_log_id, db,
+        )
         db.add(SusVote(
             voter_id=current_user.id,
             target_user_id=target_user_id,
@@ -606,6 +648,13 @@ async def vote_sus(
 
     threshold = _sus_threshold(len(friend_ids) + 1)
 
+    vouch_count = (await db.execute(
+        select(sqlfunc.count(Vouch.id)).where(
+            Vouch.target_user_id == target_user_id,
+            Vouch.week_start == monday,
+        )
+    )).scalar() or 0
+
     return {
         "target_user_id": str(target_user_id),
         "week_votes": weekly_count,
@@ -613,6 +662,9 @@ async def vote_sus(
         "sus_score": total_sus,
         "sus_threshold": threshold,
         "is_sus": total_sus >= threshold,
+        # Tells the app to clear its local vouch state for this target.
+        "retracted_vouch": retracted_vouch,
+        "vouches": vouch_count,
     }
 
 
@@ -672,11 +724,15 @@ async def vouch(
         )
 
     row = existing.scalar_one_or_none()
+    retracted_sus = False
     if row:
         await db.delete(row)
         await db.commit()
         toggled = False
     else:
+        retracted_sus = await _clear_opposing_verdict(
+            SusVote, current_user.id, target_user_id, monday, body.training_log_id, db,
+        )
         db.add(Vouch(
             voter_id=current_user.id,
             target_user_id=target_user_id,
@@ -698,6 +754,8 @@ async def vouch(
         "target_user_id": str(target_user_id),
         "vouches": count,
         "active": toggled,
+        # Tells the app to clear its local sus state for this target.
+        "retracted_sus": retracted_sus,
     }
 
 
