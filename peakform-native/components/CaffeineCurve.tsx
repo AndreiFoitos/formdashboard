@@ -39,6 +39,8 @@ export interface CurveData {
   current_mg: number
   caffeine_at_bedtime: number
   sleep_impact: string
+  sleep_impact_level: 'minimal' | 'mild' | 'moderate' | 'high'
+  bedtime_hour: number
   total_today_mg: number
   last_log: {
     substance: string
@@ -46,6 +48,59 @@ export interface CurveData {
     caffeine_mg: number
     additions: string[]
   } | null
+}
+
+// Severity styling for caffeine still circulating at bedtime. Below 50mg the
+// backend calls it minimal, and nagging about it would train people to ignore
+// the banner — so that case stays a quiet one-liner.
+const IMPACT_STYLES: Record<
+  string,
+  { bg: string; border: string; text: string; icon: string }
+> = {
+  mild:     { bg: '#27210c', border: '#854d0e', text: '#fde68a', icon: '◑' },
+  moderate: { bg: '#2c1a0b', border: '#9a3412', text: '#fdba74', icon: '◕' },
+  high:     { bg: '#2c1114', border: '#991b1b', text: '#fca5a5', icon: '●' },
+}
+
+function hour12(h: number): string {
+  const period = h < 12 ? 'AM' : 'PM'
+  return `${h % 12 === 0 ? 12 : h % 12} ${period}`
+}
+
+function BedtimeImpact({ data }: { data: CurveData }) {
+  const style = IMPACT_STYLES[data.sleep_impact_level]
+
+  if (!style || data.caffeine_at_bedtime <= 0) {
+    return (
+      <Text className="text-zinc-500 text-xs leading-5 mt-2">
+        {data.sleep_impact}
+        {data.caffeine_at_bedtime > 0 && (
+          <Text className="text-zinc-600">
+            {' '}· {Math.round(data.caffeine_at_bedtime)}mg at bedtime
+          </Text>
+        )}
+      </Text>
+    )
+  }
+
+  return (
+    <View
+      className="flex-row items-start rounded-xl border px-3 py-2.5 mt-3"
+      style={{ backgroundColor: style.bg, borderColor: style.border, gap: 8 }}
+      accessibilityRole="alert"
+    >
+      <Text style={{ color: style.text, fontSize: 13, lineHeight: 18 }}>{style.icon}</Text>
+      <View className="flex-1">
+        <Text style={{ color: style.text, fontSize: 13, fontWeight: '600', lineHeight: 18 }}>
+          {Math.round(data.caffeine_at_bedtime)}mg still in your system at{' '}
+          {hour12(data.bedtime_hour)}
+        </Text>
+        <Text className="text-xs mt-0.5" style={{ color: style.text, opacity: 0.8 }}>
+          {data.sleep_impact}
+        </Text>
+      </View>
+    </View>
+  )
 }
 
 interface Substance {
@@ -588,17 +643,9 @@ export function CaffeineCurve({ data, isLoading }: Props) {
           </View>
         )}
 
-        {/* Footer */}
-        {data && (
-          <Text className="text-zinc-500 text-xs leading-5 mt-2">
-            {data.sleep_impact}
-            {data.caffeine_at_bedtime > 0 && (
-              <Text className="text-zinc-600">
-                {' '}· {data.caffeine_at_bedtime}mg at bedtime
-              </Text>
-            )}
-          </Text>
-        )}
+        {/* Footer — a real warning once bedtime caffeine actually matters,
+            and a quiet line when it doesn't. */}
+        {data && <BedtimeImpact data={data} />}
       </View>
 
       {showLog && <LogModal onClose={() => setShowLog(false)} />}

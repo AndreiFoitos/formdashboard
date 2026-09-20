@@ -82,6 +82,15 @@ def get_sleep_impact_label(mg_at_bed: float) -> str:
     return "High impact — cut caffeine earlier tomorrow"
 
 
+def get_sleep_impact_level(mg_at_bed: float) -> str:
+    """Machine-readable twin of get_sleep_impact_label, so the app can style
+    the warning by severity instead of pattern-matching English."""
+    if mg_at_bed < 50:  return "minimal"
+    if mg_at_bed < 100: return "mild"
+    if mg_at_bed < 200: return "moderate"
+    return "high"
+
+
 async def get_today_stimulant_logs(
     user_id, db: AsyncSession, *, tz_name: str | None = None,
 ) -> list[StimulantLog]:
@@ -160,6 +169,10 @@ async def get_caffeine_curve(
         "current_mg": round(current_mg, 1),
         "caffeine_at_bedtime": round(caffeine_at_bed, 1),
         "sleep_impact": get_sleep_impact_label(caffeine_at_bed),
+        "sleep_impact_level": get_sleep_impact_level(caffeine_at_bed),
+        # The local hour the estimate is measured at, so the app can say
+        # "still in your system at 11 PM" rather than a bare number.
+        "bedtime_hour": sleep_hour,
         "total_today_mg": sum(log.caffeine_mg for log in logs),
         "last_log": last_log,
     }

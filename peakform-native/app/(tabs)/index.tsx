@@ -322,13 +322,39 @@ function HydrationQuickLog({
 // Both tap → push '/weekly-recap' which opens the cinematic full-screen modal.
 
 function WeeklyRaceCard() {
-  const { data } = useQuery<RecapRaceData>({
+  const { data, isLoading, isError, refetch } = useQuery<RecapRaceData>({
     queryKey: ['friends-recap-race', 0],
     queryFn: () => api.get('/friends/recap/race?week_offset=0').then((r) => r.data),
   })
 
+  // A failed fetch used to fall through the `!data` check and render nothing
+  // at all, so the race card simply disappeared with no way to tell whether
+  // the feature was broken, empty, or hidden on purpose. Say so instead.
+  if (isError) {
+    return (
+      <PressableScale
+        haptic
+        onPress={() => refetch()}
+        style={{
+          backgroundColor: '#18181b',
+          borderColor: '#27272a',
+          borderWidth: 1,
+          borderRadius: 16,
+          padding: 16,
+        }}
+      >
+        <Text className="text-zinc-500 text-xs uppercase tracking-[2px] mb-2">
+          Weekly Race
+        </Text>
+        <Text className="text-zinc-300 text-sm">
+          Couldn't load this week's race. Tap to retry.
+        </Text>
+      </PressableScale>
+    )
+  }
+
   // Query not resolved yet — the dashboard skeletons cover this moment.
-  if (!data) return null
+  if (isLoading || !data) return null
 
   const crew = data.crew
   const weekShort = formatWeekShort(data.week_start, data.week_end)
