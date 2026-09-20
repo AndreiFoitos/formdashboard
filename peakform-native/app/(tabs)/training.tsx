@@ -1286,6 +1286,16 @@ function OneRMCard() {
         <Text className="text-zinc-600 text-[10px]">last 90 days</Text>
       </View>
 
+      {/* The card used to show only numbers, with nothing saying what a 1RM
+          is or where the figure came from. */}
+      <TouchableOpacity onPress={() => router.push('/methodology/one-rm')} className="mb-3">
+        <Text className="text-zinc-500 text-xs leading-4">
+          The heaviest single you could probably lift today, estimated from the
+          sets you logged — no max-out needed.{' '}
+          <Text className="text-zinc-400 font-medium">How? ›</Text>
+        </Text>
+      </TouchableOpacity>
+
       {isLoading ? (
         <ActivityIndicator color="#71717a" />
       ) : top.length === 0 ? (

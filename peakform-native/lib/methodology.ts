@@ -166,6 +166,33 @@ is_pr = week_best > prior_best  AND  prior_best > 0`,
       { name: 'Our own definition — the 90-day window is shorter than a lifetime PR by design.' },
     ],
   },
+  {
+    slug: 'one-rm',
+    title: 'Estimated 1RM',
+    summary:
+      'The heaviest single you could probably lift today, worked backwards from the sets you actually did — you never have to test a true max.',
+    prose: `A one-rep max is the most weight you can lift for a single rep. Actually testing one is risky and takes a session of its own, so we estimate it from sets you already log: lift 100kg for 5 reps and the maths puts your single around 115kg.
+
+We run three published formulas and take their mean, because no single one is best across every rep range. Brzycki is accurate at low reps but over-estimates badly past 10, so above 10 reps we drop it from the average rather than clamp it.
+
+Treat the number as a trend line, not a promise. It's most reliable from sets of 3-8 reps; very high-rep sets say more about your endurance than your max. The card shows which set produced each estimate, so you can see what it's working from.`,
+    formula: `Epley:    weight x (1 + reps / 30)
+Brzycki:  weight x 36 / (37 - reps)     [reps <= 10 only]
+Lombardi: weight x reps^0.10
+
+estimate = mean of the applicable formulas
+
+e.g. 100kg x 5:
+  Epley    = 100 x (1 + 5/30) = 116.7
+  Brzycki  = 100 x 36 / 32    = 112.5
+  Lombardi = 100 x 5^0.10     = 117.5
+  estimate = 115.6 kg`,
+    sources: [
+      { name: 'Epley, B. (1985). Poundage Chart. Boyd Epley Workout, Univ. of Nebraska.' },
+      { name: 'Brzycki, M. (1993). Strength testing: predicting a one-rep max from reps-to-fatigue. JOPERD 64(1).' },
+      { name: 'Lombardi, V.P. (1989). Beginning Weight Training. Wm. C. Brown Publishers.' },
+    ],
+  },
 ]
 
 export function getTopic(slug: string): Topic | undefined {
