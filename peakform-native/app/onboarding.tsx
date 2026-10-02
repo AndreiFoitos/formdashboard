@@ -20,6 +20,8 @@ import { extractErrorMessage } from '../lib/apiError'
 import { FEATURES } from '../lib/featureFlags'
 import { AvatarCanvas } from '../components/avatar/AvatarCanvas'
 import { bodyFromMetrics, DEFAULT_LOOK, toState } from '../lib/avatar/config'
+import { FoodPrefsFields, TrainingPrefsFields } from '../components/preferences/PreferenceFields'
+import { EMPTY_PREFERENCES, type Goal, type Preferences } from '../hooks/usePreferences'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,7 +69,13 @@ const STEPS = [
   { title: 'Your stats',       subtitle: 'Used to calculate protein, water, and calorie targets.' },
   { title: 'Your baseline',    subtitle: 'Calibrates your Form Score from day one.' },
   { title: 'Your targets',     subtitle: 'Pre-filled from your stats. You can edit any of these later in Settings.' },
+  { title: 'Your training',    subtitle: 'So Pit Crew can build a plan that fits. Skip anything you’d rather not answer.' },
+  { title: 'Your food',        subtitle: 'Used for your meal plan. You can change all of this in Settings.' },
 ]
+
+// Steps from here on are optional Pit Crew preferences. Your account is fully
+// set up before them, so quitting the app here loses nothing that matters.
+const TARGETS_STEP = 3
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 
@@ -610,6 +618,14 @@ export default function OnboardingScreen() {
   const [error, setError] = useState<string | null>(null)
   const [usernameState, setUsernameState] = useState<UsernameState>('idle')
   const [selectedGoal, setSelectedGoal] = useState<CalorieOption['key'] | null>(null)
+  const [prefs, setPrefs] = useState<Preferences>(EMPTY_PREFERENCES)
+  // Only what the user touched is sent, so a skipped step writes nothing.
+  const [prefsPatch, setPrefsPatch] = useState<Partial<Preferences>>({})
+
+  function patchPrefs(patch: Partial<Preferences>) {
+    setPrefs((p) => ({ ...p, ...patch }))
+    setPrefsPatch((p) => ({ ...p, ...patch }))
+  }
 
   const [form, setForm] = useState<FormState>({
     username: user?.username ?? '',
@@ -687,6 +703,19 @@ export default function OnboardingScreen() {
     ]
   }, [form.sex, form.training_frequency, form.age, form.height_cm, form.weight_kg])
 
+  // The goal used to be thrown away once it had set calorie_target. Keep it
+  // for Pit Crew; if the user typed their own number instead of tapping a
+  // chip, read the goal off that number (±150 kcal of maintenance = maintain).
+  function goalFromTargets(): Goal | null {
+    if (selectedGoal) return selectedGoal
+    const kcal = parseInt(form.calorie_target)
+    const maintain = calorieOptions?.find((o) => o.key === 'maintain')?.kcal
+    if (!kcal || !maintain) return null
+    if (kcal < maintain - 150) return 'cut'
+    if (kcal > maintain + 150) return 'bulk'
+    return 'maintain'
+  }
+
   function pickGoal(o: CalorieOption) {
     setSelectedGoal(o.key)
     setField('calorie_target', String(o.kcal))
@@ -735,7 +764,11 @@ export default function OnboardingScreen() {
   }
 
   async function handleNext() {
-    if (step < STEPS.length - 1) {
+    if (step > TARGETS_STEP) {
+      await savePrefsStep()
+      return
+    }
+    if (step < TARGETS_STEP) {
       setError(null)
       setLoading(true)
       try {
@@ -765,7 +798,7 @@ export default function OnboardingScreen() {
         setLoading(false)
       }
     } else {
-      // Final step — persist targets, then submit baseline + complete.
+      // Targets step — persist targets, then submit baseline + complete.
       setLoading(true)
       setError(null)
       try {
@@ -805,6 +838,11 @@ export default function OnboardingScreen() {
           training_frequency: form.training_frequency,
           caffeine_habit: form.caffeine_habit,
         })
+        const goal = goalFromTargets()
+        if (goal) {
+          // Not worth blocking setup over: the user can set it in Settings.
+          api.put('/plan-ai/preferences', { goal }).catch(() => {})
+        }
         // Re-read the profile so the store carries the targets we just wrote.
         // Settings seeds its fields from the store; without this it renders
         // empty and a plain "Save changes" used to wipe these values.
@@ -814,7 +852,7 @@ export default function OnboardingScreen() {
         } catch {
           updateUser({ onboarding_complete: true })
         }
-        router.replace('/')
+        setStep((s) => s + 1)
       } catch (err: any) {
         setError(extractErrorMessage(err))
       } finally {
@@ -823,8 +861,34 @@ export default function OnboardingScreen() {
     }
   }
 
+  // Training/Food steps: save whatever was answered, then move on. A failed
+  // save doesn't trap the user in onboarding; Settings can fix it later.
+  async function savePrefsStep() {
+    setLoading(true)
+    setError(null)
+    try {
+      if (Object.keys(prefsPatch).length > 0) {
+        await api.put('/plan-ai/preferences', prefsPatch)
+        setPrefsPatch({})
+      }
+    } catch {
+      // fall through
+    } finally {
+      setLoading(false)
+    }
+    if (step < STEPS.length - 1) setStep((s) => s + 1)
+    else router.replace('/')
+  }
+
+  async function skipPrefsStep() {
+    setPrefsPatch({})
+    if (step < STEPS.length - 1) setStep((s) => s + 1)
+    else router.replace('/')
+  }
+
   const isLast = step === STEPS.length - 1
-  const canSkip = step === 3 // targets — allow Skip on final since defaults are sane
+  const isPrefsStep = step > TARGETS_STEP
+  const canSkip = step === TARGETS_STEP // targets — allow Skip since defaults are sane
 
   return (
     <SafeAreaView className="flex-1 bg-black" edges={['top', 'bottom']}>
@@ -839,11 +903,13 @@ export default function OnboardingScreen() {
         >
           {/* Top bar */}
           <View className="flex-row items-center justify-between pt-4 pb-6">
-            {step > 0 ? (
+            {step > 0 && step !== TARGETS_STEP + 1 ? (
               <TouchableOpacity onPress={() => setStep((s) => s - 1)} hitSlop={12} className="-ml-1 px-2 py-2 flex-row items-center" style={{ gap: 2 }}>
                 <ChevronLeft size={22} color="#d4d4d8" strokeWidth={2.25} />
                 <Text className="text-zinc-300 text-base font-medium">Back</Text>
               </TouchableOpacity>
+            ) : step === TARGETS_STEP + 1 ? (
+              <View />
             ) : (
               /* Step 0 has nothing behind it, and onboarding is the only route
                  a signed-in-but-unonboarded user can reach — without this the
@@ -893,6 +959,8 @@ export default function OnboardingScreen() {
               onPickGoal={pickGoal}
             />
           )}
+          {step === 4 && <TrainingPrefsFields value={prefs} onChange={patchPrefs} />}
+          {step === 5 && <FoodPrefsFields value={prefs} onChange={patchPrefs} />}
 
           {/* Error */}
           {error && (
@@ -914,10 +982,16 @@ export default function OnboardingScreen() {
               <ActivityIndicator color="black" />
             ) : (
               <Text className="text-black font-semibold text-base">
-                {isLast ? 'Finish setup' : 'Continue'}
+                {isLast ? 'Finish' : step === TARGETS_STEP ? 'Save and continue' : 'Continue'}
               </Text>
             )}
           </TouchableOpacity>
+
+          {isPrefsStep && (
+            <TouchableOpacity onPress={skipPrefsStep} disabled={loading} className="py-2 items-center">
+              <Text className="text-zinc-500 text-sm">Skip for now</Text>
+            </TouchableOpacity>
+          )}
 
           {canSkip && (
             <TouchableOpacity

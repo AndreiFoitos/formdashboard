@@ -723,6 +723,20 @@ export default function SettingsScreen() {
 
         <NudgesSection />
 
+        <Section title="Pit Crew">
+          <TouchableOpacity onPress={() => router.push('/preferences')} className="px-4 py-4">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1 pr-3">
+                <Text className="text-white text-sm font-medium">Training & food</Text>
+                <Text className="text-zinc-500 text-xs mt-0.5">
+                  Goal, equipment, injuries, diet and allergies.
+                </Text>
+              </View>
+              <Text className="text-zinc-500 text-base">›</Text>
+            </View>
+          </TouchableOpacity>
+        </Section>
+
         <Section title="Your data">
           <TouchableOpacity onPress={() => router.push('/trends')} className="px-4 py-4 border-b border-zinc-800">
             <View className="flex-row items-center justify-between">

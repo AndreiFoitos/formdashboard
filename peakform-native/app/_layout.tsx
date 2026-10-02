@@ -202,6 +202,8 @@ function RootLayout() {
               <Stack.Screen name="friends" />
               {/* Read-only training programs catalogue */}
               <Stack.Screen name="programs" />
+              {/* Settings → Training & food (Pit Crew preferences) */}
+              <Stack.Screen name="preferences" />
               {/* Deep-link target for gainrace://invite/<token> */}
               <Stack.Screen name="invite/[token]" />
               {/* Methodology — "How is this calculated?" surface */}

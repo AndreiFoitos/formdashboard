@@ -19,6 +19,7 @@ from models.user_split import UserSplit
 from models.avatar_achievement import AvatarAchievement
 from models.billing import AiScan, Purchase
 from models.barcode_product import BarcodeProduct
+from models.user_preference import UserPreference
 
 __all__ = [
     "AvatarAchievement",
@@ -45,4 +46,5 @@ __all__ = [
     "AiScan",
     "Purchase",
     "BarcodeProduct",
+    "UserPreference",
 ]

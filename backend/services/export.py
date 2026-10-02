@@ -22,6 +22,7 @@ from models.nutrition_log import NutritionLog
 from models.stimulant_log import StimulantLog
 from models.training_log import TrainingLog
 from models.user import User
+from models.user_preference import UserPreference
 
 # table name -> (model, columns)
 TABLES = {
@@ -51,6 +52,8 @@ def _cell(value) -> str:
         return ""
     if isinstance(value, (datetime, date)):
         return value.isoformat()
+    if isinstance(value, list):
+        return "; ".join(str(v) for v in value)
     return str(value)
 
 
@@ -73,6 +76,16 @@ async def build_zip(user: User, db: AsyncSession) -> bytes:
             for row in rows:
                 writer.writerow([_cell(getattr(row, c, None)) for c in available])
             zf.writestr(f"{name}.csv", out.getvalue())
+
+        # Preferences are one row, not a log, so they're outside TABLES.
+        prefs = await db.get(UserPreference, user.id)
+        if prefs is not None:
+            cols = [c.name for c in UserPreference.__table__.columns if c.name != "user_id"]
+            out = io.StringIO(newline="")
+            writer = csv.writer(out)
+            writer.writerow(cols)
+            writer.writerow([_cell(getattr(prefs, c)) for c in cols])
+            zf.writestr("preferences.csv", out.getvalue())
 
         profile = io.StringIO(newline="")
         w = csv.writer(profile)
