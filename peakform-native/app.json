@@ -154,7 +154,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "GainRace uses the camera to identify your meal and estimate calories, and to estimate body-fat % from body photos.",
+          "cameraPermission": "GainRace uses the camera to identify your meal and estimate calories, to read barcodes on packaged food, and to estimate body-fat % from body photos.",
           "recordAudioAndroid": false
         }
       ],

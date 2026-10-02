@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { Bookmark, Camera, MoreHorizontal, Search as SearchIcon, X } from 'lucide-react-native'
+import { Bookmark, Camera, MoreHorizontal, ScanBarcode, Search as SearchIcon, X } from 'lucide-react-native'
 import { api } from '../../api/client'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { CountUp } from '../../components/CountUp'
@@ -759,11 +759,11 @@ function LogModal({
   onClose: () => void
   /** Which tab opens first. Set by the Nutrition page so each top-row
    *  button drops the user straight into the relevant view. */
-  initialTab?: 'search' | 'saved' | 'photo'
+  initialTab?: 'search' | 'saved' | 'photo' | 'barcode'
 }) {
   const qc = useQueryClient()
 
-  const [tab, setTab] = useState<'search' | 'saved' | 'photo'>(initialTab)
+  const [tab, setTab] = useState<'search' | 'saved' | 'photo' | 'barcode'>(initialTab)
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   // Open a rename modal for a specific saved meal. null = closed.
@@ -784,11 +784,12 @@ function LogModal({
     return () => clearTimeout(t)
   }, [query])
 
-  // [Photo] tab is a redirect — close the modal then push the snap screen.
+  // [Photo] and [Barcode] tabs are redirects — close the modal then push
+  // their camera screen.
   useEffect(() => {
-    if (tab !== 'photo') return
+    if (tab !== 'photo' && tab !== 'barcode') return
     onClose()
-    router.push('/nutrition-snap')
+    router.push(tab === 'photo' ? '/nutrition-snap' : '/nutrition-barcode')
   }, [tab])
 
   const frequentQuery = useQuery<SearchResponse>({
@@ -961,7 +962,7 @@ function LogModal({
             existing snap screen via the useEffect above. */}
         <View className="px-4 pt-3">
           <View className="flex-row bg-zinc-900 border border-zinc-800 rounded-2xl p-1">
-            {(['search', 'saved', 'photo'] as const).map((t) => {
+            {(['search', 'saved', 'photo', 'barcode'] as const).map((t) => {
               const active = tab === t
               return (
                 <TouchableOpacity
@@ -1348,9 +1349,10 @@ export default function NutritionScreen() {
           <Text className="text-white text-3xl font-bold mt-1.5">Nutrition</Text>
         </View>
 
-        {/* Top-row log actions — Search / Saved / Photo are equal-prominence
-            on-page buttons. Search + Saved open LogModal pre-set to that tab;
-            Photo routes straight to the snap screen, skipping the modal. */}
+        {/* Top-row log actions — Search / Saved / Barcode / Photo are
+            equal-prominence on-page buttons. Search + Saved open LogModal
+            pre-set to that tab; Barcode and Photo route straight to their
+            camera screens, skipping the modal. */}
         <View className="flex-row mb-5" style={{ gap: 8 }}>
           <PressableScale
             haptic
@@ -1376,6 +1378,16 @@ export default function NutritionScreen() {
           >
             <Bookmark size={18} color="#ffffff" strokeWidth={2} />
             <Text className="text-white text-sm font-semibold">Saved</Text>
+          </PressableScale>
+
+          <PressableScale
+            haptic
+            onPress={() => router.push('/nutrition-barcode')}
+            className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl py-4 items-center"
+            style={{ gap: 6 }}
+          >
+            <ScanBarcode size={18} color="#ffffff" strokeWidth={2} />
+            <Text className="text-white text-sm font-semibold">Barcode</Text>
           </PressableScale>
 
           <PressableScale

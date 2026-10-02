@@ -2,9 +2,10 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sqlfunc
 from sqlalchemy.orm import selectinload
@@ -14,15 +15,17 @@ import logging
 import httpx
 
 from core.database import get_db
-from core.redis import get_redis
+from core.redis import cache_get, cache_setex, get_redis
 from core.timezone import user_today
 from middleware.auth import get_current_user
 from models.user import User
+from models.barcode_product import BarcodeProduct
 from models.nutrition_log import NutritionLog
 from models.saved_meal import DismissedMealPattern, SavedMeal, SavedMealItem
 from services.ai_client import AINotConfigured
 from services.daily import increment_daily_field
 from services.nutrition_estimate import estimate_from_photo
+from services.openfoodfacts import InvalidBarcode, fetch_product, normalize_barcode
 from services.plans import FOOD, consume_scan, refund_scan
 from core.config import settings
 from services.usda import (
@@ -335,6 +338,63 @@ async def search_nutrition(
     return {"results": [_per_100g_payload(f) for f in foods]}
 
 
+# Products get reformulated and OFF entries get corrected, but rarely.
+_BARCODE_STALE_AFTER = timedelta(days=30)
+# Unknown codes are re-asked daily: someone may add the product to OFF.
+_BARCODE_MISS_TTL_SECONDS = 24 * 3600
+
+
+@router.get("/barcode/{code}")
+async def lookup_barcode(
+    code: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Packaged product by barcode: name, brand, per-100g (or 100ml) macros and
+    serving/package sizes so the client can scale by the amount eaten. 404 when
+    Open Food Facts doesn't know the code. per_100g is null when OFF knows the
+    product but has no nutrition for it."""
+    try:
+        code = normalize_barcode(code)
+    except InvalidBarcode as e:
+        raise HTTPException(400, str(e))
+
+    cached = await db.get(BarcodeProduct, code)
+    if cached and datetime.now(timezone.utc) - cached.fetched_at < _BARCODE_STALE_AFTER:
+        return cached.data
+
+    miss_key = f"barcode-miss:{code}"
+    if not cached and await cache_get(miss_key):
+        raise HTTPException(404, "Product not found")
+
+    try:
+        async with httpx.AsyncClient() as http:
+            product = await fetch_product(code, http)
+    except httpx.HTTPError as e:
+        log.warning("Open Food Facts lookup failed for %s: %r", code, e)
+        if cached:
+            return cached.data  # stale beats nothing
+        raise HTTPException(502, "Could not reach the product database. Try again.")
+
+    if product is None:
+        if cached:
+            return cached.data
+        await cache_setex(miss_key, _BARCODE_MISS_TTL_SECONDS, "1")
+        raise HTTPException(404, "Product not found")
+
+    if cached:
+        cached.data = product
+        cached.fetched_at = datetime.now(timezone.utc)
+    else:
+        db.add(BarcodeProduct(barcode=code, data=product))
+    try:
+        await db.commit()
+    except IntegrityError:
+        # Another request cached the same code first; theirs is as good.
+        await db.rollback()
+    return product
+
+
 async def _resolve_frequent_food(
     name: str,
     http: httpx.AsyncClient,
@@ -393,7 +453,7 @@ async def frequent_nutrition(
     macros (parallel + Redis-cached). Excludes the legacy
     breakfast/lunch/dinner/snack chips so they don't appear as 'foods'.
 
-    Filters out source='photo' rows: photo logs use the composed *dish* name
+    Filters out source='photo' and 'barcode' rows: photo logs use the composed *dish* name
     as meal_name (e.g. 'Chicken rice bowl'), not its individual ingredients.
     Frequent is meant for single-ingredient autocomplete, so dishes don't
     belong here. Search-logged and saved-meal-relogged rows are kept (those
@@ -418,8 +478,9 @@ async def frequent_nutrition(
             NutritionLog.date >= cutoff,
             NutritionLog.meal_name.is_not(None),
             NutritionLog.meal_name != "",
-            # Exclude photo-logged composed dishes.
-            sqlfunc.coalesce(NutritionLog.source, "manual") != "photo",
+            # Exclude photo-logged composed dishes, and barcode products:
+            # USDA would resolve "Activia Strawberry" to a generic yogurt.
+            sqlfunc.coalesce(NutritionLog.source, "manual").not_in(["photo", "barcode"]),
         )
         .group_by(NutritionLog.meal_name)
         .order_by(sqlfunc.count(NutritionLog.id).desc())
