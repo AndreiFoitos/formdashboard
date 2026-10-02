@@ -20,6 +20,7 @@ from models.avatar_achievement import AvatarAchievement
 from models.billing import AiScan, Purchase
 from models.barcode_product import BarcodeProduct
 from models.user_preference import UserPreference
+from models.ai_message import AiMessage
 
 __all__ = [
     "AvatarAchievement",
@@ -47,4 +48,5 @@ __all__ = [
     "Purchase",
     "BarcodeProduct",
     "UserPreference",
+    "AiMessage",
 ]

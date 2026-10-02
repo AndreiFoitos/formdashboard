@@ -15,6 +15,7 @@ from datetime import date, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from models.ai_message import AiMessage
 from models.body_metric import BodyMetric
 from models.daily_summary import DailySummary
 from models.hydration_log import HydrationLog
@@ -44,6 +45,7 @@ TABLES = {
         "calories", "protein_g", "carbs_g", "fat_g", "additions", "note",
     ]),
     "body_metrics": (BodyMetric, ["date", "weight_kg", "body_fat_pct", "source", "logged_at"]),
+    "ai_chat": (AiMessage, ["created_at", "role", "content"]),
 }
 
 
@@ -65,7 +67,9 @@ async def build_zip(user: User, db: AsyncSession) -> bytes:
             # `or` would raise: a SQLAlchemy column has no truth value.
             order = getattr(model, "date", None)
             if order is None:
-                order = model.logged_at
+                order = getattr(model, "logged_at", None)
+            if order is None:
+                order = model.created_at
             rows = (await db.execute(
                 select(model).where(model.user_id == user.id).order_by(order)
             )).scalars().all()

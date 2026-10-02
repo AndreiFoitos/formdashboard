@@ -5,8 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.daily_summary import DailySummary
 from models.ai_insight import AIInsight
+from models.ai_message import AiMessage
 from core.redis import cache_get, cache_setex
 from services.ai_client import call_claude
+from services.plan_context import build_context
 
 # ── Prompts ─────────────────────────────────────────────────────────────────────
 
@@ -31,7 +33,18 @@ ASK_SYSTEM_PREFIX = (
     "- If the data doesn't support a clean answer, say so in one sentence and stop.\n"
     "- No assistant voice: never say 'I', 'based on your data', 'looking at', 'it appears', 'it seems', 'let me know', 'feel free', 'happy to', 'I'd recommend', 'I notice'. Do not greet, do not sign off, do not offer follow-ups.\n"
     "- No coach-speak or pep: just the read on the numbers.\n"
-    "- Tone: a friend who pulled up your stats and is telling you what's in them."
+    "- Tone: a friend who pulled up your stats and is telling you what's in them.\n"
+    "About the data:\n"
+    "- The data block has the user's profile and preferences, body trend, a daily log, weekly averages, "
+    "strength (1RM values are estimates from rep sets), their usual split and the foods they log most.\n"
+    "- 'nothing logged' means no entries that day, not zero intake. Say so rather than calling it a bad day.\n"
+    "- Never suggest a food listed under allergies, and avoid listed dislikes.\n"
+    "- If health conditions are listed (pregnant, eating_disorder, diabetes, kidney), do not give calorie-cutting "
+    "or restrictive diet advice; say food changes should go through their doctor or a dietitian. Training questions are fine.\n"
+    "- If the user describes eating very little, purging, or punishing exercise, answer with care, skip the numbers, "
+    "and suggest talking to a doctor or an eating-disorder helpline.\n"
+    "- Training and meal plans are not available yet. If asked for one, say Pit Crew plans are coming and answer "
+    "what the data already shows."
 )
 
 # ── Data helpers ────────────────────────────────────────────────────────────────
@@ -130,41 +143,43 @@ Bodyweight: {user.weight_kg}kg, bedtime hour: {user.sleep_hour}:00"""
 
 # ── Ask your data ─────────────────────────────────────────────────────────────
 
-def _build_context(rows: list[DailySummary], user, days: int) -> str:
-    # Sleep / HRV columns are not surfaced (HIGH-16 Path A) — see _week_averages
-    # for rationale. Estimated rows are excluded entirely (MEDIUM-33) so the AI
-    # only reasons over real logs.
-    real_rows = [r for r in rows if not r.is_estimated]
-    lines = [
-        f"User: bodyweight={user.weight_kg}kg, "
-        f"targets: protein={user.protein_target_g}g water={user.water_target_ml}ml, bedtime={user.sleep_hour}:00",
-        "",
-        f"Last {days} days (date | form | water_ml | protein_g | caffeine_mg | trained):",
-    ]
-    for r in real_rows:
-        lines.append(
-            f"{r.date} | {r.form_score} | {r.water_ml} | "
-            f"{round(r.protein_g) if r.protein_g else None} | {r.caffeine_mg} | "
-            f"{'Y' if r.trained else 'N'}"
-        )
-    return "\n".join(lines)
+HISTORY_TURNS = 20  # messages of saved chat the model sees
 
 
-async def answer_question(
-    user, question: str, history: list[dict], db: AsyncSession, days: int = 30
-) -> str:
+async def chat_history(user_id, db: AsyncSession, limit: int = HISTORY_TURNS) -> list[AiMessage]:
+    """Newest `limit` saved messages, oldest first."""
+    rows = (await db.execute(
+        select(AiMessage)
+        .where(AiMessage.user_id == user_id)
+        .order_by(AiMessage.created_at.desc())
+        .limit(limit)
+    )).scalars().all()
+    return list(reversed(rows))
+
+
+async def answer_question(user, question: str, db: AsyncSession, days: int = 30) -> str:
     """`days` is how far back the model may look — a plan perk (30 / 90 / 365,
-    services/plans.py). A longer window is more input tokens per question,
-    which is exactly why it is worth paying for; past ~1k tokens of context
-    the cache breakpoint below also starts paying off."""
-    rows = await _last_n_days(user.id, days, db)
-    context = _build_context(rows, user, days)
+    services/plans.py). The newest 14 days go in full, the rest as weekly
+    averages (services/plan_context.py).
 
-    # The 30-day data block is large and stable across a conversation's turns —
-    # cache it so follow-up questions only pay full price for the new question.
+    History comes from ai_messages, not the client, so a chat survives
+    leaving the tab and older app builds that still send `history` get the
+    same answers. Saving the new turn is the caller's job, after it has an
+    answer to save."""
+    context = await build_context(user, db, days)
+    # Cached: the system prompt + data block are the same across a
+    # conversation's turns, so follow-ups pay full price only for the new turn.
     system = [
         {"type": "text", "text": ASK_SYSTEM_PREFIX},
         {"type": "text", "text": context, "cache_control": {"type": "ephemeral"}},
     ]
-    messages = (history or [])[-10:] + [{"role": "user", "content": question}]
-    return await call_claude(system, messages, max_tokens=700)
+    history = [{"role": m.role, "content": m.content} for m in await chat_history(user.id, db)]
+    # The API needs user/assistant alternation starting with a user turn. A
+    # failed turn never saves, but drop any leading assistant message anyway.
+    while history and history[0]["role"] != "user":
+        history.pop(0)
+    messages = history + [{"role": "user", "content": question}]
+    # Medium effort so questions like "why am I not losing weight" get some
+    # reasoning over the numbers. A starting point, not tuned against an eval.
+    # max_tokens covers the thinking as well as the short answer.
+    return await call_claude(system, messages, max_tokens=4000, effort="medium")

@@ -54,6 +54,7 @@ async def call_claude(
     messages: list[dict],
     max_tokens: int = 600,
     thinking: bool = True,
+    effort: str | None = None,
 ) -> str:
     """Single Messages API call, returns the concatenated text.
 
@@ -65,6 +66,8 @@ async def call_claude(
     client = get_client()
     await _enforce_global_spend_cap()
     extra = {} if thinking else {"thinking": {"type": "between_tools"}}
+    if effort:
+        extra["output_config"] = {"effort": effort}
     resp = await client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=max_tokens,

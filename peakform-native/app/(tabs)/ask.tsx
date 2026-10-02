@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
+  Alert,
   View,
   Text,
   TextInput,
@@ -10,7 +11,7 @@ import {
   Platform,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { handleLimitError, openPaywall, usePlan, useSetPlan } from '../../hooks/usePlan'
@@ -21,15 +22,32 @@ interface Turn {
 }
 
 const SUGGESTIONS = [
+  'Is my weight moving at the right speed for my goal?',
+  'Am I getting stronger on my main lifts?',
   'Am I hitting my protein target consistently?',
-  'How has my training volume trended this week?',
-  'Is my weight moving in the right direction?',
   "What's my biggest lever to raise my Form Score?",
 ]
+
+const MESSAGES_KEY = ['ai', 'messages']
 
 export default function AskScreen() {
   useRequireAuth()
   const [turns, setTurns] = useState<Turn[]>([])
+  const qc = useQueryClient()
+  // The chat is saved on the server (GET /ai/messages), so it survives
+  // leaving the tab and restarting the app.
+  const saved = useQuery<Turn[]>({
+    queryKey: MESSAGES_KEY,
+    queryFn: () => api.get('/ai/messages').then((r) => r.data.messages),
+  })
+  const [loaded, setLoaded] = useState(false)
+  useEffect(() => {
+    if (saved.data && !loaded) {
+      setTurns(saved.data.map((m) => ({ role: m.role, content: m.content })))
+      setLoaded(true)
+      scrollDown()
+    }
+  }, [saved.data, loaded])
   const [input, setInput] = useState('')
   const { data: plan } = usePlan()
   const refreshPlan = useSetPlan()
@@ -42,10 +60,11 @@ export default function AskScreen() {
   const ask = useMutation({
     mutationFn: (question: string) =>
       api
-        .post('/ai/ask', { question, history: turns.slice(-10) }, { timeout: 60_000 })
+        .post('/ai/ask', { question }, { timeout: 60_000 })
         .then((r) => r.data.answer as string),
     onSuccess: (answer) => {
       setTurns((t) => [...t, { role: 'assistant', content: answer }])
+      qc.invalidateQueries({ queryKey: MESSAGES_KEY })
       refreshPlan()
       scrollDown()
     },
@@ -66,6 +85,22 @@ export default function AskScreen() {
     },
   })
 
+  const clear = useMutation({
+    mutationFn: () => api.delete('/ai/messages'),
+    onSuccess: () => {
+      setTurns([])
+      qc.setQueryData(MESSAGES_KEY, [])
+    },
+    onError: () => Alert.alert("Couldn't start a new chat", 'Please try again.'),
+  })
+
+  function confirmClear() {
+    Alert.alert('Start a new chat?', 'This conversation will be deleted.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'New chat', style: 'destructive', onPress: () => clear.mutate() },
+    ])
+  }
+
   function send(q: string) {
     const question = q.trim()
     if (!question || ask.isPending) return
@@ -85,13 +120,20 @@ export default function AskScreen() {
           <Text className="text-zinc-400 text-xs uppercase tracking-widest font-semibold">Ask</Text>
           <View className="flex-row items-end justify-between">
             <Text className="text-white text-3xl font-bold mt-1.5">Your Data</Text>
-            {asksLeft && (
-              <TouchableOpacity onPress={() => openPaywall('ask')} hitSlop={10} className="pb-1.5">
-                <Text className="text-zinc-500 text-xs">
-                  {asksLeft.remaining}/{asksLeft.limit} questions left today
-                </Text>
-              </TouchableOpacity>
-            )}
+            <View className="items-end pb-1.5" style={{ gap: 6 }}>
+              {turns.length > 0 && (
+                <TouchableOpacity onPress={confirmClear} disabled={ask.isPending || clear.isPending} hitSlop={10}>
+                  <Text className="text-zinc-300 text-xs font-medium">New chat</Text>
+                </TouchableOpacity>
+              )}
+              {asksLeft && (
+                <TouchableOpacity onPress={() => openPaywall('ask')} hitSlop={10}>
+                  <Text className="text-zinc-500 text-xs">
+                    {asksLeft.remaining}/{asksLeft.limit} questions left today
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
 
@@ -101,11 +143,13 @@ export default function AskScreen() {
           contentContainerStyle={{ paddingBottom: 16 }}
           keyboardShouldPersistTaps="handled"
         >
-          {turns.length === 0 ? (
+          {!loaded && saved.isLoading ? (
+            <ActivityIndicator color="#71717a" style={{ marginTop: 24 }} />
+          ) : turns.length === 0 ? (
             <View style={{ gap: 10, marginTop: 8 }}>
               <Text className="text-zinc-500 text-sm leading-6 mb-1">
                 Ask anything about your training, nutrition, body, or Form Score over the
-                last 30 days.
+                last {plan?.history_days ?? 30} days.
               </Text>
               {SUGGESTIONS.map((s) => (
                 <TouchableOpacity
