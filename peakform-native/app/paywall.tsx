@@ -49,6 +49,7 @@ const HEADLINES: Record<PaywallReason | 'default', { title: string; sub: string 
   food: { title: "You've used today's food scan", sub: 'Upgrade to keep snapping meals.' },
   bf: { title: "You've used this week's body-fat scan", sub: 'Upgrade to track your progress more often.' },
   ask: { title: "You've used today's questions", sub: 'Upgrade to keep asking about your data.' },
+  plan: { title: "You've used your plan builds", sub: 'Upgrade for a fresh Pit Crew plan every week.' },
   history: { title: 'See further back', sub: 'Plus shows 90 days of trends, Pro a full year.' },
   export: { title: 'Export your data', sub: 'Pro members can download everything they logged.' },
   friends: { title: 'Your friends list is full', sub: 'Upgrade to race with more friends.' },

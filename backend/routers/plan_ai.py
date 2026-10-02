@@ -1,20 +1,25 @@
 """Pit Crew: AI training + meal plans. See docs/ai-plans-design.md.
 
-Step 1 only has the preferences the plans are built from. Plan generation
-and the chat land here in later steps.
+Preferences (what plans are built from) and plan builds. The chat that
+edits a plan lands here in a later step.
 """
 from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
 from middleware.auth import get_current_user
+from core.timezone import user_today
+from models.ai_plan import AiPlan
 from models.user import User
 from models.user_preference import UserPreference
+from services.plan_builder import expire_stale, run_build
+from services.plans import PLAN, consume_scan
 
 router = APIRouter(prefix="/plan-ai", tags=["plan-ai"])
 
@@ -107,3 +112,76 @@ async def update_preferences(
     await db.commit()
     await db.refresh(prefs)
     return _out(prefs)
+
+
+# ─── Plans ────────────────────────────────────────────────────────────────────
+
+
+def _plan_out(row: AiPlan) -> dict:
+    return {
+        "id": str(row.id),
+        "status": row.status,
+        "week_start": row.week_start.isoformat(),
+        "created_at": row.created_at.isoformat(),
+        "plan": row.plan,
+        "targets": row.targets,
+        "rationale": row.rationale,
+        "meal_plan_enabled": row.meal_plan_enabled,
+    }
+
+
+@router.get("/plan")
+async def get_plan(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """The plan in force, plus the state of the latest build so the app can
+    show "building..." or the reason a build failed."""
+    await expire_stale(current_user.id, db)
+    ready = (await db.execute(
+        select(AiPlan)
+        .where(AiPlan.user_id == current_user.id, AiPlan.status == "ready")
+        .order_by(AiPlan.created_at.desc())
+        .limit(1)
+    )).scalar_one_or_none()
+    latest = (await db.execute(
+        select(AiPlan)
+        .where(AiPlan.user_id == current_user.id, AiPlan.status.in_(("generating", "failed")))
+        .order_by(AiPlan.created_at.desc())
+        .limit(1)
+    )).scalar_one_or_none()
+    if latest and ready and latest.created_at < ready.created_at:
+        latest = None  # an older failure, already superseded
+    return {
+        "plan": _plan_out(ready) if ready else None,
+        "building": bool(latest and latest.status == "generating"),
+        "last_error": latest.error if latest and latest.status == "failed" else None,
+    }
+
+
+@router.post("/plan", status_code=202)
+async def build_plan(
+    background: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Start a build. Returns at once; the plan arrives via GET /plan and a
+    push notification, usually within a couple of minutes."""
+    await expire_stale(current_user.id, db)
+    running = (await db.execute(
+        select(AiPlan.id).where(AiPlan.user_id == current_user.id, AiPlan.status == "generating")
+    )).first()
+    if running:
+        raise HTTPException(409, "A plan is already being built")
+    scan_id = await consume_scan(current_user, PLAN, db)
+    row = AiPlan(
+        user_id=current_user.id,
+        status="generating",
+        week_start=user_today(current_user.timezone),
+        meal_plan_enabled=True,
+        scan_id=scan_id,
+    )
+    db.add(row)
+    await db.commit()
+    background.add_task(run_build, row.id)
+    return {"id": str(row.id), "building": True}

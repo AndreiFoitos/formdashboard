@@ -21,6 +21,7 @@ from models.billing import AiScan, Purchase
 from models.barcode_product import BarcodeProduct
 from models.user_preference import UserPreference
 from models.ai_message import AiMessage
+from models.ai_plan import AiPlan
 
 __all__ = [
     "AvatarAchievement",
@@ -49,4 +50,5 @@ __all__ = [
     "BarcodeProduct",
     "UserPreference",
     "AiMessage",
+    "AiPlan",
 ]

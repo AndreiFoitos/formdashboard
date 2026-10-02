@@ -4,11 +4,12 @@ import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 
 export type PlanId = 'free' | 'plus' | 'pro'
-export type ScanKind = 'food' | 'bf' | 'ask'
+export type ScanKind = 'food' | 'bf' | 'ask' | 'plan'
 
 export interface ScanUsage {
   limit: number
-  window: 'day' | 'week'
+  /** 'ever' = lifetime (Free's one Pit Crew plan build). */
+  window: 'day' | 'week' | 'ever'
   used: number
   remaining: number
   resets_at: string | null
@@ -59,7 +60,7 @@ export function useSetPlan() {
   }
 }
 
-export type PaywallReason = 'food' | 'bf' | 'ask' | 'friends' | 'history' | 'export'
+export type PaywallReason = 'food' | 'bf' | 'ask' | 'plan' | 'friends' | 'history' | 'export'
 
 /** If the error is a plan limit (HTTP 402), open the paywall and return true. */
 export function handleLimitError(err: any): boolean {

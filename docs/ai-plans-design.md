@@ -198,24 +198,32 @@ and swapping a meal means changing one entry.
 Claude never outputs calories, macros or kilograms. The backend calculates them.
 
 ### Validation and numbers (all in code, `services/plan_builder.py`)
-1. **Targets.** kcal comes from the same Mifflin-St Jeor TDEE the onboarding
-   uses, adjusted for the goal and corrected by the real weight trend once 3+ weeks
-   of weigh-ins exist. Protein = `protein_g_per_kg` clamped to 1.6–2.4 g/kg.
-   Then the safety limits in §8 apply.
-2. **Exercises.** Unknown keys are dropped and replaced with another exercise
-   from the same muscle group. Exercises that load an injury the user listed are
-   removed. Sets are capped at ~20 per muscle group per week.
-3. **Starting weights.** `intensity_pct_1rm` × the user's estimated 1RM, rounded
-   to 2.5 kg. With no history the weight is blank and the app shows "pick a weight
-   you can lift for 8 reps".
-4. **Meals.** Each food goes through the same USDA lookup as photo scans
-   (`nutrition_estimate._lookup_or_fallback`), cached by food name. Then each
-   day's grams are scaled together to land within ±5% of the kcal target, and
-   rounded to 5 g. Household portions come from `usda.portions`.
-5. **Allergies and diet style.** Each food is checked against a keyword list
-   (e.g. dairy → milk, cheese, whey, yogurt, butter). Any match → regenerate once
-   with the problem named. A second failure → the plan fails cleanly and the quota
-   is refunded.
+*As built (step 3):*
+1. **Targets.** The user's own calorie and protein targets are used, so the plan
+   never disagrees with the rest of the app. They're checked against a TDEE
+   estimate: measured (logged intake minus the weight trend × 7,700 kcal/kg)
+   when there are 14+ logged days and 2+ weeks of weigh-ins, else Mifflin-St Jeor
+   × activity. The §8 limits then apply, and any change is listed in
+   `targets.notes`. Protein is clamped to 1.6–2.4 g/kg; fat is 27% of kcal; carbs
+   fill the rest. The plan doesn't change the user's settings (the chat can).
+2. **Exercises.** The schema's `key` is an enum of the exercises this user may
+   do, so equipment and preset-injury exclusions (`INJURY_EXCLUDES`) hold by
+   construction. Free-text injuries only reach the prompt. Sets, reps and rest
+   are clamped, duplicate weekdays dropped, and a weekly set cap per muscle group
+   (Legs 34, Back 26, Arms 24, Core 16, others 20) trims accessories first.
+3. **Starting weights.** The best estimated 1RM from the last 16 weeks, with Epley
+   inverted for `reps_max` + 2 reps in reserve, rounded to 2.5 kg (1 kg under
+   20 kg). Bodyweight moves and lifts with no history get no weight.
+4. **Meals.** Claude also returns its own per-100 g estimate for each food. The
+   USDA lookup uses that to reject implausible matches, and falls back to it when
+   USDA has nothing. Results are cached by food name. Each day's grams are scaled
+   together to the kcal target (factor clamped to 0.7–1.4) and rounded to 5 g.
+   Days off by more than 10% on kcal, or 15% on protein, go in `targets.warnings`.
+5. **Allergies and diet style.** Each food is checked against keyword lists, with
+   plant foods named like dairy ("peanut butter", "oat milk") let through.
+   Allergy/diet hits, dislikes and short-protein days trigger one retry that
+   names the problems. A second allergy/diet hit fails the build with a friendly
+   message, and the quota is refunded.
 
 ### Progression without AI
 The Today card uses double progression. When every set of an exercise reached
@@ -264,7 +272,8 @@ Measured prices: Sonnet 5, $2 per million tokens in and $10 per million out.
 
 | | cost per call |
 |---|---|
-| Plan generation (~8K in, ~6K out incl. thinking) | ~$0.07–0.10 |
+| Plan generation, measured on Sonnet 5.5 at high effort: training + meals ~6K in / 12K out, 85 s | ~$0.13 (~$0.19 when it retries) |
+| Plan generation, training only (health flag) | ~$0.04 |
 | Chat turn with a tool (2 calls, cached context) | ~$0.01–0.03 |
 | USDA lookups | free (API key) |
 

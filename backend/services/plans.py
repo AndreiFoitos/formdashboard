@@ -29,13 +29,14 @@ from models.user import User
 FOOD = "food"
 BF = "bf"
 ASK = "ask"
-KINDS = (FOOD, BF, ASK)
+PLAN = "plan"  # Pit Crew plan builds
+KINDS = (FOOD, BF, ASK, PLAN)
 
 
 @dataclass(frozen=True)
 class Limit:
     count: int
-    window: str  # "day" | "week"
+    window: str  # "day" | "week" | "ever" (lifetime, for Free's one trial plan)
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,8 @@ class Plan:
     # "Ask your data" questions. The daily digest is free on every plan: it is
     # cached per user per day (~$0.002) and it is what brings people back.
     ask: Limit
+    # Pit Crew plan builds (~$0.07-0.10 each). Free gets one to try.
+    plan: Limit
     friends: int
     # How far back trends/charts and the Ask context may reach. Raw logs and
     # existing history screens are NOT limited by this: a user can always see
@@ -59,16 +62,16 @@ class Plan:
 PLANS: dict[str, Plan] = {
     "free": Plan(
         "free", food=Limit(1, "day"), bf=Limit(1, "week"), ask=Limit(3, "day"),
-        friends=15, history_days=30, export=False,
+        plan=Limit(1, "ever"), friends=15, history_days=30, export=False,
     ),
     "plus": Plan(
         "plus", food=Limit(4, "day"), bf=Limit(3, "week"), ask=Limit(15, "day"),
-        friends=50, history_days=90, export=False,
+        plan=Limit(1, "week"), friends=50, history_days=90, export=False,
     ),
     # "Unlimited" in the app; these are fair-use caps against abuse.
     "pro": Plan(
         "pro", food=Limit(12, "day"), bf=Limit(1, "day"), ask=Limit(50, "day"),
-        friends=150, history_days=365, export=True,
+        plan=Limit(3, "week"), friends=150, history_days=365, export=True,
     ),
 }
 
@@ -87,11 +90,13 @@ def _window_start(user: User, window: str) -> datetime:
         tz = resolve_tz(user.timezone)
         local_midnight = datetime.combine(user_now(user.timezone).date(), time.min, tzinfo=tz)
         return local_midnight.astimezone(timezone.utc)
+    if window == "ever":
+        return datetime(2000, 1, 1, tzinfo=timezone.utc)
     return datetime.now(timezone.utc) - timedelta(days=7)
 
 
 def _limit(plan: Plan, kind: str) -> Limit:
-    return {FOOD: plan.food, BF: plan.bf, ASK: plan.ask}[kind]
+    return {FOOD: plan.food, BF: plan.bf, ASK: plan.ask, PLAN: plan.plan}[kind]
 
 
 async def _used(user: User, kind: str, window: str, db: AsyncSession) -> tuple[int, datetime | None]:
@@ -105,7 +110,9 @@ async def _used(user: User, kind: str, window: str, db: AsyncSession) -> tuple[i
     return n, oldest
 
 
-def _resets_at(user: User, window: str, oldest: datetime | None) -> datetime:
+def _resets_at(user: User, window: str, oldest: datetime | None) -> datetime | None:
+    if window == "ever":
+        return None
     if window == "day":
         return _window_start(user, "day") + timedelta(days=1)
     return (oldest or datetime.now(timezone.utc)) + timedelta(days=7)
@@ -123,7 +130,7 @@ async def usage(user: User, db: AsyncSession) -> dict:
             "window": lim.window,
             "used": min(used, lim.count),
             "remaining": max(lim.count - used, 0),
-            "resets_at": _resets_at(user, lim.window, oldest).isoformat() if used else None,
+            "resets_at": (r.isoformat() if used and (r := _resets_at(user, lim.window, oldest)) else None),
         }
     return out
 
@@ -143,15 +150,16 @@ async def consume_scan(user: User, kind: str, db: AsyncSession) -> uuid.UUID:
     used, oldest = await _used(user, kind, lim.window, db)
     if used > lim.count:
         await refund_scan(scan.id, db)
-        noun = {FOOD: "food scan", BF: "body-fat scan", ASK: "question"}[kind]
-        period = "today" if lim.window == "day" else "this week"
+        noun = {FOOD: "food scan", BF: "body-fat scan", ASK: "question", PLAN: "plan build"}[kind]
+        period = {"day": "today", "week": "this week", "ever": "on the Free plan"}[lim.window]
+        resets = _resets_at(user, lim.window, oldest)
         raise HTTPException(402, {
             "code": "scan_limit",
             "kind": kind,
             "plan": plan.id,
             "limit": lim.count,
             "window": lim.window,
-            "resets_at": _resets_at(user, lim.window, oldest).isoformat(),
+            "resets_at": resets.isoformat() if resets else None,
             "message": f"You've used your {lim.count} {noun}{'s' if lim.count != 1 else ''} {period}.",
         })
     return scan.id

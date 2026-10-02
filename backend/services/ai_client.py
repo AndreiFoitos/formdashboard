@@ -76,3 +76,43 @@ async def call_claude(
         **extra,
     )
     return "".join(b.text for b in resp.content if b.type == "text").strip()
+
+
+class AIRefused(Exception):
+    """The model declined (stop_reason "refusal")."""
+
+
+async def call_claude_json(
+    system,
+    messages: list[dict],
+    schema: dict,
+    max_tokens: int = 32000,
+    effort: str | None = None,
+):
+    """One structured-output call: the reply is JSON matching `schema`.
+
+    Streams, so a long plan can't hit an HTTP timeout. Returns (data, message)
+    so callers can read usage and replay `message.content` (thinking blocks
+    included) in a follow-up turn. Raises AIRefused on a refusal and
+    ValueError when the reply is cut off by max_tokens."""
+    import json
+
+    client = get_client()
+    await _enforce_global_spend_cap()
+    output_config: dict = {"format": {"type": "json_schema", "schema": schema}}
+    if effort:
+        output_config["effort"] = effort
+    async with client.messages.stream(
+        model=CLAUDE_MODEL,
+        max_tokens=max_tokens,
+        system=system,
+        messages=messages,
+        output_config=output_config,
+    ) as stream:
+        message = await stream.get_final_message()
+    if message.stop_reason == "refusal":
+        raise AIRefused(getattr(message, "stop_details", None))
+    if message.stop_reason == "max_tokens":
+        raise ValueError("Model output was cut off (max_tokens)")
+    text = next(b.text for b in message.content if b.type == "text")
+    return json.loads(text), message
