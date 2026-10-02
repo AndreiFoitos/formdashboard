@@ -124,6 +124,9 @@ PICK_PORTIONS = True
 # "low" on step 1 gave 0.0069 at MAE 116. Kept on Sonnet at default effort:
 # accuracy is the product and the saving is ~$0.003/scan.
 # Re-run the eval before changing either.
+# 2026-10-02, same 100 plates, condition v1portion_s5: moving every call from
+# Sonnet 5 to Sonnet 5.5 took kcal MAE 111 -> 102 (95% CI -26 to +8, not
+# significant) at $0.0103 -> $0.0110 per scan and ~1 s faster.
 PICK_MODEL = CLAUDE_MODEL
 VISION_EFFORT: str | None = None
 
@@ -134,7 +137,15 @@ def _extract_json(text: str) -> dict:
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
-    return json.loads(text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # Sonnet 5.5 sometimes writes a sentence of reasoning before the
+        # object ("I count roughly 35 almonds..."). Parse from the first brace.
+        start = text.find("{")
+        if start < 0:
+            raise
+        return json.JSONDecoder().raw_decode(text[start:])[0]
 
 
 def _num(v) -> float:

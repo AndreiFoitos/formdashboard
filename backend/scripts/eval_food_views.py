@@ -14,6 +14,8 @@ four fixed cameras. Conditions:
     v1portion overhead only, FNDDS + pick step (entry and household portion chosen by the model)
     v1pick_haiku  v1portion with the pick step on Haiku 4.5
     v1low         v1pick_haiku with the step-1 vision call at effort "low"
+    v1portion_s5  v1portion with every call forced to Sonnet 5 (baseline for the
+                  Sonnet 5.5 switch; v1portion itself runs on CLAUDE_MODEL)
 
 Each condition runs through the production pipeline (services.nutrition_estimate:
 Claude vision -> USDA / Claude fallback -> totals), so the calorie error is what
@@ -54,6 +56,7 @@ MAX_EDGE = 1568  # same as the app's client-side resize
 # have no "cost" field and are priced as Sonnet 5.
 PRICES = {
     "claude-sonnet-5": (2.00 / 1_000_000, 10.00 / 1_000_000),
+    "claude-sonnet-5-5": (2.00 / 1_000_000, 10.00 / 1_000_000),
     "claude-haiku-4-5": (1.00 / 1_000_000, 5.00 / 1_000_000),
 }
 PRICE_IN, PRICE_OUT = PRICES["claude-sonnet-5"]
@@ -195,6 +198,8 @@ class UsageMeter:
     def __init__(self) -> None:
         self.rows: list[dict] = []
         self.tag = __import__("contextvars").ContextVar("tag", default=None)
+        # Per-condition model override (MODEL_OVERRIDE), applied to every call.
+        self.model = __import__("contextvars").ContextVar("model", default=None)
 
     def install(self) -> None:
         import services.ai_client as ai_client
@@ -204,6 +209,11 @@ class UsageMeter:
         meter = self
 
         async def create(*args, **kwargs):
+            if override := meter.model.get():
+                kwargs["model"] = override
+                # between_tools is Sonnet 5.5 only; older models take disabled.
+                if kwargs.get("thinking", {}).get("type") == "between_tools":
+                    kwargs["thinking"] = {"type": "disabled"}
             resp = await original(*args, **kwargs)
             u = resp.usage
             p_in, p_out = PRICES[kwargs["model"]]
@@ -247,9 +257,10 @@ def _memoize_usda(enabled: bool) -> None:
 
 CONDITIONS = {
     "v1": 0, "v2": 1, "v3": 2, "v1cal": 0, "v1usda": 0, "v1fndds": 0, "v1portion": 0,
-    "v1pick_haiku": 0, "v1low": 0,
+    "v1pick_haiku": 0, "v1low": 0, "v1portion_s5": 0,
 }  # number of side angles added to overhead
-PICK_CONDITIONS = {"v1portion", "v1pick_haiku", "v1low"}
+PICK_CONDITIONS = {"v1portion", "v1pick_haiku", "v1low", "v1portion_s5"}
+MODEL_OVERRIDE = {"v1portion_s5": "claude-sonnet-5"}
 
 # Prompt variants, keyed by condition. Anything not listed uses the production prompt.
 PORTION_CALIBRATION = (
@@ -300,6 +311,7 @@ async def run(data: Path, conditions: list[str], limit: int | None, concurrency:
         async with sem:
             tag = f"{m['dish']}:{cond}"
             meter.tag.set(tag)
+            meter.model.set(MODEL_OVERRIDE.get(cond))
             t0 = time.monotonic()
             row = {"dish": m["dish"], "cond": cond, "gt_kcal": m["calories"], "gt_mass": m["mass_g"]}
             try:

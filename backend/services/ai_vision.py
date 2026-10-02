@@ -20,7 +20,7 @@ async def call_claude_vision(
     at the API's default downscale). A label, when given, is placed as a text
     block right before its image so the model knows which view it's looking at.
 
-    `effort` ("low" / "medium" / ...) caps how much Sonnet 5 thinks. Leave it
+    `effort` ("low" / "medium" / ...) caps how much Sonnet 5.5 thinks. Leave it
     None for Haiku 4.5, which rejects the parameter.
     """
     if isinstance(images, bytes):

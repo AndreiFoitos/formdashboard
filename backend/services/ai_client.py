@@ -9,9 +9,9 @@ from core import redis as redis_mod
 # quality/cost balance on this high-volume per-user feature; bump to
 # "claude-opus-5" here if you want higher quality and accept the cost.
 #
-# Sonnet 5 supersedes the Sonnet 4.6 we shipped on and is also cheaper
-# ($2/$10 per MTok vs $3/$15), so this is a strict win at the same tier.
-CLAUDE_MODEL = "claude-sonnet-5"
+# Sonnet 5.5 supersedes Sonnet 5 at the same price ($2/$10 per MTok).
+# It rejects `thinking: disabled`; see call_claude for the replacement.
+CLAUDE_MODEL = "claude-sonnet-5-5"
 
 
 class AINotConfigured(Exception):
@@ -57,12 +57,14 @@ async def call_claude(
 ) -> str:
     """Single Messages API call, returns the concatenated text.
 
-    Sonnet 5 thinks adaptively unless told not to, and thinking tokens count
+    Sonnet 5.5 thinks adaptively unless told not to, and thinking tokens count
     against max_tokens. Pass thinking=False for tiny structured replies: with
-    a ~120-token cap the model can spend it all thinking and return no text."""
+    a ~120-token cap the model can spend it all thinking and return no text.
+    Sonnet 5.5 400s on {"type": "disabled"}; "between_tools" is its
+    no-thinking setting (allowed at the default "high" effort or below)."""
     client = get_client()
     await _enforce_global_spend_cap()
-    extra = {} if thinking else {"thinking": {"type": "disabled"}}
+    extra = {} if thinking else {"thinking": {"type": "between_tools"}}
     resp = await client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=max_tokens,

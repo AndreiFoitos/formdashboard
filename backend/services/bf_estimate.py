@@ -59,7 +59,15 @@ def _extract_json(text: str) -> dict:
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
-    return json.loads(text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        # Sonnet 5.5 sometimes writes a sentence of reasoning before the
+        # object ("I count roughly 35 almonds..."). Parse from the first brace.
+        start = text.find("{")
+        if start < 0:
+            raise
+        return json.JSONDecoder().raw_decode(text[start:])[0]
 
 
 async def estimate_bf_from_photos(views: list[tuple[str | None, bytes]]) -> dict:
@@ -77,7 +85,7 @@ async def estimate_bf_from_photos(views: list[tuple[str | None, bytes]]) -> dict
             for i, (name, data) in enumerate(views)
         ]
         prompt = BF_PROMPT_MULTI.format(n=len(views))
-    # Headroom above the single-photo default: Sonnet 5 thinks adaptively when
+    # Headroom above the single-photo default: Sonnet 5.5 thinks adaptively when
     # `thinking` is omitted, and more views means more to reason over. A
     # truncated reply would fail JSON parsing and surface as a 502.
     raw = await call_claude_vision(BF_SYSTEM, images, prompt, max_tokens=2000)
