@@ -7,6 +7,7 @@ import {
 import type { ParamListBase, TabNavigationState } from '@react-navigation/native'
 import { BottomNav } from '../../components/BottomNav'
 import { OfflineBanner } from '../../components/OfflineBanner'
+import { PolicyUpdateNotice } from '../../components/PolicyUpdateNotice'
 
 const { Navigator } = createMaterialTopTabNavigator()
 
@@ -34,6 +35,7 @@ export default function TabsLayout() {
         <MaterialTopTabs.Screen name="ask" />
       </MaterialTopTabs>
       <OfflineBanner />
+      <PolicyUpdateNotice />
     </View>
   )
 }
