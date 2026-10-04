@@ -29,6 +29,7 @@ const FEATURES: Record<Tier, string[]> = {
     '4 food scans a day',
     '3 body-fat scans a week',
     '15 AI questions a day',
+    'A new Pit Crew plan every week',
     '90 days of trends',
     'Up to 50 friends',
   ],
@@ -36,6 +37,7 @@ const FEATURES: Record<Tier, string[]> = {
     'Unlimited food scans*',
     'A body-fat scan every day',
     '50 AI questions a day',
+    '3 Pit Crew plans a week',
     'A full year of trends',
     'Export your data',
     'Up to 150 friends',
@@ -43,7 +45,7 @@ const FEATURES: Record<Tier, string[]> = {
   ],
 }
 const FREE_LINE =
-  'Free: 1 food scan a day, 1 body-fat scan a week, 3 questions a day, 30 days of trends, 15 friends.'
+  'Free: 1 food scan a day, 1 body-fat scan a week, 3 questions a day, 1 Pit Crew plan to try, 30 days of trends, 15 friends.'
 
 const HEADLINES: Record<PaywallReason | 'default', { title: string; sub: string }> = {
   food: { title: "You've used today's food scan", sub: 'Upgrade to keep snapping meals.' },

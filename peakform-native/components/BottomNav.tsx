@@ -16,7 +16,7 @@ const LABELS: Record<string, string> = {
   training: 'Training',
   nutrition: 'Nutrition',
   body: 'Body',
-  ask: 'Ask',
+  ask: 'Pit',
 }
 
 const INDICATOR_WIDTH = 32

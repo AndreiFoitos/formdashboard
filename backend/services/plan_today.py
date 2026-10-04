@@ -1,0 +1,165 @@
+"""Today's slice of a Pit Crew plan, with progression (docs/ai-plans-design.md §6).
+
+Progression is plain code, no AI: double progression. When every planned set
+of an exercise reached the top of its rep range last session, the weight goes
+up one step; otherwise it stays and the goal is to reach the top. Lifts with
+no history use the plan's starting weight.
+
+Meals logged from the plan are tracked on the plan row itself
+(plan["logged"][date][meal_id] = nutrition log ids). A meal counts as logged
+only while those entries still exist, so deleting them in the Nutrition tab
+un-ticks it here.
+"""
+from __future__ import annotations
+
+import uuid
+from collections import defaultdict
+from datetime import date, timedelta
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.timezone import user_today
+from models.ai_plan import AiPlan
+from models.nutrition_log import NutritionLog
+from models.training_log import TrainingLog
+from models.user import User
+
+LOOKBACK = timedelta(weeks=8)
+KEEP_LOGGED_DAYS = 14
+
+
+def _step(group: str, weight: float) -> float:
+    """Smallest sensible jump: 5 kg on lower-body barbell work, 1 kg on
+    light dumbbell/isolation weights, else 2.5 kg."""
+    if weight < 20:
+        return 1.0
+    return 5.0 if group == "Legs" else 2.5
+
+
+def suggest(ex: dict, last: list[TrainingLog]) -> dict:
+    """Weight and reps to aim for, and a short reason the app can show."""
+    lo, hi, sets = ex["reps_min"], ex["reps_max"], ex["sets"]
+    weighted = [s for s in last if s.weight_kg]
+    if ex.get("basis") == "bodyweight" or (last and not weighted):
+        if last and all((s.reps or 0) >= hi for s in last) and len(last) >= sets:
+            return {"weight_kg": None, "reps": hi, "reason": f"You hit {hi} reps on every set. Add a rep, slow it down, or add weight."}
+        return {"weight_kg": None, "reps": hi, "reason": f"Aim for {lo}-{hi} reps."}
+    if not weighted:
+        w = ex.get("start_weight_kg")
+        if w is None:
+            return {"weight_kg": None, "reps": hi, "reason": f"First time: pick a weight you can lift for {hi} reps with 2 to spare."}
+        return {"weight_kg": w, "reps": hi, "reason": "Starting weight from your estimated 1RM."}
+
+    top = max(s.weight_kg for s in weighted)
+    at_top = [s for s in weighted if s.weight_kg == top]
+    fewest = min((s.reps or 0) for s in at_top)
+    # Earned: every planned set at the top weight reached the top of the range,
+    # or fewer sets but clearly beyond it (e.g. last plan's 12s vs this one's 6).
+    if fewest >= hi and (len(at_top) >= sets or fewest >= hi + 2):
+        new = top + _step(ex["group"], top)
+        start = ex.get("start_weight_kg")
+        if start and start > new:
+            # A heavier rep range than they've been doing: the 1RM-based start
+            # is the better guess than one small step.
+            return {"weight_kg": start, "reps": hi, "reason": f"This plan is a heavier rep range than your last {top:g} kg x {fewest}. Start at {start:g} kg (from your est. 1RM)."}
+        return {"weight_kg": new, "reps": lo, "reason": f"You hit {hi}+ reps at {top:g} kg. Up to {new:g} kg."}
+    best = max((s.reps or 0) for s in at_top)
+    return {"weight_kg": top, "reps": hi, "reason": f"Stay at {top:g} kg until you get {hi} reps on every set (best last time: {best})."}
+
+
+async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
+    today = user_today(user.timezone)
+    weekday = today.weekday()
+    plan = row.plan or {}
+
+    day = next((d for d in plan.get("training", {}).get("days", []) if d["weekday"] == weekday), None)
+    workout = None
+    if day:
+        keys = [e["key"] for e in day["exercises"]]
+        logs = (await db.execute(
+            select(TrainingLog)
+            .where(
+                TrainingLog.user_id == user.id,
+                TrainingLog.type.in_(keys),
+                TrainingLog.date >= today - LOOKBACK,
+            )
+            .order_by(TrainingLog.date, TrainingLog.volume_sets)
+        )).scalars().all()
+        by_key: dict[str, dict[date, list[TrainingLog]]] = defaultdict(lambda: defaultdict(list))
+        for log in logs:
+            by_key[log.type][log.date].append(log)
+        exercises = []
+        for ex in day["exercises"]:
+            sessions = by_key.get(ex["key"], {})
+            done = sessions.get(today, [])
+            past = [d for d in sessions if d < today]
+            last = sessions[max(past)] if past else []
+            exercises.append({
+                **ex,
+                "suggestion": suggest(ex, last),
+                "last": [{"weight_kg": s.weight_kg, "reps": s.reps} for s in last],
+                "last_date": max(past).isoformat() if past else None,
+                "logged_today": [{"weight_kg": s.weight_kg, "reps": s.reps} for s in done],
+            })
+        workout = {**day, "exercises": exercises}
+
+    nutrition = plan.get("nutrition")
+    meals, targets = [], None
+    if nutrition:
+        targets = nutrition["targets"]
+        nday = next((d for d in nutrition["days"] if d["weekday"] == weekday), None)
+        logged = await logged_meals(user, row, today, db)
+        for m in (nday or {}).get("meals", []):
+            meals.append({**m, "logged": m["id"] in logged})
+
+    next_day = None
+    if not day:
+        upcoming = sorted(
+            plan.get("training", {}).get("days", []),
+            key=lambda d: (d["weekday"] - weekday) % 7,
+        )
+        if upcoming:
+            next_day = {"weekday": upcoming[0]["weekday"], "name": upcoming[0]["name"]}
+
+    return {
+        "date": today.isoformat(),
+        "weekday": weekday,
+        "workout": workout,
+        "rest_day": day is None,
+        "next_workout": next_day,
+        "meals": meals,
+        "targets": targets,
+    }
+
+
+async def logged_meals(user: User, row: AiPlan, today: date, db: AsyncSession) -> set[str]:
+    """Plan meal ids logged today whose nutrition entries still exist."""
+    entries = ((row.plan or {}).get("logged") or {}).get(today.isoformat()) or {}
+    ids = [uuid.UUID(i) for ids in entries.values() for i in ids]
+    if not ids:
+        return set()
+    alive = {
+        str(i) for i in (await db.execute(
+            select(NutritionLog.id).where(NutritionLog.user_id == user.id, NutritionLog.id.in_(ids))
+        )).scalars()
+    }
+    return {mid for mid, ids in entries.items() if any(i in alive for i in ids)}
+
+
+def record_logged(row: AiPlan, today: date, meal_id: str, log_ids: list[str] | None) -> None:
+    """Remember (or forget, with None) which entries a plan meal created.
+    Reassigns row.plan so SQLAlchemy sees the JSONB change."""
+    plan = dict(row.plan or {})
+    logged = {
+        d: v for d, v in (plan.get("logged") or {}).items()
+        if date.fromisoformat(d) >= today - timedelta(days=KEEP_LOGGED_DAYS)
+    }
+    day = dict(logged.get(today.isoformat()) or {})
+    if log_ids is None:
+        day.pop(meal_id, None)
+    else:
+        day[meal_id] = log_ids
+    logged[today.isoformat()] = day
+    plan["logged"] = logged
+    row.plan = plan

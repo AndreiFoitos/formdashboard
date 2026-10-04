@@ -11,6 +11,7 @@ import { getToken } from '../lib/storage'
 import { api } from '../api/client'
 import {
   enablePredictiveNudges,
+  handlePlanReadyResponse,
   handleQuickLogResponse,
   setupNotificationHandlers,
 } from '../lib/notifications'
@@ -85,7 +86,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     ;(async () => {
       const N = await import('expo-notifications')
       const initial = await N.getLastNotificationResponseAsync()
-      if (initial && !cancelled) await handleQuickLogResponse(initial, qc)
+      if (initial && !cancelled) {
+        if (!handlePlanReadyResponse(initial, qc)) await handleQuickLogResponse(initial, qc)
+      }
     })().catch(() => {})
     return () => {
       cancelled = true
@@ -99,7 +102,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       await setupNotificationHandlers()
       const N = await import('expo-notifications')
       sub = N.addNotificationResponseReceivedListener((resp) => {
-        handleQuickLogResponse(resp, qc).catch(() => {})
+        if (!handlePlanReadyResponse(resp, qc)) handleQuickLogResponse(resp, qc).catch(() => {})
       })
     })().catch(() => {})
     return () => sub?.remove()
@@ -202,6 +205,8 @@ function RootLayout() {
               <Stack.Screen name="friends" />
               {/* Read-only training programs catalogue */}
               <Stack.Screen name="programs" />
+              {/* Pit Crew: the whole week of the current plan */}
+              <Stack.Screen name="plan-week" />
               {/* Settings → Training & food (Pit Crew preferences) */}
               <Stack.Screen name="preferences" />
               {/* Deep-link target for gainrace://invite/<token> */}

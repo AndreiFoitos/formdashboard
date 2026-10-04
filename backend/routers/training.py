@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict
 from datetime import date, timedelta
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -51,6 +51,8 @@ class LogExerciseRequest(BaseModel):
     sets: list[LogSetRequest]
     notes: Optional[str] = None
     date: Optional[date] = None
+    # "plan" when logged from a Pit Crew plan, so v2 can measure adherence.
+    source: Optional[Literal["plan"]] = None
 
 
 def _effective_weight_kg(log: TrainingLog, user_weight_kg: float | None) -> float:
@@ -191,6 +193,7 @@ async def log_exercise(
             weight_kg=s.weight_kg,
             reps=s.reps,
             notes=body.notes if i == 1 else None,
+            source=body.source,
         )
         db.add(entry)
         created.append(entry)

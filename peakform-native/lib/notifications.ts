@@ -1,6 +1,7 @@
 import { Platform } from 'react-native'
 import Constants, { ExecutionEnvironment } from 'expo-constants'
 import { api } from '../api/client'
+import { router } from 'expo-router'
 
 // Same lazy-load pattern as healthkit.ts: importing expo-notifications at the
 // top level is fine, but `getExpoPushTokenAsync` no longer works in Expo Go
@@ -218,4 +219,20 @@ export async function handleQuickLogResponse(
   } catch (e) {
     if (__DEV__) console.warn('[notifications] quick-log failed:', e)
   }
+}
+
+
+/**
+ * "Your plan is ready" push (backend services/plan_builder.py run_build):
+ * refresh the Pit Crew queries and open the Pit tab.
+ */
+export function handlePlanReadyResponse(
+  response: { notification: { request: { content: { data: unknown } } } },
+  qc?: { invalidateQueries: (filters: { queryKey: readonly unknown[] }) => unknown },
+): boolean {
+  const data = response.notification.request.content.data as Record<string, unknown> | null
+  if (!data || data.type !== 'plan_ready') return false
+  qc?.invalidateQueries({ queryKey: ['plan-ai'] })
+  router.navigate('/ask')
+  return true
 }

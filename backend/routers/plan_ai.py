@@ -5,6 +5,7 @@ edits a plan lands here in a later step.
 """
 from __future__ import annotations
 
+import uuid
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -18,7 +19,9 @@ from core.timezone import user_today
 from models.ai_plan import AiPlan
 from models.user import User
 from models.user_preference import UserPreference
+from routers.nutrition import BatchLogRequest, LogNutritionRequest, delete_nutrition, log_nutrition_batch
 from services.plan_builder import expire_stale, run_build
+from services.plan_today import build_today, logged_meals, record_logged
 from services.plans import PLAN, consume_scan
 
 router = APIRouter(prefix="/plan-ai", tags=["plan-ai"])
@@ -185,3 +188,91 @@ async def build_plan(
     await db.commit()
     background.add_task(run_build, row.id)
     return {"id": str(row.id), "building": True}
+
+
+# ─── Today ────────────────────────────────────────────────────────────────────
+
+
+async def _ready_plan(user: User, db: AsyncSession) -> AiPlan | None:
+    return (await db.execute(
+        select(AiPlan)
+        .where(AiPlan.user_id == user.id, AiPlan.status == "ready")
+        .order_by(AiPlan.created_at.desc())
+        .limit(1)
+    )).scalar_one_or_none()
+
+
+@router.get("/today")
+async def get_today(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Today's workout with weight suggestions, and today's meals."""
+    row = await _ready_plan(current_user, db)
+    if row is None:
+        return {"today": None}
+    return {"today": await build_today(current_user, row, db)}
+
+
+def _todays_meal(user: User, row: AiPlan, meal_id: str) -> dict:
+    weekday = user_today(user.timezone).weekday()
+    days = ((row.plan or {}).get("nutrition") or {}).get("days", [])
+    day = next((d for d in days if d["weekday"] == weekday), None)
+    meal = next((m for m in (day or {}).get("meals", []) if m["id"] == meal_id), None)
+    if meal is None:
+        raise HTTPException(404, "That meal isn't in today's plan")
+    return meal
+
+
+@router.post("/today/meals/{meal_id}", status_code=201)
+async def log_plan_meal(
+    meal_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Log one of today's plan meals: one nutrition entry per ingredient,
+    through the same path as any other batch log."""
+    row = await _ready_plan(current_user, db)
+    if row is None:
+        raise HTTPException(404, "No plan yet")
+    meal = _todays_meal(current_user, row, meal_id)
+    today = user_today(current_user.timezone)
+    if meal_id in await logged_meals(current_user, row, today, db):
+        raise HTTPException(409, "Already logged")
+    created = await log_nutrition_batch(
+        BatchLogRequest(entries=[
+            LogNutritionRequest(
+                calories=i["calories"], protein_g=i["protein_g"], carbs_g=i["carbs_g"],
+                fat_g=i["fat_g"], meal_name=i["food"], source="plan",
+            )
+            for i in meal["items"]
+        ]),
+        current_user=current_user,
+        db=db,
+    )
+    await db.refresh(row)
+    record_logged(row, today, meal_id, [c["id"] for c in created])
+    await db.commit()
+    return {"logged": True, "entries": created}
+
+
+@router.delete("/today/meals/{meal_id}", status_code=204)
+async def unlog_plan_meal(
+    meal_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Undo: delete the entries this meal created today."""
+    row = await _ready_plan(current_user, db)
+    if row is None:
+        raise HTTPException(404, "No plan yet")
+    today = user_today(current_user.timezone)
+    ids = (((row.plan or {}).get("logged") or {}).get(today.isoformat()) or {}).get(meal_id, [])
+    for log_id in ids:
+        try:
+            await delete_nutrition(uuid.UUID(log_id), current_user=current_user, db=db)
+        except HTTPException:
+            pass  # already deleted elsewhere
+    await db.refresh(row)
+    record_logged(row, today, meal_id, None)
+    await db.commit()

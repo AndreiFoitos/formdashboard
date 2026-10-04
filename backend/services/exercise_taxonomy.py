@@ -1,9 +1,9 @@
 """Server-side mirror of the frontend GROUPS catalogue in
-peakform-native/app/(tabs)/training.tsx. Lets routers + detection services
+peakform-native/lib/exercises.ts. Lets routers + detection services
 ask 'what muscle group does this exercise belong to?' without depending on
 the client.
 
-Sync rule: any time you add or rename a hardcoded exercise in training.tsx,
+Sync rule: any time you add or rename a hardcoded exercise in lib/exercises.ts,
 update this dict too. Custom exercises are not listed here — their group is
 stored on the CustomExercise row directly.
 """
