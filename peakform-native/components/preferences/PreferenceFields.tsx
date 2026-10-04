@@ -297,6 +297,10 @@ export function FoodPrefsFields({ value, onChange }: { value: Preferences; onCha
             onPress={() => onChange({ health_flags: [] })}
           />
         </View>
+        <Text className="text-zinc-600 text-xs mt-3 leading-5">
+          Pit Crew gives general fitness guidance, not medical advice. If you have a medical condition, check with
+          your doctor before changing how you eat or train.
+        </Text>
       </View>
     </View>
   )

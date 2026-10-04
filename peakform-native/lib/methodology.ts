@@ -1,10 +1,12 @@
 // Source content for the "How is this calculated?" surface (Settings →
-// /methodology). Five topics + a deduplicated sources page.
+// /methodology). One page per topic + a deduplicated sources page.
 //
 // All prose comes from the docstrings in backend/services/{form_score,dots,
-// stimulants}.py and backend/routers/friends.py. URLs are included only
-// where the backend code already cites one — author/year references are
-// rendered as plain text. Hand-add URLs here if you find them later.
+// stimulants}.py and backend/routers/friends.py; the Pit Crew page from
+// services/plan_builder.py and plan_today.py (keep them in sync). URLs are
+// included only where the backend code already cites one — author/year
+// references are rendered as plain text. Hand-add URLs here if you find them
+// later.
 
 export interface Source {
   name: string
@@ -191,6 +193,50 @@ e.g. 100kg x 5:
       { name: 'Epley, B. (1985). Poundage Chart. Boyd Epley Workout, Univ. of Nebraska.' },
       { name: 'Brzycki, M. (1993). Strength testing: predicting a one-rep max from reps-to-fatigue. JOPERD 64(1).' },
       { name: 'Lombardi, V.P. (1989). Beginning Weight Training. Wm. C. Brown Publishers.' },
+    ],
+  },
+  {
+    slug: 'plans',
+    title: 'Pit Crew plans',
+    summary:
+      'How your training and meal plan is built: what the AI chooses, what our code calculates, and the limits it can never cross.',
+    prose: `Claude (Anthropic's AI model) chooses the exercises and the foods. Every number you see is calculated by our code, not by the AI: your calorie and macro targets, your starting weights, and the grams and macros of every meal.
+
+Targets. The plan uses your own calorie and protein targets from Settings, checked against an estimate of your maintenance calories. With 14+ days of logged food and two weeks of weigh-ins, we measure it: what you ate minus what the scale says you stored (about 7,700 kcal per kg). Otherwise we use the Mifflin-St Jeor equation times an activity factor from your training days. Fat is set to 27% of calories and carbs fill the rest.
+
+Safety limits. A plan never goes below your safe minimum: the higher of 1,500 kcal (men) or 1,200 kcal (women), your resting metabolic rate, and 75% of maintenance. It never goes more than 500 kcal above maintenance. Protein stays between 1.6 and 2.4 g per kg. If your target is outside these limits the plan moves it inside and tells you why under "Why this plan?". The chat runs through the same limits. Anyone under 18, or who answered yes to a health question (pregnancy, eating disorder, diabetes, kidney disease), gets a training plan only, and the chat won't change their calories.
+
+Training. The AI can only pick from exercises your equipment allows, minus the ones that load an injury you listed. Weekly hard sets per muscle group are capped (higher for legs, back and arms, which cover several muscles). Starting weights come from your best estimated 1RM in the last 16 weeks, set so you finish each set with about two reps to spare.
+
+Progression. When you hit the top of the rep range on every set at a weight, the next suggestion goes up: 2.5 kg, 5 kg on leg lifts, or 1 kg on light dumbbell work. Until then the weight stays and the goal is the missing reps.
+
+Meals. Foods are looked up in the USDA FoodData Central database. Each day's portions are then scaled together to your calorie target and rounded to 5 g. If USDA doesn't know a food, the AI's estimate is used and the plan says so. Allergies and your diet style are checked by our code, not trusted to the AI: a plan that breaks one is rebuilt once, and if it still does, the build fails and isn't counted.
+
+These plans are general fitness guidance, not medical advice.`,
+    formula: `Maintenance (measured) = avg intake − weight trend (kg/wk) × 7,700 / 7
+Maintenance (formula)  = Mifflin-St Jeor BMR × activity
+  BMR = 10·kg + 6.25·cm − 5·age + (5 men, −161 women)
+  activity: ≤1 day 1.2 · 2-3 days 1.375 · 4-5 days 1.55 · 6+ 1.725
+
+Calories: your target, clamped to
+  min = max(1,500 men / 1,200 women, BMR, 0.75 × maintenance)
+  max = maintenance + 500
+Protein:  1.6-2.4 g/kg · Fat: 27% of kcal · Carbs: the rest
+
+Starting weight = e1RM / (1 + (top reps + 2) / 30)
+  rounded to 2.5 kg (1 kg under 20 kg)
+
+Next weight, once every set hits the top of the range:
+  + 2.5 kg · + 5 kg on leg lifts · + 1 kg under 20 kg`,
+    sources: [
+      { name: 'Mifflin, M.D. et al. (1990). A new predictive equation for resting energy expenditure in healthy individuals. Am J Clin Nutr 51(2).' },
+      { name: 'Donnelly, J.E. et al. (2009). ACSM position stand: appropriate physical activity intervention strategies for weight loss. Med Sci Sports Exerc 41(2).' },
+      { name: 'Wishnofsky, M. (1958). Caloric equivalents of gained or lost weight. Am J Clin Nutr 6(5).' },
+      { name: 'Morton et al. 2018, BJSM meta-analysis — protein 1.6–2.2 g/kg/day' },
+      { name: 'Helms, E.R. et al. (2014). Evidence-based recommendations for natural bodybuilding contest preparation: nutrition and supplementation. J Int Soc Sports Nutr 11.' },
+      { name: 'Schoenfeld, B.J., Ogborn, D., Krieger, J.W. (2017). Dose-response relationship between weekly resistance training volume and increases in muscle mass. J Sports Sci 35(11).' },
+      { name: 'Epley, B. (1985). Poundage Chart. Boyd Epley Workout, Univ. of Nebraska.' },
+      { name: 'USDA FoodData Central', url: 'https://fdc.nal.usda.gov/' },
     ],
   },
 ]

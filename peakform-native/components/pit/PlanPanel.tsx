@@ -327,6 +327,9 @@ function WhyCard({ plan }: { plan: Plan }) {
           {[...t.notes, ...t.warnings].map((n) => (
             <Text key={n} className="text-amber-400 text-xs">{n}</Text>
           ))}
+          <TouchableOpacity onPress={() => router.push('/methodology/plans')} hitSlop={8}>
+            <Text className="text-zinc-300 text-xs font-medium">How plans are built, with sources ›</Text>
+          </TouchableOpacity>
         </View>
       )}
     </Card>
@@ -387,7 +390,10 @@ export function PlanPanel() {
           )}
           <Text className="text-zinc-600 text-[11px] leading-4 text-center px-2">
             Pit Crew plans are general fitness guidance, not medical advice. Talk to a doctor before big changes to
-            how you eat or train, especially with a health condition.
+            how you eat or train, especially with a health condition.{' '}
+            <Text className="text-zinc-400" onPress={() => router.push('/methodology/plans')}>
+              How plans are built
+            </Text>
           </Text>
         </>
       )}

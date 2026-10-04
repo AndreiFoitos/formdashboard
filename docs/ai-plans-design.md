@@ -347,6 +347,10 @@ which posts to `/training/log-exercise` with `source='plan'`.
 
 ## 12. Build order (each step can ship on its own)
 
+All six steps were built 2026-10-02 to 2026-10-04 (commits 883d784 to the
+step 6 commit). The methodology page is `lib/methodology.ts` topic `plans`;
+keep it in sync with `plan_builder.py` and `plan_today.py`.
+
 1. **Preferences + onboarding.** Migration, `user_preferences`, save `goal`, two
    new steps, settings rows to edit them.
 2. **Context builder + better Ask.** `plan_context.py`, saved chat history.
