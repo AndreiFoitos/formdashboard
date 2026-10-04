@@ -97,9 +97,23 @@ async def get_messages(
 ):
     """The saved chat, oldest first (the last 50 messages)."""
     rows = await chat_history(current_user.id, db, limit=50)
+    # Only the newest message that changed something can be undone (an older
+    # snapshot would wipe later changes).
+    latest = next((m for m in reversed(rows) if m.actions), None)
     return {
         "messages": [
-            {"id": str(m.id), "role": m.role, "content": m.content, "created_at": m.created_at.isoformat()}
+            {
+                "id": str(m.id),
+                "role": m.role,
+                "content": m.content,
+                "created_at": m.created_at.isoformat(),
+                # The undo payload (plan snapshots) stays server-side.
+                "actions": [
+                    {"type": a["type"], "summary": a["summary"], "undone": bool(a.get("undone"))}
+                    for a in (m.actions or [])
+                ],
+                "undoable": m is latest and not any(a.get("undone") for a in m.actions or []),
+            }
             for m in rows
         ]
     }

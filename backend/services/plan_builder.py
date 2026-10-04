@@ -327,7 +327,10 @@ async def allowed_exercises(
     equipment = prefs.equipment if prefs else None
     banned: set[str] = set()
     for injury in (prefs.injuries if prefs else None) or []:
-        banned |= INJURY_EXCLUDES.get(injury, set())
+        # "left elbow" from the chat counts as the preset "elbow".
+        for preset, moves in INJURY_EXCLUDES.items():
+            if preset in injury:
+                banned |= moves
     out: dict[str, tuple[str, str]] = {}
     for key, group in EXERCISE_TO_GROUP.items():
         if key in banned:

@@ -116,3 +116,11 @@ async def call_claude_json(
         raise ValueError("Model output was cut off (max_tokens)")
     text = next(b.text for b in message.content if b.type == "text")
     return json.loads(text), message
+
+
+async def claude_message(**kwargs):
+    """One raw Messages API call on CLAUDE_MODEL, for callers that run their
+    own tool loop (services/plan_chat.py). Counts against the daily cap."""
+    client = get_client()
+    await _enforce_global_spend_cap()
+    return await client.messages.create(model=CLAUDE_MODEL, **kwargs)

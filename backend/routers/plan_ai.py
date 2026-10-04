@@ -1,11 +1,12 @@
 """Pit Crew: AI training + meal plans. See docs/ai-plans-design.md.
 
-Preferences (what plans are built from) and plan builds. The chat that
-edits a plan lands here in a later step.
+Preferences (what plans are built from), plan builds, today's slice of the
+plan, and the chat that can change it.
 """
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -14,15 +15,19 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
-from middleware.auth import get_current_user
 from core.timezone import user_today
+from middleware.auth import get_current_user
+from models.ai_message import AiMessage
 from models.ai_plan import AiPlan
 from models.user import User
 from models.user_preference import UserPreference
 from routers.nutrition import BatchLogRequest, LogNutritionRequest, delete_nutrition, log_nutrition_batch
+from services.ai_client import AINotConfigured
+from services.ai_features import chat_history
 from services.plan_builder import expire_stale, run_build
-from services.plan_today import build_today, logged_meals, record_logged
-from services.plans import PLAN, consume_scan
+from services.plan_chat import ToolError, chat_turn, undo_actions
+from services.plan_today import build_today, logged_meals, record_logged, todays_meals
+from services.plans import ASK, PLAN, consume_scan, plan_for, refund_scan
 
 router = APIRouter(prefix="/plan-ai", tags=["plan-ai"])
 
@@ -215,10 +220,8 @@ async def get_today(
 
 
 def _todays_meal(user: User, row: AiPlan, meal_id: str) -> dict:
-    weekday = user_today(user.timezone).weekday()
-    days = ((row.plan or {}).get("nutrition") or {}).get("days", [])
-    day = next((d for d in days if d["weekday"] == weekday), None)
-    meal = next((m for m in (day or {}).get("meals", []) if m["id"] == meal_id), None)
+    meals = todays_meals(row, user_today(user.timezone))
+    meal = next((m for m in meals if m["id"] == meal_id), None)
     if meal is None:
         raise HTTPException(404, "That meal isn't in today's plan")
     return meal
@@ -276,3 +279,75 @@ async def unlog_plan_meal(
     await db.refresh(row)
     record_logged(row, today, meal_id, None)
     await db.commit()
+
+
+# ─── Chat ─────────────────────────────────────────────────────────────────────
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
+def _public_actions(actions: list[dict]) -> list[dict]:
+    return [{"type": a["type"], "summary": a["summary"], "undone": bool(a.get("undone"))} for a in actions]
+
+
+@router.post("/chat")
+async def chat(
+    body: ChatRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """One chat turn. Like /ai/ask (same quota and saved history) but Claude
+    can change the plan; `actions` lists what changed, for the Undo chip."""
+    text = body.message.strip()
+    if not text:
+        raise HTTPException(400, "Message is empty")
+    asked_at = datetime.now(timezone.utc)
+    scan_id = await consume_scan(current_user, ASK, db)
+    try:
+        try:
+            reply, actions = await chat_turn(current_user, text, db, plan_for(current_user).history_days)
+        except AINotConfigured:
+            raise HTTPException(503, "AI is not configured on the server")
+        if not reply:
+            raise HTTPException(502, "The model returned an empty answer")
+    except Exception:
+        await db.rollback()
+        await refund_scan(scan_id, db)
+        raise
+    answered_at = max(datetime.now(timezone.utc), asked_at + timedelta(microseconds=1))
+    db.add(AiMessage(user_id=current_user.id, role="user", content=text, created_at=asked_at))
+    msg = AiMessage(
+        user_id=current_user.id, role="assistant", content=reply,
+        actions=actions or None, created_at=answered_at,
+    )
+    db.add(msg)
+    await db.commit()
+    return {
+        "id": str(msg.id),
+        "answer": reply,
+        "actions": _public_actions(actions),
+        "undoable": bool(actions),
+    }
+
+
+@router.post("/chat/{message_id}/undo")
+async def undo_chat(
+    message_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    msg = await db.get(AiMessage, message_id)
+    if msg is None or msg.user_id != current_user.id or not msg.actions:
+        raise HTTPException(404, "Nothing to undo")
+    if any(a.get("undone") for a in msg.actions):
+        raise HTTPException(409, "Already undone")
+    latest = next((m for m in reversed(await chat_history(current_user.id, db, limit=50)) if m.actions), None)
+    if latest is None or latest.id != msg.id:
+        raise HTTPException(409, "Only the latest change can be undone")
+    try:
+        await undo_actions(current_user, msg, db)
+    except ToolError as e:
+        raise HTTPException(409, str(e))
+    return {"undone": True, "actions": _public_actions(msg.actions)}

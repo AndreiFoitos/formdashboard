@@ -12,21 +12,35 @@ import {
 } from 'react-native'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
+import { Check, RotateCcw } from 'lucide-react-native'
 import { handleLimitError, openPaywall, usePlan, useSetPlan } from '../../hooks/usePlan'
+import { PREFERENCES_KEY } from '../../hooks/usePreferences'
 
-interface Turn {
-  role: 'user' | 'assistant'
-  content: string
+interface Action {
+  type: string
+  summary: string
+  undone: boolean
 }
 
-// The Pit Crew chat: "ask your data", saved on the server. Lives under the
-// Chat segment of the Pit tab (app/(tabs)/ask.tsx).
+interface Turn {
+  id?: string
+  role: 'user' | 'assistant'
+  content: string
+  actions?: Action[]
+  /** Only the newest message that changed something can be undone. */
+  undoable?: boolean
+}
+
+// The Pit Crew chat: ask your data, and ask for changes ("I hate salmon",
+// "swap lunges"). POST /plan-ai/chat runs Claude with tools that edit the
+// plan; changes come back as `actions` and show as chips with Undo. Saved on
+// the server. Lives under the Chat segment of the Pit tab (app/(tabs)/ask.tsx).
 
 const SUGGESTIONS = [
   'Is my weight moving at the right speed for my goal?',
   'Am I getting stronger on my main lifts?',
-  'Am I hitting my protein target consistently?',
-  "What's my biggest lever to raise my Form Score?",
+  "I don't like one of my meals, swap it",
+  'I ate something off-plan today',
 ]
 
 const MESSAGES_KEY = ['ai', 'messages']
@@ -43,7 +57,7 @@ export function ChatPanel() {
   const [loaded, setLoaded] = useState(false)
   useEffect(() => {
     if (saved.data && !loaded) {
-      setTurns(saved.data.map((m) => ({ role: m.role, content: m.content })))
+      setTurns(saved.data)
       setLoaded(true)
       scrollDown()
     }
@@ -57,13 +71,26 @@ export function ChatPanel() {
   const scrollDown = () =>
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50)
 
+  // Plan changes touch the plan, today, preferences, targets and food log.
+  function refreshAfterChanges() {
+    qc.invalidateQueries({ queryKey: ['plan-ai'] })
+    qc.invalidateQueries({ queryKey: PREFERENCES_KEY })
+    qc.invalidateQueries({ queryKey: ['nutrition-today'] })
+    qc.invalidateQueries({ queryKey: ['dashboard'] })
+  }
+
   const ask = useMutation({
-    mutationFn: (question: string) =>
+    mutationFn: (message: string) =>
       api
-        .post('/ai/ask', { question }, { timeout: 60_000 })
-        .then((r) => r.data.answer as string),
-    onSuccess: (answer) => {
-      setTurns((t) => [...t, { role: 'assistant', content: answer }])
+        .post('/plan-ai/chat', { message }, { timeout: 120_000 })
+        .then((r) => r.data as { id: string; answer: string; actions: Action[]; undoable: boolean }),
+    onSuccess: (res) => {
+      setTurns((t) => [
+        // A new change makes earlier ones no longer undoable.
+        ...t.map((x) => (res.undoable ? { ...x, undoable: false } : x)),
+        { id: res.id, role: 'assistant', content: res.answer, actions: res.actions, undoable: res.undoable },
+      ])
+      if (res.actions.length) refreshAfterChanges()
       qc.invalidateQueries({ queryKey: MESSAGES_KEY })
       refreshPlan()
       scrollDown()
@@ -100,6 +127,21 @@ export function ChatPanel() {
       { text: 'New chat', style: 'destructive', onPress: () => clear.mutate() },
     ])
   }
+
+  const undo = useMutation({
+    mutationFn: (id: string) => api.post(`/plan-ai/chat/${id}/undo`).then((r) => r.data),
+    onSuccess: (_d, id) => {
+      setTurns((t) =>
+        t.map((x) =>
+          x.id === id ? { ...x, undoable: false, actions: x.actions?.map((a) => ({ ...a, undone: true })) } : x,
+        ),
+      )
+      refreshAfterChanges()
+      qc.invalidateQueries({ queryKey: MESSAGES_KEY })
+    },
+    onError: (e: any) =>
+      Alert.alert("Couldn't undo", e?.response?.data?.detail ?? 'Please try again.'),
+  })
 
   function send(q: string) {
     const question = q.trim()
@@ -144,7 +186,7 @@ export function ChatPanel() {
           <View style={{ gap: 10, marginTop: 8 }}>
             <Text className="text-zinc-500 text-sm leading-6 mb-1">
               Ask anything about your training, nutrition, body, or Form Score over the
-              last {plan?.history_days ?? 30} days. Plan changes from the chat are coming soon.
+              last {plan?.history_days ?? 30} days, or ask your crew to change your plan.
             </Text>
             {SUGGESTIONS.map((s) => (
               <TouchableOpacity
@@ -176,6 +218,37 @@ export function ChatPanel() {
                     {t.content}
                   </Text>
                 </View>
+                {!!t.actions?.length && (
+                  <View className="mt-1.5" style={{ gap: 4, maxWidth: '85%' }}>
+                    {t.actions.map((a, j) => (
+                      <View key={j} className="flex-row items-start" style={{ gap: 6 }}>
+                        <Check size={13} color={a.undone ? '#52525b' : '#a3e635'} strokeWidth={3} style={{ marginTop: 2 }} />
+                        <Text
+                          className="text-xs flex-1"
+                          style={{ color: a.undone ? '#52525b' : '#a1a1aa', textDecorationLine: a.undone ? 'line-through' : 'none' }}
+                        >
+                          {a.summary}
+                        </Text>
+                      </View>
+                    ))}
+                    {t.undoable && t.id && (
+                      <TouchableOpacity
+                        onPress={() => undo.mutate(t.id!)}
+                        disabled={undo.isPending}
+                        hitSlop={8}
+                        className="flex-row items-center self-start mt-1 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800"
+                        style={{ gap: 6 }}
+                      >
+                        {undo.isPending ? (
+                          <ActivityIndicator size="small" color="#e4e4e7" />
+                        ) : (
+                          <RotateCcw size={12} color="#e4e4e7" />
+                        )}
+                        <Text className="text-zinc-200 text-xs font-medium">Undo</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
               </View>
             ))}
             {ask.isPending && (

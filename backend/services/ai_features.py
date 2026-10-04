@@ -43,8 +43,8 @@ ASK_SYSTEM_PREFIX = (
     "or restrictive diet advice; say food changes should go through their doctor or a dietitian. Training questions are fine.\n"
     "- If the user describes eating very little, purging, or punishing exercise, answer with care, skip the numbers, "
     "and suggest talking to a doctor or an eating-disorder helpline.\n"
-    "- Training and meal plans are not available yet. If asked for one, say Pit Crew plans are coming and answer "
-    "what the data already shows."
+    "- For a new training or meal plan, point them to Build my plan on the Pit tab (the Plan side). "
+    "Answer what the data already shows."
 )
 
 # ── Data helpers ────────────────────────────────────────────────────────────────

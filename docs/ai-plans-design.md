@@ -251,6 +251,32 @@ Each tool returns the new state to Claude. The app gets an `actions` list, so
 it can refresh the plan cards and show an **Undo** chip. Undo restores the
 previous `plan` JSON, which is kept per action in `ai_messages.actions`.
 
+*As built (step 5, `services/plan_chat.py`):*
+- **No confirmations; Undo instead.** Changes apply right away and the newest
+  message that changed something gets an Undo chip. Only that one can be
+  undone, since an older snapshot would wipe later changes. Undo is refused
+  once the plan has been rebuilt. Undo restores the plan, targets, preferences
+  and calorie/protein settings, and deletes food the turn logged.
+- **`rebuild_plan` was dropped.** The chat points to the Build button instead,
+  which keeps plan builds behind one quota-checked path.
+- `adjust_today` logs food only when asked (`log_it`), and rescales today's
+  unlogged plan meals by 0.3–1.3× via `plan.today_scale` (read through
+  `plan_today.todays_meals`).
+- `change_targets` runs the requested numbers through `compute_targets`, so
+  §8 clamps apply. It's refused outright for under-18s and health flags. It
+  rescales every meal day to the new target.
+- `swap_exercise`'s `new_key` is an enum of the user's allowed exercises.
+  `swap_meal` rejects allergy/diet hits, gets USDA numbers and sizes the new
+  meal to the old one's calories. Saving an allergy or dislike lists the plan
+  meals that contain it, so the model swaps them in the same turn.
+- Saved history is text only, so each saved reply carries a
+  "[Changes made in this turn: ...]" note, and the prompt says those notes are
+  accurate. Without them the model "corrected" its own earlier edits.
+- Free-text injuries containing a preset ("left elbow") get that preset's
+  exclusions.
+- Measured on u1: 6-20 s per turn (two calls when a tool runs), about
+  $0.01-0.04 a turn.
+
 ## 8. Safety
 
 These are hard limits in code. The prompt can't override them, and neither can the chat.

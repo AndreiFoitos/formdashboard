@@ -5,6 +5,10 @@ of an exercise reached the top of its rep range last session, the weight goes
 up one step; otherwise it stays and the goal is to reach the top. Lifts with
 no history use the plan's starting weight.
 
+When the chat rescales the rest of a day (adjust_today, after an off-plan
+meal), the factors live in plan["today_scale"][date][meal_id] and every
+reader goes through todays_meals(), so the card and the logged amounts match.
+
 Meals logged from the plan are tracked on the plan row itself
 (plan["logged"][date][meal_id] = nutrition log ids). A meal counts as logged
 only while those entries still exist, so deleting them in the Nutrition tab
@@ -108,10 +112,8 @@ async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
     meals, targets = [], None
     if nutrition:
         targets = nutrition["targets"]
-        nday = next((d for d in nutrition["days"] if d["weekday"] == weekday), None)
         logged = await logged_meals(user, row, today, db)
-        for m in (nday or {}).get("meals", []):
-            meals.append({**m, "logged": m["id"] in logged})
+        meals = [{**m, "logged": m["id"] in logged} for m in todays_meals(row, today)]
 
     next_day = None
     if not day:
@@ -131,6 +133,35 @@ async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
         "meals": meals,
         "targets": targets,
     }
+
+
+def _scale_meal(meal: dict, factor: float) -> dict:
+    items = []
+    for i in meal["items"]:
+        f = max(5, round(i["grams"] * factor / 5) * 5) / i["grams"] if i["grams"] else 1
+        items.append({
+            **i,
+            "grams": round(i["grams"] * f),
+            "calories": round(i["calories"] * f),
+            "protein_g": round(i["protein_g"] * f, 1),
+            "carbs_g": round(i["carbs_g"] * f, 1),
+            "fat_g": round(i["fat_g"] * f, 1),
+        })
+    totals = {k: round(sum(i[k] for i in items), 1) for k in ("calories", "protein_g", "carbs_g", "fat_g")}
+    totals["calories"] = round(totals["calories"])
+    return {**meal, "items": items, "totals": totals, "scaled": factor}
+
+
+def todays_meals(row: AiPlan, today: date) -> list[dict]:
+    """Today's plan meals, with any chat rescale applied."""
+    plan = row.plan or {}
+    days = (plan.get("nutrition") or {}).get("days", [])
+    day = next((d for d in days if d["weekday"] == today.weekday()), None)
+    scale = (plan.get("today_scale") or {}).get(today.isoformat()) or {}
+    return [
+        _scale_meal(m, scale[m["id"]]) if m["id"] in scale else m
+        for m in (day or {}).get("meals", [])
+    ]
 
 
 async def logged_meals(user: User, row: AiPlan, today: date, db: AsyncSession) -> set[str]:
