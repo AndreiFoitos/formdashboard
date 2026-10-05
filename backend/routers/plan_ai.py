@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
 from core.timezone import user_today
 from middleware.auth import get_current_user
+from models.ai_checkin import AiCheckin
 from models.ai_message import AiMessage
 from models.ai_plan import AiPlan
 from models.user import User
@@ -26,6 +27,7 @@ from services.ai_client import AINotConfigured
 from services.ai_features import chat_history
 from services.plan_builder import expire_stale, run_build
 from services.plan_chat import ToolError, chat_turn, undo_actions
+from services.plan_checkin import apply_suggestion, generate as generate_checkin, week_to_review
 from services.plan_shopping import build_list
 from services.plan_today import build_today, logged_meals, record_logged, todays_meals
 from services.plans import ASK, PLAN, consume_scan, plan_for, refund_scan
@@ -364,3 +366,77 @@ async def undo_chat(
     except ToolError as e:
         raise HTTPException(409, str(e))
     return {"undone": True, "actions": _public_actions(msg.actions)}
+
+
+# ─── Weekly check-in ──────────────────────────────────────────────────────────
+
+
+def _checkin_out(c: AiCheckin) -> dict:
+    return {
+        "id": str(c.id),
+        "week_start": c.week_start.isoformat(),
+        "stats": {k: v for k, v in c.stats.items() if k != "skipped_keys"},
+        "review": c.review,
+        "suggestions": [{k: s[k] for k in ("id", "kind", "title", "detail", "status", "result")} for s in c.suggestions],
+        "status": c.status,
+        "created_at": c.created_at.isoformat(),
+    }
+
+
+async def _own_checkin(user: User, checkin_id: uuid.UUID, db: AsyncSession) -> AiCheckin:
+    c = await db.get(AiCheckin, checkin_id)
+    if c is None or c.user_id != user.id:
+        raise HTTPException(404, "Check-in not found")
+    return c
+
+
+@router.get("/checkin")
+async def get_checkin(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """This week's check-in, Sunday to Tuesday. Created here if the Sunday
+    job hasn't made it yet (a few seconds, one small AI call)."""
+    if week_to_review(user_today(current_user.timezone)) is None:
+        return {"checkin": None}
+    try:
+        c = await generate_checkin(current_user, db)
+    except AINotConfigured:
+        return {"checkin": None}
+    return {"checkin": _checkin_out(c) if c else None}
+
+
+@router.post("/checkin/{checkin_id}/seen")
+async def checkin_seen(
+    checkin_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    c = await _own_checkin(current_user, checkin_id, db)
+    c.status = "seen"
+    await db.commit()
+    return _checkin_out(c)
+
+
+@router.post("/checkin/{checkin_id}/suggestions/{sid}/{action}")
+async def checkin_suggestion(
+    checkin_id: uuid.UUID,
+    sid: str,
+    action: Literal["apply", "dismiss"],
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Apply one suggestion (through the chat's tool code and its limits) or
+    dismiss it. A "rebuild" suggestion comes back as result "rebuild"; the app
+    then starts a build with the normal quota-checked call."""
+    c = await _own_checkin(current_user, checkin_id, db)
+    if action == "dismiss":
+        c.suggestions = [{**s, "status": "dismissed"} if s["id"] == sid and s["status"] == "pending" else s
+                         for s in c.suggestions]
+        await db.commit()
+        return _checkin_out(c)
+    try:
+        await apply_suggestion(current_user, c, sid, db)
+    except ToolError as e:
+        raise HTTPException(409, str(e))
+    return _checkin_out(c)

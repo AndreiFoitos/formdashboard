@@ -120,6 +120,35 @@ export interface ShoppingList {
   aisles: { name: string; items: ShoppingItem[] }[]
 }
 
+export interface CheckinSuggestion {
+  id: string
+  kind: 'calories' | 'swap_exercise' | 'rebuild'
+  title: string
+  detail: string
+  status: 'pending' | 'applied' | 'dismissed'
+  /** What applying changed, or "rebuild" when the app should start a build. */
+  result: string | null
+}
+
+export interface Checkin {
+  id: string
+  week_start: string
+  stats: {
+    sessions_planned: number
+    sessions_done: number
+    lifts_up: string[]
+    meals_planned: number
+    meals_logged: number
+    days_food_logged: number
+    avg_kcal: number | null
+    target_kcal: number | null
+    weight_trend_kg_per_week: number | null
+  }
+  review: string
+  suggestions: CheckinSuggestion[]
+  status: 'new' | 'seen'
+}
+
 export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 export const PIT_PLAN_KEY = ['plan-ai', 'plan']
@@ -166,6 +195,33 @@ export function useShoppingList(planId: string | undefined) {
     queryKey: ['plan-ai', 'shopping', planId],
     queryFn: () => api.get('/plan-ai/shopping').then((r) => r.data),
     enabled: !!planId,
+  })
+}
+
+/** This week's check-in (Sunday-Tuesday). The first call of the week may
+ *  take a few seconds while the server writes it. */
+export function useCheckin(planId: string | undefined) {
+  return useQuery<Checkin | null>({
+    queryKey: ['plan-ai', 'checkin', planId],
+    queryFn: () => api.get('/plan-ai/checkin', { timeout: 60_000 }).then((r) => r.data.checkin),
+    enabled: !!planId,
+    staleTime: 10 * 60 * 1000,
+  })
+}
+
+export function useCheckinAction() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, sid, action }: { id: string; sid?: string; action: 'apply' | 'dismiss' | 'seen' }) =>
+      (action === 'seen'
+        ? api.post(`/plan-ai/checkin/${id}/seen`)
+        : api.post(`/plan-ai/checkin/${id}/suggestions/${sid}/${action}`)
+      ).then((r) => r.data as Checkin),
+    onSuccess: (data) => {
+      qc.setQueriesData({ queryKey: ['plan-ai', 'checkin'] }, data)
+      qc.invalidateQueries({ queryKey: PIT_PLAN_KEY })
+      qc.invalidateQueries({ queryKey: PIT_TODAY_KEY })
+    },
   })
 }
 

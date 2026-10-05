@@ -364,6 +364,20 @@ keep it in sync with `plan_builder.py` and `plan_today.py`.
 5. **Chat tools + Undo.**
 6. **Paywall copy, methodology page, disclaimer.**
 
+## 12b. v2 (2026-10-05)
+
+- **Shopping list** (`services/plan_shopping.py`, `GET /plan-ai/shopping`): code
+  only. Next 7 days of meals added up per food, cooked amounts converted to
+  what you buy, grouped by aisle; ticks kept on the phone.
+- **Prep line**: plan builds and chat swaps return a one-sentence `prep` per meal.
+- **Weekly check-in** (`services/plan_checkin.py`, `ai_checkins` table): free
+  for everyone. Hourly job catches Sunday 6 pm user-local and pushes; the Pit
+  tab also creates it lazily Sunday-Tuesday. Code computes the week's numbers,
+  Claude (structured output, ~$0.01) writes the review and up to two
+  suggestions (calories / swap_exercise / rebuild), applied through
+  `plan_chat.Turn` so the same limits hold. Nothing changes without a tap.
+- **Protein-aware scaling** (`day_factors`): see §6 step 4.
+
 ## 13. Decisions (2026-10-02)
 
 1. Plan limits in §9: approved.

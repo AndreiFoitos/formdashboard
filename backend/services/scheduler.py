@@ -9,6 +9,9 @@
 - dispatch_predictive_nudges (every 15 min): pushes log-reminder notifications
   to users at the slots where they typically log water / coffee.
 
+- dispatch_weekly_checkins (hourly at :05): Pit Crew weekly check-in and push
+  for users whose local time is past 6 pm on Sunday.
+
 Failures are isolated per-user so one bad user can't kill the run.
 """
 from __future__ import annotations
@@ -26,6 +29,7 @@ from models.user import User
 from services.ai_client import AINotConfigured
 from services.ai_features import generate_daily_digest
 from services.notifier import dispatch_predictive_nudges
+from services.plan_checkin import dispatch_weekly_checkins
 from services.saved_meals import detect_all_saved_meals
 from services.split_detection import detect_all_user_splits
 
@@ -163,13 +167,26 @@ def start_scheduler() -> AsyncIOScheduler:
         coalesce=True,
         max_instances=1,
     )
+    # Pit Crew weekly check-ins: hourly, so each user is caught just after
+    # 6 pm Sunday in their own timezone. Unique (user, week) rows make re-runs
+    # no-ops.
+    sched.add_job(
+        dispatch_weekly_checkins,
+        trigger="cron",
+        minute=5,
+        id="dispatch_weekly_checkins",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
     sched.start()
     _scheduler = sched
     logger.info(
         "Scheduler started: prewarm_digests@*/15min (96-slot stagger), "
         "dispatch_predictive_nudges@*/15min, "
         "detect_all_saved_meals@03:30 UTC, "
-        "detect_all_user_splits@03:45 UTC"
+        "detect_all_user_splits@03:45 UTC, "
+        "dispatch_weekly_checkins@hourly :05"
     )
     return sched
 

@@ -223,15 +223,16 @@ export async function handleQuickLogResponse(
 
 
 /**
- * "Your plan is ready" push (backend services/plan_builder.py run_build):
- * refresh the Pit Crew queries and open the Pit tab.
+ * Pit Crew pushes: "Your plan is ready" (services/plan_builder.py) and the
+ * Sunday "Your weekly check-in" (services/plan_checkin.py). Refresh the Pit
+ * Crew queries and open the Pit tab.
  */
 export function handlePlanReadyResponse(
   response: { notification: { request: { content: { data: unknown } } } },
   qc?: { invalidateQueries: (filters: { queryKey: readonly unknown[] }) => unknown },
 ): boolean {
   const data = response.notification.request.content.data as Record<string, unknown> | null
-  if (!data || data.type !== 'plan_ready') return false
+  if (!data || (data.type !== 'plan_ready' && data.type !== 'checkin_ready')) return false
   qc?.invalidateQueries({ queryKey: ['plan-ai'] })
   router.navigate('/ask')
   return true

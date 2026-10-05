@@ -212,6 +212,8 @@ Progression. When you hit the top of the rep range on every set at a weight, the
 
 Meals. Foods are looked up in the USDA FoodData Central database. Each day's portions are then scaled to hit your calorie and protein targets together: protein-rich foods and everything else get their own scaling, so a low-protein day leans on its tofu or chicken rather than just shrinking. Portions are rounded to 5 g. If USDA doesn't know a food, the AI's estimate is used and the plan says so. Allergies and your diet style are checked by our code, not trusted to the AI: a plan that breaks one is rebuilt once, and if it still does, the build fails and isn't counted.
 
+Weekly check-in. On Sunday evening the app counts your week (sessions done, exercises you skipped every time, lifts that went up, meals logged, average intake, weight trend) and the AI writes a short review with up to two suggestions: a new calorie target when your weight trend disagrees with your goal, swapping an exercise you keep skipping, or building a fresh plan. Nothing changes until you tap Apply, and applied changes go through the same safety limits.
+
 These plans are general fitness guidance, not medical advice.`,
     formula: `Maintenance (measured) = avg intake − weight trend (kg/wk) × 7,700 / 7
 Maintenance (formula)  = Mifflin-St Jeor BMR × activity

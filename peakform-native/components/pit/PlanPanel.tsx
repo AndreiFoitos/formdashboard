@@ -7,6 +7,7 @@ import {
   useBuildPlan,
   useLogPlanMeal,
   usePitPlan,
+  useCheckin,
   usePitToday,
   type Plan,
   type Today,
@@ -18,6 +19,7 @@ import { useExerciseName } from '../../hooks/useExerciseName'
 import { EXERCISE_NAME } from '../../lib/exercises'
 import { hapticLight } from '../../lib/haptics'
 import { ExerciseLogSheet } from './ExerciseLogSheet'
+import { CheckinCard } from './CheckinCard'
 
 // The Plan segment of the Pit tab: build a plan, then today's workout and
 // meals from it. docs/ai-plans-design.md §2.
@@ -343,11 +345,17 @@ export function PlanPanel() {
   const state = usePitPlan()
   const plan = state.data?.plan ?? null
   const today = usePitToday(plan?.id)
+  const checkin = useCheckin(plan?.id)
+  const showCheckin =
+    checkin.data && (checkin.data.status === 'new' || checkin.data.suggestions.some((s) => s.status === 'pending'))
 
   const refreshing = state.isRefetching || today.isRefetching
   function refresh() {
     state.refetch()
-    if (plan) today.refetch()
+    if (plan) {
+      today.refetch()
+      checkin.refetch()
+    }
   }
 
   return (
@@ -369,6 +377,7 @@ export function PlanPanel() {
           {!plan && !state.data?.building && <Intro />}
           {plan && (
             <>
+              {showCheckin && checkin.data && <CheckinCard checkin={checkin.data} />}
               {today.data ? (
                 <TodayCard today={today.data} plan={plan} />
               ) : (
