@@ -600,6 +600,57 @@ def _sum(rows: list[dict]) -> dict:
     }
 
 
+FACTOR_RANGE = (0.6, 1.6)  # how far one day may stretch or shrink the model's portions
+# Protein foods may stretch further: 150 g of tofu becoming 330 g is still a
+# normal portion, and it's what closes a low-protein day.
+DENSE_MAX = 2.2
+
+
+def _protein_dense(per100: dict) -> bool:
+    """At least 30% of the calories from protein: tofu, tempeh, lentils,
+    whey, chicken, eggs... Rice, oats, fruit and fats are not."""
+    return per100["calories"] > 0 and 4 * per100["protein_g"] / per100["calories"] >= 0.3
+
+
+def day_factors(items: list[dict], per100: dict, targets: dict) -> tuple[float, float]:
+    """Two grams multipliers for one day, (protein-dense foods, everything
+    else), that hit the kcal and protein targets together.
+
+    One shared factor can only fix calories: it keeps the protein-to-calorie
+    ratio the model chose, which left some vegan days 15-23% short. Solving
+    the 2x2 system lets the day lean on its protein foods instead:
+        a*Kd + b*Ko = kcal target
+        a*Pd + b*Po = protein target
+    Factors are clamped (protein foods up to DENSE_MAX, the rest to
+    FACTOR_RANGE); if the exact answer is out of range,
+    protein foods get as close as they can and the rest absorbs the calories.
+    Days already within 5% on protein just take the single kcal factor."""
+    lo, hi = FACTOR_RANGE
+    kd = pd_ = ko = po = 0.0
+    for i in items:
+        sc = _scaled(per100[i["food"]], i["grams"])
+        if _protein_dense(per100[i["food"]]):
+            kd += sc["calories"]
+            pd_ += sc["protein_g"]
+        else:
+            ko += sc["calories"]
+            po += sc["protein_g"]
+    k_total, p_total = kd + ko, pd_ + po
+    if not k_total:
+        return 1.0, 1.0
+    single = min(max(targets["kcal"] / k_total, lo), hi)
+    if p_total * single >= 0.95 * targets["protein_g"] or not kd or not pd_:
+        return single, single
+    det = kd * po - ko * pd_
+    if abs(det) > 1e-6:
+        a = (targets["kcal"] * po - ko * targets["protein_g"]) / det
+    else:
+        a = DENSE_MAX
+    a = min(max(a, single), DENSE_MAX)  # never shrink the protein foods below the plain fix
+    b = (targets["kcal"] - a * kd) / ko if ko else a
+    return a, min(max(b, lo), hi)
+
+
 async def resolve_nutrition(raw: dict, targets: dict) -> tuple[dict, list[str]]:
     """Look every food up, then rescale each day's grams to the kcal target.
     Returns the resolved nutrition and soft warnings (protein short etc.)."""
@@ -618,13 +669,14 @@ async def resolve_nutrition(raw: dict, targets: dict) -> tuple[dict, list[str]]:
         ids = [i for i in wd["meal_ids"] if i in meals]
         if not ids:
             continue
-        base = sum(_scaled(per100[i["food"]], i["grams"])["calories"] for mid in ids for i in meals[mid]["items"])
-        factor = min(max(targets["kcal"] / base, 0.7), 1.4) if base else 1.0
+        day_items = [i for mid in ids for i in meals[mid]["items"]]
+        dense_factor, other_factor = day_factors(day_items, per100, targets)
         day_meals = []
         for mid in ids:
             m = meals[mid]
             items = []
             for i in m["items"]:
+                factor = dense_factor if _protein_dense(per100[i["food"]]) else other_factor
                 grams = max(5, round(i["grams"] * factor / 5) * 5)
                 p = per100[i["food"]]
                 items.append({

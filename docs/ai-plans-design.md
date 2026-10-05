@@ -217,7 +217,10 @@ Claude never outputs calories, macros or kilograms. The backend calculates them.
 4. **Meals.** Claude also returns its own per-100 g estimate for each food. The
    USDA lookup uses that to reject implausible matches, and falls back to it when
    USDA has nothing. Results are cached by food name. Each day's grams are scaled
-   together to the kcal target (factor clamped to 0.7–1.4) and rounded to 5 g.
+   to the kcal and protein targets with two factors, one for protein-dense foods
+   (≥30% of kcal from protein, up to 2.2×) and one for the rest (0.6–1.6×), from a
+   2×2 solve (`day_factors`, added 2026-10-05; one shared factor left vegan days
+   15–23% short on protein, now 98–100%). Rounded to 5 g.
    Days off by more than 10% on kcal, or 15% on protein, go in `targets.warnings`.
 5. **Allergies and diet style.** Each food is checked against keyword lists, with
    plant foods named like dairy ("peanut butter", "oat milk") let through.

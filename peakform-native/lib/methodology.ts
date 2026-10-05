@@ -210,7 +210,7 @@ Training. The AI can only pick from exercises your equipment allows, minus the o
 
 Progression. When you hit the top of the rep range on every set at a weight, the next suggestion goes up: 2.5 kg, 5 kg on leg lifts, or 1 kg on light dumbbell work. Until then the weight stays and the goal is the missing reps.
 
-Meals. Foods are looked up in the USDA FoodData Central database. Each day's portions are then scaled together to your calorie target and rounded to 5 g. If USDA doesn't know a food, the AI's estimate is used and the plan says so. Allergies and your diet style are checked by our code, not trusted to the AI: a plan that breaks one is rebuilt once, and if it still does, the build fails and isn't counted.
+Meals. Foods are looked up in the USDA FoodData Central database. Each day's portions are then scaled to hit your calorie and protein targets together: protein-rich foods and everything else get their own scaling, so a low-protein day leans on its tofu or chicken rather than just shrinking. Portions are rounded to 5 g. If USDA doesn't know a food, the AI's estimate is used and the plan says so. Allergies and your diet style are checked by our code, not trusted to the AI: a plan that breaks one is rebuilt once, and if it still does, the build fails and isn't counted.
 
 These plans are general fitness guidance, not medical advice.`,
     formula: `Maintenance (measured) = avg intake − weight trend (kg/wk) × 7,700 / 7
