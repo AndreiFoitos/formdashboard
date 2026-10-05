@@ -120,3 +120,77 @@ async def send_to_user(
     if dead:
         await _deactivate_tokens(db, dead)
     return delivered
+
+
+EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts"
+
+
+async def _get_receipts(ids: list[str]) -> dict[str, Any]:
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+    if settings.EXPO_ACCESS_TOKEN:
+        headers["Authorization"] = f"Bearer {settings.EXPO_ACCESS_TOKEN}"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(EXPO_RECEIPTS_URL, json={"ids": ids}, headers=headers)
+        resp.raise_for_status()
+        return resp.json().get("data") or {}
+
+
+async def send_test(user_id: uuid.UUID, db: AsyncSession) -> dict[str, Any]:
+    """Send one test push to each of the user's devices and report exactly
+    what Expo and Apple said, for the Settings "Send test notification" row.
+
+    A ticket "ok" only means Expo accepted the message. Delivery problems on
+    Apple's side (no APNs key in the Expo project, wrong bundle id) only show
+    up in the receipt, which takes a few seconds, so we poll for it briefly."""
+    import asyncio
+
+    tokens = (await db.execute(
+        select(PushToken).where(PushToken.user_id == user_id, PushToken.active == True)  # noqa: E712
+    )).scalars().all()
+    if not tokens:
+        return {"devices": 0, "results": []}
+
+    messages = [
+        {"to": t.token, "title": "Test notification", "body": "Notifications from GainRace are working.",
+         "sound": "default", "data": {"type": "test"}}
+        for t in tokens
+    ]
+    try:
+        tickets = await _send_batch(messages)
+    except Exception as e:  # noqa: BLE001
+        return {"devices": len(tokens), "results": [], "error": f"Couldn't reach Expo: {e}"}
+
+    results = []
+    pending: dict[str, dict] = {}
+    for msg, ticket in zip(messages, tickets):
+        r = {
+            "device": "…" + msg["to"][-6:],
+            "accepted": ticket.get("status") == "ok",
+            "error": (ticket.get("details") or {}).get("error"),
+            "message": ticket.get("message"),
+            "delivered": None,
+        }
+        results.append(r)
+        if r["accepted"] and ticket.get("id"):
+            pending[ticket["id"]] = r
+
+    for wait in (2, 3, 5):
+        if not pending:
+            break
+        await asyncio.sleep(wait)
+        try:
+            receipts = await _get_receipts(list(pending))
+        except Exception:  # noqa: BLE001
+            continue
+        for rid, receipt in receipts.items():
+            r = pending.pop(rid, None)
+            if r is None:
+                continue
+            r["delivered"] = receipt.get("status") == "ok"
+            if not r["delivered"]:
+                r["error"] = (receipt.get("details") or {}).get("error")
+                r["message"] = receipt.get("message")
+    dead = [m["to"] for m, r in zip(messages, results) if r["error"] == "DeviceNotRegistered"]
+    if dead:
+        await _deactivate_tokens(db, dead)
+    return {"devices": len(tokens), "results": results}

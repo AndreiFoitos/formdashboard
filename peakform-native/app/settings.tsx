@@ -34,6 +34,7 @@ import {
 import {
   disableNudges,
   enablePredictiveNudges,
+  sendTestNotification,
   getNudgeStatus,
 } from '../lib/notifications'
 
@@ -393,6 +394,23 @@ function NudgesSection() {
     },
   })
 
+  const test = useMutation({
+    mutationFn: sendTestNotification,
+    onSuccess: (r) => {
+      if (r.ok) hapticSuccess()
+      refetchStatus()
+      Alert.alert(
+        r.title,
+        r.body,
+        r.openSettings
+          ? [{ text: 'Cancel', style: 'cancel' }, { text: 'Open Settings', onPress: () => Linking.openSettings() }]
+          : undefined,
+      )
+    },
+    onError: (e: any) =>
+      Alert.alert("Couldn't send", e?.response?.data?.detail ?? e?.message ?? 'Please try again.'),
+  })
+
   const enabled = !!status?.granted
   const busy = enable.isPending || disable.isPending
 
@@ -425,6 +443,20 @@ function NudgesSection() {
           </TouchableOpacity>
         )}
       </View>
+
+      <TouchableOpacity
+        onPress={() => test.mutate()}
+        disabled={test.isPending}
+        className="flex-row items-center justify-between px-4 py-4 border-b border-zinc-800"
+      >
+        <View className="flex-1 pr-3">
+          <Text className="text-white text-sm font-semibold">Send test notification</Text>
+          <Text className="text-zinc-500 text-xs mt-0.5">
+            Checks this phone is set up for plan, check-in and reminder notifications.
+          </Text>
+        </View>
+        {test.isPending ? <ActivityIndicator color="white" /> : <Text className="text-zinc-500 text-base">›</Text>}
+      </TouchableOpacity>
 
       {enabled && (
         <View className="px-4 py-3.5">
