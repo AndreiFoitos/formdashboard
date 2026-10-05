@@ -220,6 +220,7 @@ function MealRow({ meal, last }: { meal: Today['meals'][number]; last: boolean }
       </View>
       {open && (
         <View className="px-4 pb-3" style={{ gap: 4 }}>
+          {!!meal.prep && <Text className="text-zinc-300 text-xs leading-5 mb-1">{meal.prep}</Text>}
           {meal.items.map((i) => (
             <View key={i.food} className="flex-row justify-between">
               <Text className="text-zinc-400 text-xs flex-1 pr-2">
@@ -384,6 +385,17 @@ export function PlanPanel() {
                   <ChevronRight size={18} color="#71717a" />
                 </Card>
               </TouchableOpacity>
+              {plan.meal_plan_enabled && (
+                <TouchableOpacity onPress={() => router.push('/shopping-list')}>
+                  <Card className="px-4 py-4 flex-row items-center justify-between">
+                    <View>
+                      <Text className="text-white text-sm font-medium">Shopping list</Text>
+                      <Text className="text-zinc-500 text-xs mt-0.5">Everything for the next 7 days, by aisle</Text>
+                    </View>
+                    <ChevronRight size={18} color="#71717a" />
+                  </Card>
+                </TouchableOpacity>
+              )}
               <WhyCard plan={plan} />
               {!state.data?.building && <BuildButton label="Build a new plan" rebuild />}
             </>

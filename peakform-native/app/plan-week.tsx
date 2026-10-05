@@ -109,6 +109,7 @@ export default function PlanWeekScreen() {
                         <Text className="text-white text-sm font-medium flex-1 pr-2">{m.name}</Text>
                         <Text className="text-zinc-400 text-sm">{m.totals.calories} kcal</Text>
                       </View>
+                      {!!m.prep && <Text className="text-zinc-300 text-xs leading-5 mt-1">{m.prep}</Text>}
                       {m.items.map((it) => (
                         <Text key={it.food} className="text-zinc-500 text-xs mt-0.5">
                           {it.food} · {it.grams} g

@@ -136,6 +136,7 @@ def tools(exercise_keys: list[str]) -> list[dict]:
                 "meal_id": {"type": "string"},
                 "weekday": day,
                 "name": {"type": "string"},
+                "prep": {"type": "string", "description": "One short sentence on how to make it; empty if nothing to make."},
                 "items": {"type": "array", "items": item},
             }),
         },
@@ -242,7 +243,7 @@ class Turn:
             msg += " If the plan has exercises that load it, swap them."
         return msg
 
-    async def swap_meal(self, meal_id: str, weekday: str, name: str, items: list[dict]) -> str:
+    async def swap_meal(self, meal_id: str, weekday: str, name: str, items: list[dict], prep: str = "") -> str:
         n = self.need_meals()
         if not items:
             raise ToolError("A meal needs at least one item.")
@@ -277,8 +278,8 @@ class Turn:
                     p = per100[i["food"]]
                     new_items.append({"food": i["food"], "grams": grams, **_scaled(p, grams),
                                       "source": p["source"], "usda_name": p["usda_name"], "portions": p["portions"]})
-                d["meals"][k] = {"id": new_id, "name": name.strip(), "slot": m["slot"], "items": new_items,
-                                 "totals": _sum(new_items)}
+                d["meals"][k] = {"id": new_id, "name": name.strip(), "slot": m["slot"], "prep": prep.strip(),
+                                 "items": new_items, "totals": _sum(new_items)}
             d["totals"] = _sum([m["totals"] for m in d["meals"]])
         self.set_plan(plan)
         where = "every day" if weekday == "all" else WEEKDAYS[WEEKDAYS.index(weekday)]

@@ -26,6 +26,7 @@ from services.ai_client import AINotConfigured
 from services.ai_features import chat_history
 from services.plan_builder import expire_stale, run_build
 from services.plan_chat import ToolError, chat_turn, undo_actions
+from services.plan_shopping import build_list
 from services.plan_today import build_today, logged_meals, record_logged, todays_meals
 from services.plans import ASK, PLAN, consume_scan, plan_for, refund_scan
 
@@ -217,6 +218,18 @@ async def get_today(
     if row is None:
         return {"today": None}
     return {"today": await build_today(current_user, row, db)}
+
+
+@router.get("/shopping")
+async def get_shopping_list(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """What to buy for the next 7 days of meals, grouped by aisle."""
+    row = await _ready_plan(current_user, db)
+    if row is None:
+        raise HTTPException(404, "No plan yet")
+    return await build_list(current_user, row, user_today(current_user.timezone), db)
 
 
 def _todays_meal(user: User, row: AiPlan, meal_id: str) -> dict:

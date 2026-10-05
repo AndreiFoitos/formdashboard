@@ -417,6 +417,7 @@ def plan_schema(exercise_keys: list[str], with_meals: bool) -> dict:
             "id": {"type": "string"},
             "name": {"type": "string"},
             "slot": {"type": "string", "enum": list(SLOTS)},
+            "prep": {"type": "string"},
             "items": {"type": "array", "items": item},
         })
         props["nutrition"] = _obj({
@@ -446,6 +447,7 @@ Meal rules (only when a meal plan is requested):
 - 3-5 meals a day. Reuse meals across days: a library of 6-12 meals is enough.
 - Food names: one plain ingredient a nutrition database knows, with its state: "chicken breast, cooked", "white rice, cooked", "rolled oats, dry", "whole milk". No recipes or brands.
 - per_100g: your estimate for that food as named (cooked and dry differ).
+- prep: one short sentence on how to make the meal (method and rough time), e.g. "Pan-fry the chicken 6-8 min, serve over the rice with steamed broccoli." Empty string when there's nothing to make.
 
 rationale: 3-5 plain sentences to the user that cite their own numbers (weight trend, lifts, intake) and say why the plan looks the way it does. No markdown, no medical claims."""
 
@@ -683,7 +685,8 @@ async def resolve_nutrition(raw: dict, targets: dict) -> tuple[dict, list[str]]:
                     "food": i["food"], "grams": grams, **_scaled(p, grams),
                     "source": p["source"], "usda_name": p["usda_name"], "portions": p["portions"],
                 })
-            day_meals.append({"id": mid, "name": m["name"], "slot": m["slot"], "items": items, "totals": _sum(items)})
+            day_meals.append({"id": mid, "name": m["name"], "slot": m["slot"], "prep": m.get("prep", "").strip(),
+                              "items": items, "totals": _sum(items)})
         totals = _sum([m["totals"] for m in day_meals])
         days.append({"weekday": WEEKDAYS.index(wd["weekday"]), "meals": day_meals, "totals": totals})
         day = WEEKDAYS[days[-1]["weekday"]]

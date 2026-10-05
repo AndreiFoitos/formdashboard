@@ -44,6 +44,8 @@ export interface PlanMeal {
   id: string
   name: string
   slot: 'breakfast' | 'lunch' | 'dinner' | 'snack'
+  /** One line on how to make it. Missing on plans built before 2026-10-05. */
+  prep?: string
   items: MealItem[]
   totals: Macros
 }
@@ -103,6 +105,21 @@ export interface Today {
   targets: Targets | null
 }
 
+export interface ShoppingItem {
+  key: string
+  name: string
+  amount: number
+  unit: 'g' | 'kg' | 'ml' | 'l' | 'eggs'
+  /** "dry weight" / "raw weight" when converted from a cooked amount. */
+  note: string | null
+}
+
+export interface ShoppingList {
+  from: string
+  to: string
+  aisles: { name: string; items: ShoppingItem[] }[]
+}
+
 export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 export const PIT_PLAN_KEY = ['plan-ai', 'plan']
@@ -141,6 +158,14 @@ export function useBuildPlan() {
     onError: (e) => {
       if (handleLimitError(e)) refreshPlan()
     },
+  })
+}
+
+export function useShoppingList(planId: string | undefined) {
+  return useQuery<ShoppingList>({
+    queryKey: ['plan-ai', 'shopping', planId],
+    queryFn: () => api.get('/plan-ai/shopping').then((r) => r.data),
+    enabled: !!planId,
   })
 }
 

@@ -207,6 +207,7 @@ function RootLayout() {
               <Stack.Screen name="programs" />
               {/* Pit Crew: the whole week of the current plan */}
               <Stack.Screen name="plan-week" />
+              <Stack.Screen name="shopping-list" />
               {/* Settings → Training & food (Pit Crew preferences) */}
               <Stack.Screen name="preferences" />
               {/* Deep-link target for gainrace://invite/<token> */}
