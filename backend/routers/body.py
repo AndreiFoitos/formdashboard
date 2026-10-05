@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, timedelta
+from datetime import date, timedelta, date as DateType
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -34,7 +34,9 @@ router = APIRouter(prefix="/body", tags=["body"])
 class LogBodyMetricRequest(BaseModel):
     weight_kg: Optional[float] = None
     body_fat_pct: Optional[float] = None
-    date: Optional[date] = None
+    # DateType, not `date`: a field named `date` annotated `date` resolves
+    # to the field's own default (None), so any request with a date 422'd.
+    date: Optional[DateType] = None
 
 
 def _metric_dict(m: BodyMetric) -> dict:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, timedelta, date as DateType
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -38,7 +38,9 @@ class LogTrainingRequest(BaseModel):
     weight_kg: Optional[float] = None
     reps: Optional[int] = None
     notes: Optional[str] = None
-    date: Optional[date] = None
+    # DateType, not `date`: a field named `date` annotated `date` resolves
+    # to the field's own default (None), so any request with a date 422'd.
+    date: Optional[DateType] = None
 
 
 class LogSetRequest(BaseModel):
@@ -50,7 +52,9 @@ class LogExerciseRequest(BaseModel):
     type: str  # exercise key
     sets: list[LogSetRequest]
     notes: Optional[str] = None
-    date: Optional[date] = None
+    # DateType, not `date`: a field named `date` annotated `date` resolves
+    # to the field's own default (None), so any request with a date 422'd.
+    date: Optional[DateType] = None
     # "plan" when logged from a Pit Crew plan, so v2 can measure adherence.
     source: Optional[Literal["plan"]] = None
 
