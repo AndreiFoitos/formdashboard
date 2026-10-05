@@ -7,14 +7,13 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { Check, RotateCcw } from 'lucide-react-native'
 import { handleLimitError, openPaywall, usePlan, useSetPlan } from '../../hooks/usePlan'
 import { PREFERENCES_KEY } from '../../hooks/usePreferences'
+import { useKeyboardOverlap } from '../../hooks/useKeyboardOverlap'
 
 interface Action {
   type: string
@@ -67,6 +66,13 @@ export function ChatPanel() {
   const refreshPlan = useSetPlan()
   const asksLeft = plan?.scans.ask
   const scrollRef = useRef<ScrollView>(null)
+  const rootRef = useRef<View>(null)
+  // Lifts the input bar above the keyboard (KeyboardAvoidingView got the
+  // offset wrong here and the keyboard covered the input and Send).
+  const keyboardOverlap = useKeyboardOverlap(rootRef)
+  useEffect(() => {
+    if (keyboardOverlap > 0) scrollDown()
+  }, [keyboardOverlap])
 
   const scrollDown = () =>
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50)
@@ -153,10 +159,7 @@ export function ChatPanel() {
   }
 
   return (
-    <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View ref={rootRef} className="flex-1" style={{ paddingBottom: keyboardOverlap }}>
       <View className="flex-row items-center justify-between px-4 pb-2" style={{ minHeight: 24 }}>
         {asksLeft ? (
           <TouchableOpacity onPress={() => openPaywall('ask')} hitSlop={10}>
@@ -281,6 +284,6 @@ export function ChatPanel() {
           <Text className="text-black font-semibold text-sm">Send</Text>
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   )
 }
