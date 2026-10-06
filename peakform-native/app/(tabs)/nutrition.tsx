@@ -22,6 +22,7 @@ import { SkeletonCard } from '../../components/Skeleton'
 import { SwipeableRow } from '../../components/SwipeableRow'
 import { PressableScale } from '../../components/PressableScale'
 import { hapticSuccess } from '../../lib/haptics'
+import { colors } from '../../theme/tokens'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,35 +123,35 @@ function CalorieBar({ calories, target }: { calories: number; target: number | n
   const over = target != null && calories > target
 
   return (
-    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+    <View className="bg-surface border border-divider rounded-2xl p-4">
       <View className="flex-row items-end justify-between mb-3">
         <View>
-          <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1">
+          <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1">
             Calories
           </Text>
           <View className="flex-row items-baseline gap-1.5">
             <CountUp
               value={calories}
               separator
-              className="text-white text-3xl font-bold"
+              className="text-text text-3xl font-bold"
             />
             {target && (
-              <Text className="text-zinc-500 text-sm">/ {target.toLocaleString()} kcal</Text>
+              <Text className="text-text-subtle text-sm">/ {target.toLocaleString()} kcal</Text>
             )}
           </View>
         </View>
         {over && (
-          <View className="bg-orange-950 border border-orange-900 px-2 py-1 rounded-full">
-            <Text className="text-orange-400 text-xs font-medium">
+          <View className="bg-warning/15 border border-warning/40 px-2 py-1 rounded-full">
+            <Text className="text-warning text-xs font-medium">
               +{(calories - target!).toLocaleString()} over
             </Text>
           </View>
         )}
       </View>
 
-      <AnimatedBar percent={Math.min(100, p)} color={over ? '#f97316' : '#ffffff'} height={6} />
+      <AnimatedBar percent={Math.min(100, p)} color={over ? colors.warning : colors.accent} height={6} />
       {target && (
-        <Text className="text-zinc-600 text-xs mt-1.5">{p}% of daily target</Text>
+        <Text className="text-text-subtle text-xs mt-1.5">{p}% of daily target</Text>
       )}
     </View>
   )
@@ -174,13 +175,13 @@ function MacroCard({
   const p = pct(value, target)
 
   return (
-    <View className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-      <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-2 font-semibold">
+    <View className="flex-1 bg-surface border border-divider rounded-2xl p-4">
+      <Text className="text-text-muted text-xs uppercase tracking-widest mb-2 font-semibold">
         {label}
       </Text>
-      <Text className="text-white font-bold text-2xl">
+      <Text className="text-text font-bold text-2xl">
         {Math.round(value)}
-        <Text className="text-zinc-500 text-sm font-normal"> {unit}</Text>
+        <Text className="text-text-subtle text-sm font-normal"> {unit}</Text>
       </Text>
       {target && (
         <>
@@ -190,7 +191,7 @@ function MacroCard({
             height={5}
             style={{ marginTop: 10 }}
           />
-          <Text className="text-zinc-500 text-xs mt-1.5 font-medium">
+          <Text className="text-text-subtle text-xs mt-1.5 font-medium">
             of {Math.round(target)}{unit}
           </Text>
         </>
@@ -218,25 +219,25 @@ function MacroSplitBar({
   const fatPct = 100 - proteinPct - carbsPct
 
   return (
-    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-3">
+    <View className="bg-surface border border-divider rounded-2xl p-4">
+      <Text className="text-text-subtle text-xs uppercase tracking-widest mb-3">
         Macro Split
       </Text>
       <View className="flex-row h-2 rounded-full overflow-hidden gap-px mb-3">
-        <View style={{ flex: proteinPct, backgroundColor: '#818cf8', borderRadius: 4 }} />
-        <View style={{ flex: carbsPct, backgroundColor: '#34d399' }} />
-        <View style={{ flex: Math.max(0, fatPct), backgroundColor: '#fbbf24', borderRadius: 4 }} />
+        <View style={{ flex: proteinPct, backgroundColor: colors.data.protein, borderRadius: 4 }} />
+        <View style={{ flex: carbsPct, backgroundColor: colors.data.carbs }} />
+        <View style={{ flex: Math.max(0, fatPct), backgroundColor: colors.data.fat, borderRadius: 4 }} />
       </View>
       <View className="flex-row gap-4">
         {[
-          { label: 'Protein', p: proteinPct, color: '#818cf8' },
-          { label: 'Carbs', p: carbsPct, color: '#34d399' },
-          { label: 'Fat', p: Math.max(0, fatPct), color: '#fbbf24' },
+          { label: 'Protein', p: proteinPct, color: colors.data.protein },
+          { label: 'Carbs', p: carbsPct, color: colors.data.carbs },
+          { label: 'Fat', p: Math.max(0, fatPct), color: colors.data.fat },
         ].map(({ label, p, color }) => (
           <View key={label} className="flex-row items-center gap-1.5">
             <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-            <Text className="text-zinc-400 text-xs">{label}</Text>
-            <Text className="text-white text-xs font-medium">{p}%</Text>
+            <Text className="text-text-muted text-xs">{label}</Text>
+            <Text className="text-text text-xs font-medium">{p}%</Text>
           </View>
         ))}
       </View>
@@ -277,12 +278,12 @@ function SearchResultRow({
   }
 
   return (
-    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl px-3 py-3 flex-row items-center">
+    <View className="bg-surface border border-divider rounded-2xl px-3 py-3 flex-row items-center">
       <View className="flex-1 pr-3">
-        <Text className="text-white text-sm font-medium" numberOfLines={1}>
+        <Text className="text-text text-sm font-medium" numberOfLines={1}>
           {displayName}
         </Text>
-        <Text className="text-zinc-500 text-xs mt-0.5">
+        <Text className="text-text-subtle text-xs mt-0.5">
           ~{result.per_100g.calories} kcal/100g
         </Text>
       </View>
@@ -290,19 +291,19 @@ function SearchResultRow({
         value={grams}
         onChangeText={setGrams}
         placeholder="g"
-        placeholderTextColor="#52525b"
+        placeholderTextColor={colors['text-subtle']}
         keyboardType="number-pad"
         selectTextOnFocus
-        className="bg-zinc-950 border border-zinc-800 rounded-xl px-2 py-1.5 text-white text-sm text-right mr-1.5"
+        className="bg-surface-raised border border-border rounded-xl px-2 py-1.5 text-text text-sm text-right mr-1.5"
         style={{ width: 56 }}
       />
       <TouchableOpacity
         onPress={handlePress}
         disabled={!canLog}
-        className="bg-white rounded-xl px-3 py-1.5"
+        className="bg-accent rounded-xl px-3 py-1.5"
         style={{ opacity: canLog ? 1 : 0.4 }}
       >
-        <Text className="text-black text-sm font-semibold">+</Text>
+        <Text className="text-on-accent text-sm font-semibold">+</Text>
       </TouchableOpacity>
     </View>
   )
@@ -393,19 +394,19 @@ function BuildMealModal({
 
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View className="flex-1 bg-zinc-950">
+      <View className="flex-1 bg-surface">
         <View className="items-center pt-3 pb-2">
-          <View className="w-10 h-1 bg-zinc-700 rounded-full" />
+          <View className="w-10 h-1 bg-border rounded-full" />
         </View>
 
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
-          <Text className="text-white font-semibold">Build a meal</Text>
+        <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
+          <Text className="text-text font-semibold">Build a meal</Text>
           <TouchableOpacity
             onPress={onClose}
             hitSlop={12}
-            className="w-10 h-10 -mr-1 rounded-full bg-zinc-900 border border-zinc-800 items-center justify-center"
+            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center"
           >
-            <X size={20} color="#e4e4e7" strokeWidth={2.25} />
+            <X size={20} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
 
@@ -420,38 +421,38 @@ function BuildMealModal({
         >
           {/* Meal name */}
           <View className="px-4 pt-4">
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Name</Text>
+            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">Name</Text>
             <TextInput
               value={name}
               onChangeText={setName}
               placeholder="My usual breakfast"
-              placeholderTextColor="#52525b"
+              placeholderTextColor={colors['text-subtle']}
               maxLength={80}
-              className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-sm"
+              className="bg-surface-raised border border-border rounded-2xl px-4 py-3 text-text text-sm"
             />
           </View>
 
           {/* Draft items */}
           {draft.length > 0 && (
             <View className="px-4 pt-5">
-              <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+              <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
                 Ingredients ({draft.length})
               </Text>
-              <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+              <View className="bg-surface-raised border border-border rounded-2xl overflow-hidden">
                 {draft.map((item, i) => (
                   <View
                     key={`${item.food_name}-${i}`}
                     className="px-4 py-3 flex-row items-center"
                     style={{
                       borderBottomWidth: i === draft.length - 1 ? 0 : 1,
-                      borderBottomColor: '#27272a',
+                      borderBottomColor: colors.border,
                     }}
                   >
                     <View className="flex-1 pr-3">
-                      <Text className="text-white text-sm" numberOfLines={1}>
+                      <Text className="text-text text-sm" numberOfLines={1}>
                         {item.food_name}
                       </Text>
-                      <Text className="text-zinc-500 text-xs mt-0.5">
+                      <Text className="text-text-subtle text-xs mt-0.5">
                         {item.grams}g · {item.calories} kcal · {Math.round(item.protein_g)}p ·{' '}
                         {Math.round(item.carbs_g)}c · {Math.round(item.fat_g)}f
                       </Text>
@@ -461,7 +462,7 @@ function BuildMealModal({
                       hitSlop={12}
                       className="w-8 h-8 rounded-full items-center justify-center"
                     >
-                      <X size={18} color="#a1a1aa" strokeWidth={2.25} />
+                      <X size={18} color={colors['text-muted']} strokeWidth={2.25} />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -471,22 +472,22 @@ function BuildMealModal({
 
           {/* Ingredient search */}
           <View className="px-4 pt-5">
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
               Add ingredient
             </Text>
-            <View className="flex-row items-center bg-zinc-900 border border-zinc-800 rounded-2xl px-4">
+            <View className="flex-row items-center bg-surface-raised border border-border rounded-2xl px-4">
               <TextInput
                 value={query}
                 onChangeText={setQuery}
                 placeholder="Search foods…"
-                placeholderTextColor="#52525b"
+                placeholderTextColor={colors['text-subtle']}
                 autoCapitalize="none"
                 autoCorrect={false}
-                className="flex-1 py-3 text-white text-sm"
+                className="flex-1 py-3 text-text text-sm"
               />
               {query.length > 0 && (
                 <TouchableOpacity onPress={() => setQuery('')} hitSlop={12} className="w-7 h-7 rounded-full items-center justify-center">
-                  <X size={16} color="#a1a1aa" strokeWidth={2.25} />
+                  <X size={16} color={colors['text-muted']} strokeWidth={2.25} />
                 </TouchableOpacity>
               )}
             </View>
@@ -494,9 +495,9 @@ function BuildMealModal({
             {debouncedQuery.length > 0 && (
               <View style={{ marginTop: 8, gap: 6 }}>
                 {searchQuery.isLoading || debouncedQuery !== query.trim() ? (
-                  <ActivityIndicator color="#71717a" style={{ alignSelf: 'flex-start' }} />
+                  <ActivityIndicator color={colors['text-subtle']} style={{ alignSelf: 'flex-start' }} />
                 ) : (searchQuery.data?.results.length ?? 0) === 0 ? (
-                  <Text className="text-zinc-600 text-xs">
+                  <Text className="text-text-subtle text-xs">
                     No matches. Try a simpler name (e.g. "chicken").
                   </Text>
                 ) : (
@@ -514,16 +515,16 @@ function BuildMealModal({
         </ScrollView>
 
         {/* Totals + Save pinned to the bottom */}
-        <View className="px-4 pt-3 pb-8 border-t border-zinc-800 bg-black">
+        <View className="px-4 pt-3 pb-8 border-t border-divider bg-bg">
           <View className="flex-row items-center justify-between mb-3">
             <View>
-              <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-0.5">Total</Text>
-              <Text className="text-white text-xl font-bold">
+              <Text className="text-text-subtle text-xs uppercase tracking-widest mb-0.5">Total</Text>
+              <Text className="text-text text-xl font-bold">
                 {Math.round(totals.calories)}
-                <Text className="text-zinc-500 text-sm font-normal"> kcal</Text>
+                <Text className="text-text-subtle text-sm font-normal"> kcal</Text>
               </Text>
             </View>
-            <Text className="text-zinc-500 text-xs">
+            <Text className="text-text-subtle text-xs">
               {Math.round(totals.protein_g)}p · {Math.round(totals.carbs_g)}c ·{' '}
               {Math.round(totals.fat_g)}f
             </Text>
@@ -544,13 +545,13 @@ function BuildMealModal({
               })
             }
             disabled={!canSave}
-            className="bg-white rounded-2xl py-3 items-center"
+            className="bg-accent rounded-2xl py-3 items-center"
             style={{ opacity: canSave ? 1 : 0.4 }}
           >
             {saveMutation.isPending ? (
-              <ActivityIndicator color="black" />
+              <ActivityIndicator color={colors['on-accent']} />
             ) : (
-              <Text className="text-black font-semibold text-sm">
+              <Text className="text-on-accent font-semibold text-sm">
                 Save meal{draft.length > 0 ? ` (${draft.length} items)` : ''}
               </Text>
             )}
@@ -580,10 +581,10 @@ function SaveEntryAsMealModal({
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <View className="flex-1 bg-black/70 justify-center px-6">
-        <View className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5">
-          <Text className="text-white text-base font-semibold mb-1">Save to favourites</Text>
-          <Text className="text-zinc-500 text-xs mb-4">
+      <View className="flex-1 bg-bg/70 justify-center px-6">
+        <View className="bg-surface border border-divider rounded-2xl p-5">
+          <Text className="text-text text-base font-semibold mb-1">Save to favourites</Text>
+          <Text className="text-text-subtle text-xs mb-4">
             This logs one ingredient with its current macros. You can re-log it any
             time from the Saved tab.
           </Text>
@@ -591,28 +592,28 @@ function SaveEntryAsMealModal({
             value={name}
             onChangeText={setName}
             placeholder="Name (e.g. 150g chicken)"
-            placeholderTextColor="#52525b"
+            placeholderTextColor={colors['text-subtle']}
             autoFocus
             maxLength={80}
-            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm mb-4"
+            className="bg-surface-raised border border-border rounded-xl px-4 py-3 text-text text-sm mb-4"
           />
           <View className="flex-row justify-end" style={{ gap: 8 }}>
             <TouchableOpacity
               onPress={onClose}
-              className="px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800"
+              className="px-4 py-2 rounded-xl bg-surface-raised border border-border"
             >
-              <Text className="text-zinc-300 text-sm">Cancel</Text>
+              <Text className="text-text-muted text-sm">Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => canSubmit && onSubmit(trimmed)}
               disabled={!canSubmit}
-              className="px-4 py-2 rounded-xl bg-white"
+              className="px-4 py-2 rounded-xl bg-accent"
               style={{ opacity: canSubmit ? 1 : 0.4 }}
             >
               {busy ? (
-                <ActivityIndicator color="black" />
+                <ActivityIndicator color={colors['on-accent']} />
               ) : (
-                <Text className="text-black text-sm font-semibold">Save</Text>
+                <Text className="text-on-accent text-sm font-semibold">Save</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -637,41 +638,41 @@ function SavedMealCard({
 }) {
   const preview = meal.items.map((i) => i.food_name).join(', ')
   return (
-    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3">
+    <View className="bg-surface border border-divider rounded-2xl px-4 py-3">
       <View className="flex-row items-center justify-between mb-1">
         <TouchableOpacity
           onPress={onRename}
           hitSlop={6}
           className="flex-row items-center flex-1 pr-2"
         >
-          <Text className="text-white text-sm font-semibold mr-1.5" numberOfLines={1}>
+          <Text className="text-text text-sm font-semibold mr-1.5" numberOfLines={1}>
             {meal.name}
           </Text>
           {/* Inline rename pencil. Smaller when the user has already named the
               meal so it doesn't compete with the title. */}
           <Text
             className="text-xs"
-            style={{ color: meal.auto_generated_name ? '#fbbf24' : '#71717a' }}
+            style={{ color: meal.auto_generated_name ? colors['text-muted'] : colors['text-subtle'] }}
           >
             ✎
           </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onDelete} hitSlop={12} className="w-9 h-9 rounded-full items-center justify-center">
-          <MoreHorizontal size={20} color="#d4d4d8" strokeWidth={2.25} />
+          <MoreHorizontal size={20} color={colors.text} strokeWidth={2.25} />
         </TouchableOpacity>
       </View>
 
-      <Text className="text-zinc-500 text-xs mb-3" numberOfLines={2}>
+      <Text className="text-text-subtle text-xs mb-3" numberOfLines={2}>
         {preview}
       </Text>
 
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-baseline" style={{ gap: 8 }}>
-          <Text className="text-white text-sm font-semibold">
+          <Text className="text-text text-sm font-semibold">
             {Math.round(meal.total_calories)}
-            <Text className="text-zinc-500 text-xs font-normal"> kcal</Text>
+            <Text className="text-text-subtle text-xs font-normal"> kcal</Text>
           </Text>
-          <Text className="text-zinc-600 text-xs">
+          <Text className="text-text-subtle text-xs">
             {Math.round(meal.total_protein_g)}p · {Math.round(meal.total_carbs_g)}c ·{' '}
             {Math.round(meal.total_fat_g)}f
           </Text>
@@ -679,10 +680,10 @@ function SavedMealCard({
         <TouchableOpacity
           onPress={onLog}
           disabled={busy}
-          className="bg-white rounded-xl px-4 py-1.5"
+          className="bg-accent rounded-xl px-4 py-1.5"
           style={{ opacity: busy ? 0.4 : 1 }}
         >
-          <Text className="text-black text-sm font-semibold">Log</Text>
+          <Text className="text-on-accent text-sm font-semibold">Log</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -711,38 +712,38 @@ function RenameSavedMealModal({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-black/70 justify-center px-6">
-        <View className="bg-zinc-950 border border-zinc-800 rounded-2xl p-5">
-          <Text className="text-white text-base font-semibold mb-1">Rename meal</Text>
-          <Text className="text-zinc-500 text-xs mb-4">
+      <View className="flex-1 bg-bg/70 justify-center px-6">
+        <View className="bg-surface border border-divider rounded-2xl p-5">
+          <Text className="text-text text-base font-semibold mb-1">Rename meal</Text>
+          <Text className="text-text-subtle text-xs mb-4">
             Give this combination a name you'll recognise.
           </Text>
           <TextInput
             value={name}
             onChangeText={setName}
             placeholder="My usual breakfast"
-            placeholderTextColor="#52525b"
+            placeholderTextColor={colors['text-subtle']}
             autoFocus
             maxLength={80}
-            className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white text-sm mb-4"
+            className="bg-surface-raised border border-border rounded-xl px-4 py-3 text-text text-sm mb-4"
           />
           <View className="flex-row justify-end" style={{ gap: 8 }}>
             <TouchableOpacity
               onPress={onClose}
-              className="px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800"
+              className="px-4 py-2 rounded-xl bg-surface-raised border border-border"
             >
-              <Text className="text-zinc-300 text-sm">Cancel</Text>
+              <Text className="text-text-muted text-sm">Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => canSubmit && onSubmit(trimmed)}
               disabled={!canSubmit}
-              className="px-4 py-2 rounded-xl bg-white"
+              className="px-4 py-2 rounded-xl bg-accent"
               style={{ opacity: canSubmit ? 1 : 0.4 }}
             >
               {busy ? (
-                <ActivityIndicator color="black" />
+                <ActivityIndicator color={colors['on-accent']} />
               ) : (
-                <Text className="text-black text-sm font-semibold">Save</Text>
+                <Text className="text-on-accent text-sm font-semibold">Save</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -942,26 +943,26 @@ function LogModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-zinc-950">
+      <View className="flex-1 bg-surface">
         <View className="items-center pt-3 pb-2">
-          <View className="w-10 h-1 bg-zinc-700 rounded-full" />
+          <View className="w-10 h-1 bg-border rounded-full" />
         </View>
 
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
-          <Text className="text-white font-semibold">Log Meal</Text>
+        <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
+          <Text className="text-text font-semibold">Log Meal</Text>
           <TouchableOpacity
             onPress={onClose}
             hitSlop={12}
-            className="w-10 h-10 -mr-1 rounded-full bg-zinc-900 border border-zinc-800 items-center justify-center"
+            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center"
           >
-            <X size={20} color="#e4e4e7" strokeWidth={2.25} />
+            <X size={20} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
 
         {/* Search / Saved / Photo top toggle. Photo just hands off to the
             existing snap screen via the useEffect above. */}
         <View className="px-4 pt-3">
-          <View className="flex-row bg-zinc-900 border border-zinc-800 rounded-2xl p-1">
+          <View className="flex-row bg-surface-raised border border-border rounded-2xl p-1">
             {(['search', 'saved', 'photo', 'barcode'] as const).map((t) => {
               const active = tab === t
               return (
@@ -969,11 +970,11 @@ function LogModal({
                   key={t}
                   onPress={() => setTab(t)}
                   className="flex-1 py-2 items-center rounded-xl"
-                  style={{ backgroundColor: active ? '#27272a' : 'transparent' }}
+                  style={{ backgroundColor: active ? colors.text : 'transparent' }}
                 >
                   <Text
                     className="text-xs font-medium capitalize"
-                    style={{ color: active ? 'white' : '#71717a' }}
+                    style={{ color: active ? colors.bg : colors['text-subtle'] }}
                   >
                     {t}
                   </Text>
@@ -996,41 +997,41 @@ function LogModal({
                   a quiet helper line; it disappears as soon as the user starts
                   typing. */}
               <View className="px-4 pt-3">
-                <View className="flex-row items-center bg-zinc-900 border border-zinc-800 rounded-2xl px-4">
+                <View className="flex-row items-center bg-surface-raised border border-border rounded-2xl px-4">
                   <TextInput
                     value={query}
                     onChangeText={setQuery}
                     placeholder="Search foods…"
-                    placeholderTextColor="#52525b"
+                    placeholderTextColor={colors['text-subtle']}
                     autoCapitalize="none"
                     autoCorrect={false}
-                    className="flex-1 py-3 text-white text-sm"
+                    className="flex-1 py-3 text-text text-sm"
                   />
                   {query.length > 0 && (
                     <TouchableOpacity onPress={() => setQuery('')} hitSlop={12} className="w-7 h-7 rounded-full items-center justify-center">
-                      <X size={16} color="#a1a1aa" strokeWidth={2.25} />
+                      <X size={16} color={colors['text-muted']} strokeWidth={2.25} />
                     </TouchableOpacity>
                   )}
                 </View>
                 {query.length === 0 && (
-                  <Text className="text-zinc-600 text-[10px] mt-1.5 pl-1">
+                  <Text className="text-text-subtle text-[10px] mt-1.5 pl-1">
                     🎤 Tap your keyboard's mic to dictate
                   </Text>
                 )}
               </View>
 
               {/* Results / frequent section */}
-              <Text className="px-4 pt-4 pb-2 text-zinc-500 text-xs uppercase tracking-widest">
+              <Text className="px-4 pt-4 pb-2 text-text-subtle text-xs uppercase tracking-widest">
                 {sectionTitle}
               </Text>
 
               {isLoading ? (
                 <View className="px-4 py-4 items-start">
-                  <ActivityIndicator color="#71717a" />
+                  <ActivityIndicator color={colors['text-subtle']} />
                 </View>
               ) : results.length === 0 ? (
                 <View className="px-4 py-6">
-                  <Text className="text-zinc-600 text-xs">
+                  <Text className="text-text-subtle text-xs">
                     {showFrequent
                       ? 'No frequent foods yet. Search above or add manually below.'
                       : 'No matches. Try a simpler name (e.g. “chicken”).'}
@@ -1051,50 +1052,50 @@ function LogModal({
 
               {/* Manual fallback — visible at the bottom of the Search tab. */}
               <View className="px-4 pt-7">
-                <View className="h-px bg-zinc-800 mb-5" />
-                <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+                <View className="h-px bg-divider mb-5" />
+                <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
                   Add manually
                 </Text>
                 <TextInput
                   value={manualName}
                   onChangeText={setManualName}
                   placeholder="What you ate"
-                  placeholderTextColor="#52525b"
-                  className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-sm mb-3"
+                  placeholderTextColor={colors['text-subtle']}
+                  className="bg-surface-raised border border-border rounded-2xl px-4 py-3 text-text text-sm mb-3"
                 />
 
-                <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">
+                <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1.5">
                   Calories
                 </Text>
                 <TextInput
                   value={manualCalories}
                   onChangeText={setManualCalories}
                   placeholder={estimatedCals ? `~${estimatedCals} (estimated)` : 'e.g. 450'}
-                  placeholderTextColor="#52525b"
+                  placeholderTextColor={colors['text-subtle']}
                   keyboardType="number-pad"
-                  className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-sm mb-3"
+                  className="bg-surface-raised border border-border rounded-2xl px-4 py-3 text-text text-sm mb-3"
                 />
 
                 <View className="flex-row gap-2 mb-2">
                   {[
-                    { label: 'Protein', value: manualProtein, set: setManualProtein, color: '#818cf8' },
-                    { label: 'Carbs', value: manualCarbs, set: setManualCarbs, color: '#34d399' },
-                    { label: 'Fat', value: manualFat, set: setManualFat, color: '#fbbf24' },
+                    { label: 'Protein', value: manualProtein, set: setManualProtein, color: colors.data.protein },
+                    { label: 'Carbs', value: manualCarbs, set: setManualCarbs, color: colors.data.carbs },
+                    { label: 'Fat', value: manualFat, set: setManualFat, color: colors.data.fat },
                   ].map(({ label, value, set, color }) => (
                     <View key={label} className="flex-1">
-                      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">
+                      <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1.5">
                         {label}
                       </Text>
                       <TextInput
                         value={value}
                         onChangeText={set}
                         placeholder="0"
-                        placeholderTextColor="#52525b"
+                        placeholderTextColor={colors['text-subtle']}
                         keyboardType="decimal-pad"
-                        className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-3 text-white text-sm"
-                        style={{ borderColor: value ? `${color}60` : '#3f3f46' }}
+                        className="bg-surface-raised border border-border rounded-xl px-3 py-3 text-text text-sm"
+                        style={{ borderColor: value ? `${color}60` : colors.border }}
                       />
-                      <Text className="text-zinc-600 text-xs mt-0.5 text-right">g</Text>
+                      <Text className="text-text-subtle text-xs mt-0.5 text-right">g</Text>
                     </View>
                   ))}
                 </View>
@@ -1104,7 +1105,7 @@ function LogModal({
                     onPress={() => setManualCalories(String(estimatedCals))}
                     className="mb-3"
                   >
-                    <Text className="text-zinc-400 text-xs underline">
+                    <Text className="text-text-muted text-xs underline">
                       Use ~{estimatedCals} kcal estimated from macros
                     </Text>
                   </TouchableOpacity>
@@ -1113,13 +1114,13 @@ function LogModal({
                 <TouchableOpacity
                   onPress={handleManualLog}
                   disabled={!hasManualValue || logMutation.isPending}
-                  className="bg-white rounded-2xl py-3 items-center mt-1"
+                  className="bg-accent rounded-2xl py-3 items-center mt-1"
                   style={{ opacity: !hasManualValue || logMutation.isPending ? 0.4 : 1 }}
                 >
                   {logMutation.isPending ? (
-                    <ActivityIndicator color="black" />
+                    <ActivityIndicator color={colors['on-accent']} />
                   ) : (
-                    <Text className="text-black font-semibold text-sm">Log manually</Text>
+                    <Text className="text-on-accent font-semibold text-sm">Log manually</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -1137,23 +1138,23 @@ function LogModal({
                     action even when the user has zero saved meals. */}
                 <TouchableOpacity
                   onPress={() => setBuilding(true)}
-                  className="bg-zinc-900 border border-dashed border-zinc-700 rounded-2xl py-4 items-center mb-3"
+                  className="bg-surface border border-dashed border-border rounded-2xl py-4 items-center mb-3"
                 >
-                  <Text className="text-white text-sm font-semibold">+ Build meal</Text>
-                  <Text className="text-zinc-500 text-[11px] mt-0.5">
+                  <Text className="text-text text-sm font-semibold">+ Build meal</Text>
+                  <Text className="text-text-subtle text-[11px] mt-0.5">
                     Search ingredients, set portions, save as a meal
                   </Text>
                 </TouchableOpacity>
 
                 {savedMealsQuery.isLoading ? (
-                  <ActivityIndicator color="#71717a" />
+                  <ActivityIndicator color={colors['text-subtle']} />
                 ) : allMeals.length === 0 ? (
-                  <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-                    <Text className="text-white text-sm font-medium mb-1">
+                  <View className="bg-surface border border-divider rounded-2xl p-5">
+                    <Text className="text-text text-sm font-medium mb-1">
                       No saved meals yet
                     </Text>
-                    <Text className="text-zinc-500 text-xs leading-5">
-                      Tap <Text className="text-white">+ Build meal</Text> to compose one, or
+                    <Text className="text-text-subtle text-xs leading-5">
+                      Tap <Text className="text-text">+ Build meal</Text> to compose one, or
                       swipe right on a logged ingredient on the Nutrition page to save it.
                     </Text>
                   </View>
@@ -1162,7 +1163,7 @@ function LogModal({
                     {/* My meals — manual */}
                     {myMeals.length > 0 && (
                       <>
-                        <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2 mt-1">
+                        <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2 mt-1">
                           My meals
                         </Text>
                         <View style={{ gap: 8 }}>
@@ -1184,7 +1185,7 @@ function LogModal({
                         so a brand-new user only sees the manual section. */}
                     {suggested.length > 0 && (
                       <>
-                        <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2 mt-5">
+                        <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2 mt-5">
                           Suggested by GainRace
                         </Text>
                         <View style={{ gap: 8 }}>
@@ -1242,38 +1243,38 @@ function EntryRow({
 }) {
   return (
     <View
-      className="flex-row items-start gap-3 px-4 py-4 bg-zinc-900"
-      style={{ borderBottomWidth: isLast ? 0 : 1, borderBottomColor: '#27272a' }}
+      className="flex-row items-start gap-3 px-4 py-4 bg-surface"
+      style={{ borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.divider }}
     >
       <View className="mt-2">
-        <View className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
+        <View className="w-1.5 h-1.5 rounded-full bg-text-subtle" />
       </View>
 
       <View className="flex-1">
         <View className="flex-row items-baseline justify-between">
-          <Text className="text-white text-sm font-medium flex-1" numberOfLines={1}>
+          <Text className="text-text text-sm font-medium flex-1" numberOfLines={1}>
             {entry.meal_name ?? 'Unnamed meal'}
           </Text>
-          <Text className="text-zinc-500 text-xs ml-2">{formatTime(entry.logged_at)}</Text>
+          <Text className="text-text-subtle text-xs ml-2">{formatTime(entry.logged_at)}</Text>
         </View>
         <View className="flex-row flex-wrap gap-x-3 mt-1">
           {entry.calories != null && (
-            <Text className="text-zinc-400 text-xs">
+            <Text className="text-text-muted text-xs">
               {entry.calories.toLocaleString()} kcal
             </Text>
           )}
           {entry.protein_g != null && (
-            <Text className="text-xs" style={{ color: '#818cf8' }}>
+            <Text className="text-xs" style={{ color: colors.data.protein }}>
               {Math.round(entry.protein_g)}g protein
             </Text>
           )}
           {entry.carbs_g != null && (
-            <Text className="text-xs" style={{ color: '#34d399' }}>
+            <Text className="text-xs" style={{ color: colors.data.carbs }}>
               {Math.round(entry.carbs_g)}g carbs
             </Text>
           )}
           {entry.fat_g != null && (
-            <Text className="text-xs" style={{ color: '#fbbf24' }}>
+            <Text className="text-xs" style={{ color: colors.data.fat }}>
               {Math.round(entry.fat_g)}g fat
             </Text>
           )}
@@ -1331,7 +1332,7 @@ export default function NutritionScreen() {
   })
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
@@ -1339,14 +1340,14 @@ export default function NutritionScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor="#ffffff"
+            tintColor={colors.text}
           />
         }
       >
         {/* Header */}
         <View className="pt-6 pb-4">
-          <Text className="text-zinc-400 text-xs uppercase tracking-widest font-semibold">{today}</Text>
-          <Text className="text-white text-3xl font-bold mt-1.5">Nutrition</Text>
+          <Text className="text-text-muted text-xs uppercase tracking-widest font-semibold">{today}</Text>
+          <Text className="text-text text-3xl font-bold mt-1.5">Nutrition</Text>
         </View>
 
         {/* Top-row log actions — Search / Saved / Barcode / Photo are
@@ -1360,11 +1361,11 @@ export default function NutritionScreen() {
               setLogInitialTab('search')
               setShowLog(true)
             }}
-            className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl py-4 items-center"
+            className="flex-1 bg-surface border border-divider rounded-2xl py-4 items-center"
             style={{ gap: 6 }}
           >
-            <SearchIcon size={18} color="#ffffff" strokeWidth={2} />
-            <Text className="text-white text-sm font-semibold">Search</Text>
+            <SearchIcon size={18} color={colors.text} strokeWidth={2} />
+            <Text className="text-text text-sm font-semibold">Search</Text>
           </PressableScale>
 
           <PressableScale
@@ -1373,31 +1374,31 @@ export default function NutritionScreen() {
               setLogInitialTab('saved')
               setShowLog(true)
             }}
-            className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl py-4 items-center"
+            className="flex-1 bg-surface border border-divider rounded-2xl py-4 items-center"
             style={{ gap: 6 }}
           >
-            <Bookmark size={18} color="#ffffff" strokeWidth={2} />
-            <Text className="text-white text-sm font-semibold">Saved</Text>
+            <Bookmark size={18} color={colors.text} strokeWidth={2} />
+            <Text className="text-text text-sm font-semibold">Saved</Text>
           </PressableScale>
 
           <PressableScale
             haptic
             onPress={() => router.push('/nutrition-barcode')}
-            className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl py-4 items-center"
+            className="flex-1 bg-surface border border-divider rounded-2xl py-4 items-center"
             style={{ gap: 6 }}
           >
-            <ScanBarcode size={18} color="#ffffff" strokeWidth={2} />
-            <Text className="text-white text-sm font-semibold">Barcode</Text>
+            <ScanBarcode size={18} color={colors.text} strokeWidth={2} />
+            <Text className="text-text text-sm font-semibold">Barcode</Text>
           </PressableScale>
 
           <PressableScale
             haptic
             onPress={() => router.push('/nutrition-snap')}
-            className="flex-1 bg-white rounded-2xl py-4 items-center"
+            className="flex-1 bg-accent rounded-2xl py-4 items-center"
             style={{ gap: 6 }}
           >
-            <Camera size={18} color="#000000" strokeWidth={2} />
-            <Text className="text-black text-sm font-semibold">Photo</Text>
+            <Camera size={18} color={colors['on-accent']} strokeWidth={2} />
+            <Text className="text-on-accent text-sm font-semibold">Photo</Text>
           </PressableScale>
         </View>
 
@@ -1421,21 +1422,21 @@ export default function NutritionScreen() {
                 value={totals.protein_g}
                 target={targets.protein_g}
                 unit="g"
-                color="#818cf8"
+                color={colors.data.protein}
               />
               <MacroCard
                 label="Carbs"
                 value={totals.carbs_g}
                 target={null}
                 unit="g"
-                color="#34d399"
+                color={colors.data.carbs}
               />
               <MacroCard
                 label="Fat"
                 value={totals.fat_g}
                 target={null}
                 unit="g"
-                color="#fbbf24"
+                color={colors.data.fat}
               />
             </View>
 
@@ -1447,14 +1448,14 @@ export default function NutritionScreen() {
               />
             )}
 
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest">
               Today's Meals
             </Text>
 
             {entries.length === 0 ? (
-              <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 items-center">
-                <Text className="text-zinc-400 text-sm font-medium">Nothing logged yet</Text>
-                <Text className="text-zinc-600 text-xs mt-1 mb-4">
+              <View className="bg-surface border border-divider rounded-2xl p-8 items-center">
+                <Text className="text-text-muted text-sm font-medium">Nothing logged yet</Text>
+                <Text className="text-text-subtle text-xs mt-1 mb-4">
                   Track your meals to hit your targets
                 </Text>
                 <TouchableOpacity
@@ -1462,15 +1463,15 @@ export default function NutritionScreen() {
                     setLogInitialTab('search')
                     setShowLog(true)
                   }}
-                  className="bg-zinc-800 px-4 py-2 rounded-2xl"
+                  className="bg-surface-raised px-4 py-2 rounded-2xl"
                 >
-                  <Text className="text-white text-sm font-medium">
+                  <Text className="text-text text-sm font-medium">
                     Log your first meal →
                   </Text>
                 </TouchableOpacity>
               </View>
             ) : (
-              <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+              <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
                 {entries.map((entry, i) => (
                   <SwipeableRow
                     key={entry.id}

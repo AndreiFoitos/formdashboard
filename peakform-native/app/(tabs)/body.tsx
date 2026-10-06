@@ -23,6 +23,7 @@ import { SkeletonCard } from '../../components/Skeleton'
 import { SwipeableRow } from '../../components/SwipeableRow'
 import { PressableScale } from '../../components/PressableScale'
 import { hapticSuccess, hapticSelection } from '../../lib/haptics'
+import { colors } from '../../theme/tokens'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,11 +73,11 @@ function trendInfo(change: number | null, isWeight = true) {
   if (change === null) return null
   const abs = Math.abs(change)
   const threshold = isWeight ? 0.05 : 0.1
-  if (abs < threshold) return { arrow: '→', color: '#71717a', label: 'stable' }
+  if (abs < threshold) return { arrow: '→', color: colors['text-muted'], label: 'stable' }
   const up = change > 0
   return {
     arrow: up ? '↑' : '↓',
-    color: up ? '#f97316' : '#22c55e',
+    color: colors['text-muted'],
     label: isWeight
       ? `${up ? '+' : ''}${change.toFixed(1)} kg`
       : `${up ? '+' : ''}${change.toFixed(1)}%`,
@@ -102,12 +103,12 @@ function MetricChart({
 
   if (data.length < 2) {
     return (
-      <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-        <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1">
+      <View className="bg-surface border border-divider rounded-2xl p-4">
+        <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1">
           {label} trend
         </Text>
         <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
-          <Text className="text-zinc-600 text-xs">Log at least 2 entries to see a chart</Text>
+          <Text className="text-text-subtle text-xs">Log at least 2 entries to see a chart</Text>
         </View>
       </View>
     )
@@ -146,8 +147,8 @@ function MetricChart({
   const yTicks = [minV - pad, (minV + maxV) / 2, maxV + pad]
 
   return (
-    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-3">
+    <View className="bg-surface border border-divider rounded-2xl p-4">
+      <Text className="text-text-subtle text-xs uppercase tracking-widest mb-3">
         {label} trend
       </Text>
       <Svg width={chartWidth} height={chartHeight}>
@@ -159,7 +160,7 @@ function MetricChart({
             y1={toY(v)}
             x2={chartWidth - paddingRight}
             y2={toY(v)}
-            stroke="#27272a"
+            stroke={colors.divider}
             strokeWidth={1}
             strokeDasharray="3,3"
           />
@@ -172,7 +173,7 @@ function MetricChart({
             x={paddingLeft - 4}
             y={toY(v) + 4}
             fontSize={8}
-            fill="#52525b"
+            fill={colors['text-subtle']}
             textAnchor="end"
           >
             {v.toFixed(1)}
@@ -208,7 +209,7 @@ function MetricChart({
             x={toX(i)}
             y={chartHeight - 4}
             fontSize={8}
-            fill="#52525b"
+            fill={colors['text-subtle']}
             textAnchor="middle"
           >
             {data[i].date}
@@ -240,22 +241,22 @@ function TrendCard({
   const t30 = trendInfo(change30d, isWeight)
 
   return (
-    <View className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-      <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-2 font-semibold">
+    <View className="flex-1 bg-surface border border-divider rounded-2xl p-4">
+      <Text className="text-text-muted text-xs uppercase tracking-widest mb-2 font-semibold">
         {label}
       </Text>
-      <Text className="text-white text-3xl font-bold mb-3">
+      <Text className="text-text text-3xl font-bold mb-3">
         {value != null ? (
-          <CountUp value={value} decimals={1} className="text-white text-3xl font-bold" />
+          <CountUp value={value} decimals={1} className="text-text text-3xl font-bold" />
         ) : (
           '—'
         )}
-        <Text className="text-zinc-500 text-base font-normal"> {unit}</Text>
+        <Text className="text-text-subtle text-base font-normal"> {unit}</Text>
       </Text>
       <View className="flex-row gap-4">
         {t7 && (
           <View>
-            <Text className="text-zinc-500 text-xs mb-0.5 font-medium">7d</Text>
+            <Text className="text-text-subtle text-xs mb-0.5 font-medium">7d</Text>
             <Text className="text-sm font-semibold" style={{ color: t7.color }}>
               {t7.arrow} {t7.label}
             </Text>
@@ -263,14 +264,14 @@ function TrendCard({
         )}
         {t30 && (
           <View>
-            <Text className="text-zinc-500 text-xs mb-0.5 font-medium">30d</Text>
+            <Text className="text-text-subtle text-xs mb-0.5 font-medium">30d</Text>
             <Text className="text-sm font-semibold" style={{ color: t30.color }}>
               {t30.arrow} {t30.label}
             </Text>
           </View>
         )}
         {!t7 && !t30 && (
-          <Text className="text-zinc-500 text-xs">Log more to see trends</Text>
+          <Text className="text-text-subtle text-xs">Log more to see trends</Text>
         )}
       </View>
     </View>
@@ -322,26 +323,26 @@ function LogModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-zinc-950">
+      <View className="flex-1 bg-surface">
         <View className="items-center pt-3 pb-2">
-          <View className="w-10 h-1 bg-zinc-700 rounded-full" />
+          <View className="w-10 h-1 bg-border rounded-full" />
         </View>
 
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
-          <Text className="text-white font-semibold">Log Body Metrics</Text>
+        <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
+          <Text className="text-text font-semibold">Log Body Metrics</Text>
           <TouchableOpacity
             onPress={onClose}
             hitSlop={12}
-            className="w-10 h-10 -mr-1 rounded-full bg-zinc-900 border border-zinc-800 items-center justify-center"
+            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center"
           >
-            <X size={20} color="#e4e4e7" strokeWidth={2.25} />
+            <X size={20} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
 
         <View className="px-4 pt-6" style={{ gap: 16 }}>
           {/* Weight */}
           <View>
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1.5">
               Weight
             </Text>
             <View>
@@ -349,46 +350,46 @@ function LogModal({
                 value={weight}
                 onChangeText={(t) => setWeight(t.replace(',', '.'))}
                 placeholder={currentWeight ? currentWeight.toFixed(1) : '80.0'}
-                placeholderTextColor="#52525b"
+                placeholderTextColor={colors['text-subtle']}
                 keyboardType="decimal-pad"
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm"
+                className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm"
               />
-              <Text className="absolute right-4 top-4 text-zinc-500 text-sm">kg</Text>
+              <Text className="absolute right-4 top-4 text-text-subtle text-sm">kg</Text>
             </View>
             {bmiVal && (
-              <Text className="text-zinc-600 text-xs mt-1.5">BMI: {bmiVal}</Text>
+              <Text className="text-text-subtle text-xs mt-1.5">BMI: {bmiVal}</Text>
             )}
           </View>
 
           {/* Body Fat */}
           <View>
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1.5">
               Body Fat{' '}
-              <Text className="text-zinc-700 normal-case">(optional)</Text>
+              <Text className="text-text-subtle normal-case">(optional)</Text>
             </Text>
             <View>
               <TextInput
                 value={bodyFat}
                 onChangeText={(t) => setBodyFat(t.replace(',', '.'))}
                 placeholder="15.0"
-                placeholderTextColor="#52525b"
+                placeholderTextColor={colors['text-subtle']}
                 keyboardType="decimal-pad"
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm"
+                className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm"
               />
-              <Text className="absolute right-4 top-4 text-zinc-500 text-sm">%</Text>
+              <Text className="absolute right-4 top-4 text-text-subtle text-sm">%</Text>
             </View>
           </View>
 
           <TouchableOpacity
             onPress={handleLog}
             disabled={!hasValue || isPending}
-            className="bg-white rounded-2xl py-4 items-center"
+            className="bg-accent rounded-2xl py-4 items-center"
             style={{ opacity: !hasValue || isPending ? 0.4 : 1 }}
           >
             {isPending ? (
-              <ActivityIndicator color="black" />
+              <ActivityIndicator color={colors['on-accent']} />
             ) : (
-              <Text className="text-black font-semibold text-base">Save</Text>
+              <Text className="text-on-accent font-semibold text-base">Save</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -408,22 +409,22 @@ function HistoryRow({
 }) {
   return (
     <View
-      className="flex-row items-center px-4 py-4 bg-zinc-900"
-      style={{ borderBottomWidth: isLast ? 0 : 1, borderBottomColor: '#27272a' }}
+      className="flex-row items-center px-4 py-4 bg-surface"
+      style={{ borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.divider }}
     >
       <View className="flex-1">
-        <Text className="text-zinc-500 text-xs">{formatDateFull(metric.date)}</Text>
+        <Text className="text-text-subtle text-xs">{formatDateFull(metric.date)}</Text>
         <View className="flex-row gap-4 mt-0.5">
           {metric.weight_kg != null && (
-            <Text className="text-white text-sm font-semibold">
+            <Text className="text-text text-sm font-semibold">
               {metric.weight_kg.toFixed(1)}
-              <Text className="text-zinc-500 text-xs font-normal"> kg</Text>
+              <Text className="text-text-subtle text-xs font-normal"> kg</Text>
             </Text>
           )}
           {metric.body_fat_pct != null && (
-            <Text className="text-white text-sm font-semibold">
+            <Text className="text-text text-sm font-semibold">
               {metric.body_fat_pct.toFixed(1)}
-              <Text className="text-zinc-500 text-xs font-normal"> % BF</Text>
+              <Text className="text-text-subtle text-xs font-normal"> % BF</Text>
             </Text>
           )}
         </View>
@@ -461,7 +462,7 @@ export default function BodyScreen() {
   })
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
@@ -469,15 +470,15 @@ export default function BodyScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor="#ffffff"
+            tintColor={colors.text}
           />
         }
       >
         {/* Header */}
         <View className="pt-6 pb-5 flex-row items-end justify-between">
           <View>
-            <Text className="text-zinc-400 text-xs uppercase tracking-widest font-semibold">{today}</Text>
-            <Text className="text-white text-3xl font-bold mt-1.5">Body</Text>
+            <Text className="text-text-muted text-xs uppercase tracking-widest font-semibold">{today}</Text>
+            <Text className="text-text text-3xl font-bold mt-1.5">Body</Text>
           </View>
           <View className="flex-row" style={{ gap: 8 }}>
             {/* BF% estimator. The photo is sent to Claude and dropped after
@@ -486,18 +487,18 @@ export default function BodyScreen() {
             <PressableScale
               haptic
               onPress={() => router.push('/body-comp-snap')}
-              className="bg-zinc-900 border border-zinc-800 px-3 py-2 rounded-2xl flex-row items-center"
+              className="bg-surface border border-divider px-3 py-2 rounded-2xl flex-row items-center"
               style={{ gap: 6 }}
             >
-              <Camera size={14} color="#ffffff" strokeWidth={2} />
-              <Text className="text-white text-sm font-semibold">Scan BF</Text>
+              <Camera size={14} color={colors.text} strokeWidth={2} />
+              <Text className="text-text text-sm font-semibold">Scan BF</Text>
             </PressableScale>
             <PressableScale
               haptic
               onPress={() => setShowLog(true)}
-              className="bg-white px-4 py-2 rounded-2xl"
+              className="bg-accent px-4 py-2 rounded-2xl"
             >
-              <Text className="text-black text-sm font-semibold">+ Log</Text>
+              <Text className="text-on-accent text-sm font-semibold">+ Log</Text>
             </PressableScale>
           </View>
         </View>
@@ -537,18 +538,18 @@ export default function BodyScreen() {
             {/* Empty state */}
             {entries.length === 0 && (
               <>
-                <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 items-center">
-                  <Text className="text-zinc-400 text-sm font-medium">
+                <View className="bg-surface border border-divider rounded-2xl p-8 items-center">
+                  <Text className="text-text-muted text-sm font-medium">
                     No body metrics yet
                   </Text>
-                  <Text className="text-zinc-600 text-xs mt-1 mb-4 text-center">
+                  <Text className="text-text-subtle text-xs mt-1 mb-4 text-center">
                     Track your weight and body fat to see trends over time
                   </Text>
                   <TouchableOpacity
                     onPress={() => setShowLog(true)}
-                    className="bg-zinc-800 px-4 py-2 rounded-2xl"
+                    className="bg-surface-raised px-4 py-2 rounded-2xl"
                   >
-                    <Text className="text-white text-sm font-medium">
+                    <Text className="text-text text-sm font-medium">
                       Log your first entry →
                     </Text>
                   </TouchableOpacity>
@@ -560,7 +561,7 @@ export default function BodyScreen() {
               <>
                 {/* Range selector */}
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-zinc-500 text-xs">
+                  <Text className="text-text-subtle text-xs">
                     {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
                   </Text>
                   <View className="flex-row gap-1.5">
@@ -570,13 +571,13 @@ export default function BodyScreen() {
                         onPress={() => { hapticSelection(); setRange(r) }}
                         className="px-3 py-1.5 rounded-xl border"
                         style={{
-                          backgroundColor: range === r ? 'white' : '#18181b',
-                          borderColor: range === r ? 'white' : '#3f3f46',
+                          backgroundColor: range === r ? colors.text : colors.surface,
+                          borderColor: range === r ? colors.text : colors.border,
                         }}
                       >
                         <Text
                           className="text-xs font-medium"
-                          style={{ color: range === r ? 'black' : '#71717a' }}
+                          style={{ color: range === r ? colors.bg : colors['text-subtle'] }}
                         >
                           {r}d
                         </Text>
@@ -589,7 +590,7 @@ export default function BodyScreen() {
                   <MetricChart
                     entries={entries}
                     field="weight_kg"
-                    color="#ffffff"
+                    color={colors.data.weight}
                     label="Weight"
                   />
                 )}
@@ -598,38 +599,38 @@ export default function BodyScreen() {
                   <MetricChart
                     entries={entries}
                     field="body_fat_pct"
-                    color="#a78bfa"
+                    color={colors.data.bodyfat}
                     label="Body Fat"
                   />
                 )}
 
                 {/* Range stats */}
                 {stats?.lowest_weight_kg != null && (
-                  <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
-                    <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-3">
+                  <View className="bg-surface border border-divider rounded-2xl p-4">
+                    <Text className="text-text-subtle text-xs uppercase tracking-widest mb-3">
                       {range}-day range
                     </Text>
                     <View className="flex-row gap-6">
                       <View>
-                        <Text className="text-zinc-600 text-xs mb-0.5">Low</Text>
-                        <Text className="text-white text-sm font-semibold">
+                        <Text className="text-text-subtle text-xs mb-0.5">Low</Text>
+                        <Text className="text-text text-sm font-semibold">
                           {stats.lowest_weight_kg?.toFixed(1)}
-                          <Text className="text-zinc-500 text-xs font-normal"> kg</Text>
+                          <Text className="text-text-subtle text-xs font-normal"> kg</Text>
                         </Text>
                       </View>
                       <View>
-                        <Text className="text-zinc-600 text-xs mb-0.5">High</Text>
-                        <Text className="text-white text-sm font-semibold">
+                        <Text className="text-text-subtle text-xs mb-0.5">High</Text>
+                        <Text className="text-text text-sm font-semibold">
                           {stats.highest_weight_kg?.toFixed(1)}
-                          <Text className="text-zinc-500 text-xs font-normal"> kg</Text>
+                          <Text className="text-text-subtle text-xs font-normal"> kg</Text>
                         </Text>
                       </View>
                       {stats.highest_weight_kg != null && stats.lowest_weight_kg != null && (
                         <View>
-                          <Text className="text-zinc-600 text-xs mb-0.5">Variance</Text>
-                          <Text className="text-white text-sm font-semibold">
+                          <Text className="text-text-subtle text-xs mb-0.5">Variance</Text>
+                          <Text className="text-text text-sm font-semibold">
                             {(stats.highest_weight_kg - stats.lowest_weight_kg).toFixed(1)}
-                            <Text className="text-zinc-500 text-xs font-normal"> kg</Text>
+                            <Text className="text-text-subtle text-xs font-normal"> kg</Text>
                           </Text>
                         </View>
                       )}
@@ -638,10 +639,10 @@ export default function BodyScreen() {
                 )}
 
                 {/* History list */}
-                <Text className="text-zinc-500 text-xs uppercase tracking-widest">
+                <Text className="text-text-subtle text-xs uppercase tracking-widest">
                   History
                 </Text>
-                <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+                <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
                   {[...entries].reverse().map((metric, i) => (
                     <SwipeableRow
                       key={metric.id}

@@ -5,6 +5,7 @@ export const colors = {
   bg: '#000000',
   surface: '#18181b',
   'surface-raised': '#27272a',
+  divider: '#27272a',
   border: '#3f3f46',
   text: '#fafafa',
   'text-muted': '#a1a1aa',
@@ -14,6 +15,26 @@ export const colors = {
   success: '#22c55e',
   warning: '#f59e0b',
   danger: '#ef4444',
+  // Charts, scales and badges only (DESIGN.md §2).
+  score: { low: '#ef4444', midLow: '#f97316', midHigh: '#eab308', high: '#22c55e' },
+  data: {
+    protein: '#818cf8',
+    carbs: '#34d399',
+    fat: '#fbbf24',
+    water: '#38bdf8',
+    weight: '#fafafa',
+    bodyfat: '#a78bfa',
+  },
+  muscle: {
+    chest: '#f87171',
+    back: '#34d399',
+    legs: '#f472b6',
+    shoulders: '#60a5fa',
+    arms: '#a78bfa',
+    core: '#facc15',
+    other: '#a8a29e',
+  },
+  medal: { gold: '#FCD34D', silver: '#D1D5DB', bronze: '#B45309' },
 } as const;
 
 export const fontSize = {

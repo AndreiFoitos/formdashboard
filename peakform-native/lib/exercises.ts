@@ -1,13 +1,15 @@
 // The built-in exercise catalogue, shared by the Training tab and Pit Crew.
 // Keys must match backend/services/exercise_taxonomy.py EXERCISE_TO_GROUP.
 
+import { colors } from '../theme/tokens'
+
 export type Exercise = { key: string; name: string }
 export type Group = { name: string; colour: string; exercises: Exercise[] }
 
 export const GROUPS: Group[] = [
   {
     name: 'Chest',
-    colour: '#f87171',
+    colour: colors.muscle.chest,
     exercises: [
       { key: 'bench_press',           name: 'Bench Press' },
       { key: 'incline_bench',         name: 'Incline Bench' },
@@ -30,7 +32,7 @@ export const GROUPS: Group[] = [
   },
   {
     name: 'Back',
-    colour: '#34d399',
+    colour: colors.muscle.back,
     exercises: [
       { key: 'deadlift',              name: 'Deadlift' },
       { key: 'sumo_deadlift',         name: 'Sumo Deadlift' },
@@ -59,7 +61,7 @@ export const GROUPS: Group[] = [
   },
   {
     name: 'Legs',
-    colour: '#f472b6',
+    colour: colors.muscle.legs,
     exercises: [
       { key: 'squat',                 name: 'Back Squat' },
       { key: 'front_squat',           name: 'Front Squat' },
@@ -95,7 +97,7 @@ export const GROUPS: Group[] = [
   },
   {
     name: 'Shoulders',
-    colour: '#60a5fa',
+    colour: colors.muscle.shoulders,
     exercises: [
       { key: 'overhead_press',        name: 'Overhead Press' },
       { key: 'push_press',            name: 'Push Press' },
@@ -117,7 +119,7 @@ export const GROUPS: Group[] = [
   },
   {
     name: 'Arms',
-    colour: '#a78bfa',
+    colour: colors.muscle.arms,
     exercises: [
       { key: 'bicep_curl',            name: 'Barbell Curl' },
       { key: 'db_curl',               name: 'DB Curl' },
@@ -144,7 +146,7 @@ export const GROUPS: Group[] = [
   },
   {
     name: 'Core',
-    colour: '#facc15',
+    colour: colors.muscle.core,
     exercises: [
       { key: 'plank',                 name: 'Plank' },
       { key: 'side_plank',            name: 'Side Plank' },

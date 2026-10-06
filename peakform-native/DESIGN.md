@@ -12,7 +12,7 @@ addition to this file first — do not invent one-off values.
 2. No inline `fontSize`, `padding`, `margin`, `gap` or `borderRadius` numbers. Use the scales below via NativeWind classes.
 3. Only the type sizes in §3 exist. Only the spacing steps in §4 exist.
 4. Every tappable element is at least 44×44 pt.
-5. One accent color. It marks the primary action and the active state, nothing else.
+5. One accent color. Accent marks primary buttons, the active tab, progress bars and key CTAs. Selected chips/segments use white fill (`bg-text` / `text-bg`).
 6. Dark only. `app.json` → `"userInterfaceStyle": "dark"` so system UI (alerts, keyboard, pickers, share sheet) matches.
 7. Labels describe what a thing does in plain words. No internal or brand jargon in settings ("Pit Crew", "Labs").
 8. Sentence case everywhere. No ALL-CAPS labels.
@@ -33,7 +33,8 @@ Defined once in `theme/tokens.ts`, wired into `tailwind.config.js` (see §7).
 | `bg` | `#000000` | App background |
 | `surface` | `#18181b` | Cards, sheets, list groups |
 | `surface-raised` | `#27272a` | Inputs, pressed rows, chips |
-| `border` | `#3f3f46` | Dividers, input outlines (hairline) |
+| `divider` | `#27272a` | Hairlines, card outlines, row dividers, chart axes |
+| `border` | `#3f3f46` | Input outlines, grab handles |
 | `text` | `#fafafa` | Primary text |
 | `text-muted` | `#a1a1aa` | Secondary text, row values |
 | `text-subtle` | `#71717a` | Captions, placeholders, disabled |
@@ -42,6 +43,21 @@ Defined once in `theme/tokens.ts`, wired into `tailwind.config.js` (see §7).
 | `success` | `#22c55e` | Goals hit, positive deltas |
 | `warning` | `#f59e0b` | Approaching limits |
 | `danger` | `#ef4444` | Destructive actions, errors |
+
+Dividers on `bg`/`surface` use `divider`; on `surface-raised` use `border`.
+
+### Chart, scale and badge colors
+
+Use these only in charts, scales and badges, never for UI chrome or text.
+
+| Group | Tokens |
+|---|---|
+| `score` | `low` #ef4444, `midLow` #f97316, `midHigh` #eab308, `high` #22c55e |
+| `data` | `protein` #818cf8, `carbs` #34d399, `fat` #fbbf24, `water` #38bdf8, `weight` #fafafa, `bodyfat` #a78bfa |
+| `muscle` | `chest` #f87171, `back` #34d399, `legs` #f472b6, `shoulders` #60a5fa, `arms` #a78bfa, `core` #facc15, `other` #a8a29e |
+| `medal` | `gold` #FCD34D, `silver` #D1D5DB, `bronze` #B45309 |
+
+Classes: `bg-score-high`, `text-data-protein`, etc. Raw values: `colors.muscle.chest`.
 
 Migration map for existing literals:
 - `#000`, `#000000` → `bg`
@@ -52,8 +68,11 @@ Migration map for existing literals:
 - `#0b62e8` (expo-notifications color in `app.json`) → `accent`
 - `#facc15`, `#fbbf24` and other yellows → `warning` if they signal caution; otherwise remove (yellow is no longer the accent)
 - `lime`, `emerald`, `green` → `success` unless it is a data-viz series
-- Data-viz series colors (charts, caffeine curve, macros) get their own small
-  `chart-1…chart-5` palette in tokens.ts — propose it, don't scatter it.
+- `#27272a` / `zinc-800` as a border, divider or chart axis → `divider`
+- `zinc-600`, `zinc-700`, `#52525b` text/placeholders → `text-subtle`
+- `zinc-950` → `surface` for sheets, `surface-raised` for cards inside sheets and inputs
+- Data-viz series colors → the `score` / `data` / `muscle` / `medal` groups above.
+  A new series gets a named token there — don't scatter hex.
 
 ---
 
@@ -206,6 +225,7 @@ export const colors = {
   bg: '#000000',
   surface: '#18181b',
   'surface-raised': '#27272a',
+  divider: '#27272a',
   border: '#3f3f46',
   text: '#fafafa',
   'text-muted': '#a1a1aa',
@@ -215,6 +235,10 @@ export const colors = {
   success: '#22c55e',
   warning: '#f59e0b',
   danger: '#ef4444',
+  score: { low, midLow, midHigh, high },          // §2 chart/scale/badge groups
+  data: { protein, carbs, fat, water, weight, bodyfat },
+  muscle: { chest, back, legs, shoulders, arms, core, other },
+  medal: { gold, silver, bronze },
 } as const;
 
 export const fontSize = {

@@ -22,7 +22,7 @@ const MaterialTopTabs = withLayoutContext<
 
 export default function TabsLayout() {
   return (
-    <View className="flex-1 bg-black">
+    <View className="flex-1 bg-bg">
       <MaterialTopTabs
         tabBarPosition="bottom"
         tabBar={(props) => <BottomNav {...props} />}
