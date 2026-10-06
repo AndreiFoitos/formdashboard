@@ -18,6 +18,7 @@ import { openPaywall, usePlan, type ScanUsage } from '../../hooks/usePlan'
 import { useExerciseName } from '../../hooks/useExerciseName'
 import { EXERCISE_NAME } from '../../lib/exercises'
 import { hapticLight } from '../../lib/haptics'
+import { enablePredictiveNudges } from '../../lib/notifications'
 import { ExerciseLogSheet } from './ExerciseLogSheet'
 import { CheckinCard } from './CheckinCard'
 
@@ -53,7 +54,14 @@ function BuildButton({ label, rebuild }: { label: string; rebuild?: boolean }) {
 
   function start() {
     if (out) return openPaywall('plan')
-    const go = () => build.mutate()
+    const go = () => {
+      // Ask for notification permission here, where "we'll tell you when your
+      // plan is ready" makes sense. The ask at app start didn't reliably show
+      // (a TestFlight phone had never registered), and iOS only prompts once:
+      // after that this just re-registers the token.
+      enablePredictiveNudges().catch(() => {})
+      build.mutate()
+    }
     if (rebuild) {
       Alert.alert('Build a new plan?', 'Your current plan will be replaced. It takes a minute or two.', [
         { text: 'Cancel', style: 'cancel' },
