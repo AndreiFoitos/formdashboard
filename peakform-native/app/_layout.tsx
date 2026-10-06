@@ -204,8 +204,6 @@ function RootLayout() {
 
               {/* Friends + leaderboard + weekly recap */}
               <Stack.Screen name="friends" />
-              {/* Read-only training programs catalogue */}
-              <Stack.Screen name="programs" />
               {/* Pit Crew: the whole week of the current plan */}
               <Stack.Screen name="plan-week" />
               <Stack.Screen name="shopping-list" />
