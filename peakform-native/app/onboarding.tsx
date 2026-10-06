@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
+import { formatNumber } from '../lib/format'
 import { useEffect, useMemo, useState } from 'react'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -498,7 +499,7 @@ function CalorieGoalChips({
                 className="text-footnote font-bold"
                 style={{ color: active ? colors.bg : colors.text }}
               >
-                {o.kcal.toLocaleString()} kcal
+                {formatNumber(o.kcal)} kcal
               </Text>
             </TouchableOpacity>
           )

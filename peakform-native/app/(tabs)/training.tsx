@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native'
+import { formatNumber } from '../../lib/format'
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -183,10 +184,13 @@ function PRChart({
   data,
   exerciseKey,
   onPickExercise,
+  rangePicker,
 }: {
   data: ExerciseProgress | undefined
   exerciseKey: string
   onPickExercise: () => void
+  /** The range chips this card (and History) is filtered by (DESIGN.md §9). */
+  rangePicker: React.ReactNode
 }) {
   const u = useUnits()
   const displayName = useExerciseName(EXERCISE_NAME)
@@ -232,6 +236,7 @@ function PRChart({
           <Text className="text-text-subtle text-caption">▾</Text>
         </TouchableOpacity>
       </View>
+      <View className="mb-3">{rangePicker}</View>
 
       {chart ? (
         <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
@@ -881,14 +886,8 @@ function WeeklyRaceCard() {
           {meRow ? `You've moved ${u.weightLabel(meRow.total_volume_kg, 0)} this week.` : 'No volume logged yet this week.'}
         </Text>
         <Text className="text-text-subtle text-caption mt-1">
-          Add friends to race them on weekly weight moved.
+          Find friends to race them on weekly weight moved.
         </Text>
-        <TouchableOpacity
-          onPress={() => router.push('/friends')}
-          className="mt-3 self-start bg-surface-raised px-3 py-2 rounded-md" style={{ borderCurve: 'continuous' }}
-        >
-          <Text className="text-text text-caption font-medium">+ Invite friends</Text>
-        </TouchableOpacity>
       </View>
     )
   }
@@ -898,16 +897,13 @@ function WeeklyRaceCard() {
   const meBelowFold = meRow && !topThree.some((r) => r.is_me)
   const maxVol = Math.max(1, rows[0].total_volume_kg)
 
+  // Not tappable: friends are reached from Find friends in the header (DESIGN.md §9).
   return (
-    <PressableScale
-      haptic
-      onPress={() => router.push('/friends')}
-      className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}
-    >
+    <View className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
       <View className="flex-row items-center justify-between mb-3">
         <Text className="text-text-subtle text-caption">Weekly race</Text>
         <Text className="text-text-subtle text-caption">
-          Crew of {rows.length} · resets Sunday →
+          Crew of {rows.length} · resets Sunday
         </Text>
       </View>
 
@@ -926,7 +922,7 @@ function WeeklyRaceCard() {
           </>
         )}
       </View>
-    </PressableScale>
+    </View>
   )
 }
 
@@ -958,7 +954,7 @@ function RaceRowView({ row, maxVol }: { row: RaceRow; maxVol: number }) {
             <Text className="text-text-subtle text-caption font-normal"> {u.weightUnit}</Text>
           </Text>
           <Text className="text-caption tabular-nums mt-1" style={{ color: row.is_me ? colors['text-muted'] : colors['text-subtle'] }}>
-            {row.dots_volume != null ? row.dots_volume.toLocaleString() : '—'}
+            {row.dots_volume != null ? formatNumber(row.dots_volume) : '—'}
             <Text className="text-text-subtle text-caption"> DOTS</Text>
           </Text>
         </View>
@@ -1282,10 +1278,11 @@ function RangePicker({
             <TouchableOpacity
               key={r.days}
               onPress={() => onChange(r.days)}
-              className="flex-1 py-2 rounded-full border items-center"
+              className="flex-1 rounded-full border items-center justify-center"
               style={{
                 borderCurve: 'continuous',
-                backgroundColor: active ? colors.text : colors.surface,
+                minHeight: 44,
+                backgroundColor: active ? colors.text : colors['surface-raised'],
                 borderColor: active ? colors.text : colors.border,
               }}
               accessibilityRole="button"
@@ -1391,10 +1388,12 @@ function SessionRow({
 function SessionHistory({
   data,
   isLoading,
+  rangeDays,
   nameForKey,
 }: {
   data: SessionsResponse | undefined
   isLoading: boolean
+  rangeDays: RangeDays
   nameForKey: (key: string) => string
 }) {
   if (isLoading) return <SkeletonCard height={200} />
@@ -1404,7 +1403,9 @@ function SessionHistory({
   return (
     <View className="bg-surface border border-divider rounded-xl overflow-hidden" style={{ borderCurve: 'continuous' }}>
       <View className="px-4 pt-4 pb-2">
-        <Text className="text-text-subtle text-caption">History</Text>
+        <Text className="text-text-subtle text-caption">
+          History · {rangeDays === 365 ? 'last year' : `last ${rangeDays} days`}
+        </Text>
       </View>
       {sessions.length === 0 ? (
         <View className="px-4 pb-4">
@@ -1592,10 +1593,11 @@ export default function TrainingScreen() {
             <PressableScale
               haptic
               onPress={() => router.push('/friends')}
-              className="bg-surface border border-divider px-3 py-2 rounded-xl" style={{ borderCurve: 'continuous' }}
+              className="bg-surface border border-divider px-3 rounded-md justify-center"
+              style={{ borderCurve: 'continuous', minHeight: 44 }}
             >
               <View className="flex-row items-center gap-2">
-                <Text className="text-text text-caption font-semibold">Friends</Text>
+                <Text className="text-text text-footnote font-semibold">Find friends</Text>
                 {pendingInvites > 0 && (
                   <View
                     className="bg-danger px-1 rounded-full items-center justify-center"
@@ -1625,17 +1627,18 @@ export default function TrainingScreen() {
 
             <VolumeChart data={volumeQ.data} />
 
-            <RangePicker
-              value={rangeDays}
-              onChange={setRangeDays}
-              clamped={prQ.data?.clamped || sessionsQ.data?.clamped}
-              windowDays={prQ.data?.window_days ?? sessionsQ.data?.window_days}
-            />
-
             <PRChart
               data={prQ.data}
               exerciseKey={selectedExercise}
               onPickExercise={() => setShowPicker(true)}
+              rangePicker={
+                <RangePicker
+                  value={rangeDays}
+                  onChange={setRangeDays}
+                  clamped={prQ.data?.clamped || sessionsQ.data?.clamped}
+                  windowDays={prQ.data?.window_days ?? sessionsQ.data?.window_days}
+                />
+              }
             />
 
             <OneRMCard />
@@ -1643,6 +1646,7 @@ export default function TrainingScreen() {
             <SessionHistory
               data={sessionsQ.data}
               isLoading={sessionsQ.isLoading}
+              rangeDays={rangeDays}
               nameForKey={(k) => nameForKey(k, customKeyToName)}
             />
 

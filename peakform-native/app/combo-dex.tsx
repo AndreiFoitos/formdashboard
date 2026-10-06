@@ -1,4 +1,5 @@
 import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { formatNumber } from '../lib/format'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useRewards } from '../hooks/useRewards'
@@ -147,7 +148,7 @@ function MilestoneCard({ milestone: m }: { milestone: DexMilestone }) {
 }
 
 function formatNum(n: number) {
-  return n >= 10000 ? `${Math.round(n / 1000).toLocaleString()}k` : Math.round(n).toLocaleString()
+  return n >= 10000 ? `${formatNumber(Math.round(n / 1000))}k` : formatNumber(Math.round(n))
 }
 
 function EmoteLine({ emote, golden, hidden }: { emote: string | null; golden: string | null; hidden?: boolean }) {

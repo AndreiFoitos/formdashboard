@@ -15,3 +15,8 @@ export function formatFixed(n: number, decimals: number): string {
 export function withUnit(n: number, unit: string, decimals = 0): string {
   return `${formatNumber(n, decimals)} ${unit}`
 }
+
+/** "chicken breast" → "Chicken breast" (DESIGN.md §9: food names). Display only. */
+export function capitalize(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
+}

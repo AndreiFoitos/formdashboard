@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { formatNumber } from '../lib/format'
 import {
   View,
   Text,
@@ -85,7 +86,7 @@ function BedtimeImpact({ data }: { data: CurveData }) {
         {data.sleep_impact}
         {data.caffeine_at_bedtime > 0 && (
           <Text className="text-text-subtle">
-            {' '}· {Math.round(data.caffeine_at_bedtime)}mg at bedtime
+            {' '}· {Math.round(data.caffeine_at_bedtime)} mg at bedtime
           </Text>
         )}
       </Text>
@@ -101,7 +102,7 @@ function BedtimeImpact({ data }: { data: CurveData }) {
       <Text className="text-footnote" style={{ color: style.text }}>{style.icon}</Text>
       <View className="flex-1">
         <Text className="text-footnote font-semibold" style={{ color: style.text }}>
-          {Math.round(data.caffeine_at_bedtime)}mg still in your system at{' '}
+          {Math.round(data.caffeine_at_bedtime)} mg still in your system at{' '}
           {hour12(data.bedtime_hour)}
         </Text>
         <Text className="text-caption mt-1" style={{ color: style.text, opacity: 0.8 }}>
@@ -341,7 +342,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       onClose()
       showUndo({
-        label: `+${label} · ${entry.caffeine_mg}mg`,
+        label: `+${label} · ${entry.caffeine_mg} mg`,
         onUndo: async () => {
           await api.delete(`/stimulants/${entry.id}`)
           qc.invalidateQueries({ queryKey: ['dashboard'] })
@@ -425,7 +426,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
                   className="text-caption mt-1"
                   style={{ color: colors['text-subtle'] }}
                 >
-                  {s.caffeine_mg}mg · {s.calories} kcal
+                  {s.caffeine_mg} mg · {formatNumber(s.calories)} kcal
                 </Text>
               </TouchableOpacity>
             ))}
@@ -495,7 +496,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
                         className="text-caption font-medium"
                         style={{ color: active ? colors.bg : colors['text-muted'] }}
                       >
-                        {active ? '✓ ' : '+ '}{a.label} · {a.calories} kcal
+                        {active ? '✓ ' : '+ '}{a.label} · {formatNumber(a.calories)} kcal
                       </Text>
                     </TouchableOpacity>
                   )
@@ -507,10 +508,10 @@ function LogModal({ onClose }: { onClose: () => void }) {
           {selectedSubstance && selected !== 'custom' && liveTotals && (
             <View className="bg-surface-raised border border-border rounded-xl px-4 py-3 mb-4" style={{ borderCurve: 'continuous' }}>
               <Text className="text-text-subtle text-caption mb-1">
-                {selectedSubstance.caffeine_mg}mg caffeine · half-life {selectedSubstance.half_life}h · {selectedSubstance.serving}
+                {selectedSubstance.caffeine_mg} mg caffeine · half-life {selectedSubstance.half_life}h · {selectedSubstance.serving}
               </Text>
               <Text className="text-text text-footnote font-semibold">
-                {liveTotals.calories} kcal
+                {formatNumber(liveTotals.calories)} kcal
                 <Text className="text-text-subtle text-caption font-normal">
                   {'  '}· {liveTotals.protein_g.toFixed(1)}p · {liveTotals.carbs_g.toFixed(1)}c · {liveTotals.fat_g.toFixed(1)}f
                 </Text>
@@ -603,7 +604,7 @@ export function CaffeineCurve({ data, isLoading }: Props) {
       hapticSuccess()
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       showUndo({
-        label: `+${last.label} · ${last.caffeine_mg}mg`,
+        label: `+${last.label} · ${last.caffeine_mg} mg`,
         onUndo: async () => {
           await api.delete(`/stimulants/${entry.id}`)
           qc.invalidateQueries({ queryKey: ['dashboard'] })
@@ -649,7 +650,7 @@ export function CaffeineCurve({ data, isLoading }: Props) {
                 style={{ borderCurve: 'continuous', opacity: isPending ? 0.5 : 1 }}
               >
                 <Text className="text-text text-caption font-semibold">+ {last.label}</Text>
-                <Text className="text-text-subtle text-caption ml-2">{last.caffeine_mg}mg</Text>
+                <Text className="text-text-subtle text-caption ml-2">{last.caffeine_mg} mg</Text>
               </TouchableOpacity>
             ) : null}
             <TouchableOpacity

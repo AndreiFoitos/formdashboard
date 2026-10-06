@@ -10,6 +10,7 @@ import {
   Modal,
   Share,
 } from 'react-native'
+import { formatNumber } from '../lib/format'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -553,7 +554,7 @@ function LeaderboardTab() {
                       <Text className="text-text-subtle text-caption font-normal"> {u.weightUnit}</Text>
                     </Text>
                     <Text className="text-text-muted text-footnote font-semibold mt-1">
-                      {row.dots_volume != null ? row.dots_volume.toLocaleString() : '—'}
+                      {row.dots_volume != null ? formatNumber(row.dots_volume) : '—'}
                       <Text className="text-text-subtle text-caption font-normal"> DOTS</Text>
                     </Text>
                   </View>

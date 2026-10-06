@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { capitalize, formatNumber } from '../lib/format'
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
@@ -84,7 +85,7 @@ export default function PlanWeekScreen() {
                 <View className="flex-row items-end justify-between mb-2">
                   <Text className="text-text-subtle text-caption">Meals</Text>
                   <Text className="text-text-subtle text-caption">
-                    {meals.totals.calories} kcal · {Math.round(meals.totals.protein_g)} g protein
+                    {formatNumber(meals.totals.calories)} kcal · {Math.round(meals.totals.protein_g)} g protein
                   </Text>
                 </View>
                 <View className="bg-surface border border-divider rounded-xl overflow-hidden" style={{ borderCurve: 'continuous' }}>
@@ -95,8 +96,8 @@ export default function PlanWeekScreen() {
                       style={{ borderBottomWidth: i === meals.meals.length - 1 ? 0 : 1, borderBottomColor: colors.divider }}
                     >
                       <View className="flex-row justify-between">
-                        <Text className="text-text text-footnote font-medium flex-1 pr-2">{m.name}</Text>
-                        <Text className="text-text-muted text-footnote">{m.totals.calories} kcal</Text>
+                        <Text className="text-text text-footnote font-medium flex-1 pr-2">{capitalize(m.name)}</Text>
+                        <Text className="text-text-muted text-footnote">{formatNumber(m.totals.calories)} kcal</Text>
                       </View>
                       {!!m.prep && <Text className="text-text-muted text-caption mt-1">{m.prep}</Text>}
                       {m.items.map((it) => (

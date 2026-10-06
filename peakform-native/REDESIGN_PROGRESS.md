@@ -69,3 +69,20 @@ SDK 54 native-tabs limitations found (docs + types): alpha API; no `md` icon pro
 drawable/androidSrc/VectorIcon); tab bar height can't be measured; only the first ScrollView of a tab
 gets automatic iOS content insets; FlatList scroll-to-top/minimize unsupported; 5-tab max on Android;
 no nested native tabs; custom tab-bar styling heavily constrained.
+
+Commit: 10d7340
+
+## Phase 4 — §8 step 7 + §9 backlog
+In progress: jargon, number formatter, friends consolidation, race card date, range chips, gear icon, Scan body fat, Pit header, macro tiles, food name capitalization.
+Done:
+- Jargon: Settings has no "Pit Crew"/"Labs"; preference-field hints and disclaimer now say "the Pit". Pit tab keeps its name.
+- Number formatter: `lib/format.ts` (formatNumber/formatFixed/withUnit/capitalize) replaces every
+  `toLocaleString()` in app/ + components/ (incl. CountUp); spaces added before g/mg/kcal units.
+- Friends: one label "Find friends" (Today solo race card + Training header button). Removed the Training
+  "+ Invite friends" CTA and the Training race-card tap to /friends.
+- Race card date: not a bug — backend `_recap_week_bounds` shows the last completed Mon–Sun week.
+  Card now reads "Last week · Sep 28 – Oct 4" (or "This week" on Sunday).
+- Training range chips now live inside the PR progression card; History card states its range.
+- Today: gear icon (lucide Settings) with accessibility label; TabIcons.tsx deleted (unused).
+- "Scan BF" → "Scan body fat". Pit header: date line + "Pit" title. Macro tiles: all compact, same caption line.
+- Food names capitalized on display (nutrition log, search results, saved meals, confirm, barcode, plan, shopping list).

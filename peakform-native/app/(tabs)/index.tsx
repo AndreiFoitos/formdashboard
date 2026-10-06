@@ -20,8 +20,7 @@ import { SkeletonCard } from '../../components/Skeleton'
 import { PressableScale } from '../../components/PressableScale'
 import { hapticLight, hapticSuccess } from '../../lib/haptics'
 import { router } from 'expo-router'
-import { Play, UserPlus } from 'lucide-react-native'
-import { SettingsIcon } from '../../components/TabIcons'
+import { Play, UserPlus, Settings } from 'lucide-react-native'
 import { AvatarBadge } from '../../components/avatar/AvatarBadge'
 import { FEATURES } from '../../lib/featureFlags'
 import { effectsForToday } from '../../lib/avatar/config'
@@ -567,12 +566,18 @@ function WeeklyRaceCard() {
   )
 }
 
+/** The recap covers the last completed Mon–Sun week (backend
+ *  `_recap_week_bounds`): on Sunday that's this week, otherwise last week.
+ *  Say which, so "Sep 28 – Oct 4" on a Tuesday doesn't read as a wrong range. */
 function formatWeekShort(startISO: string, endISO: string): string {
   const s = new Date(startISO + 'T00:00:00')
   const e = new Date(endISO + 'T00:00:00')
   const sm = s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const em = e.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  return `${sm} — ${em}`
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const which = e.getTime() >= today.getTime() ? 'This week' : 'Last week'
+  return `${which} · ${sm} – ${em}`
 }
 
 // ─── Dashboard Screen ─────────────────────────────────────────────────────────
@@ -660,8 +665,9 @@ export default function DashboardScreen() {
             onPress={() => router.push('/settings')}
             hitSlop={12}
             className="mt-1 p-2 -mr-2"
+            accessibilityLabel="Settings"
           >
-            <SettingsIcon color={colors.text} size={26} />
+            <Settings color={colors.text} size={24} strokeWidth={2} />
           </TouchableOpacity>
         </View>
 

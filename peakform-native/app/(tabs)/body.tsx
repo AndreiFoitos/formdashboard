@@ -500,7 +500,7 @@ export default function BodyScreen() {
               className="bg-surface border border-divider px-3 py-2 rounded-xl flex-row items-center gap-2" style={{ borderCurve: 'continuous' }}
             >
               <Camera size={14} color={colors.text} strokeWidth={2} />
-              <Text className="text-text text-footnote font-semibold">Scan BF</Text>
+              <Text className="text-text text-footnote font-semibold">Scan body fat</Text>
             </PressableScale>
             <PressableScale
               haptic

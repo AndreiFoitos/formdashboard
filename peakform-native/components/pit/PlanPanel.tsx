@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { capitalize, formatNumber } from '../../lib/format'
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { router } from 'expo-router'
 import { Check, ChevronDown, ChevronRight, ChevronUp } from 'lucide-react-native'
@@ -207,10 +208,10 @@ function MealRow({ meal, last }: { meal: Today['meals'][number]; last: boolean }
       <View className="px-4 py-3 flex-row items-center">
         <TouchableOpacity className="flex-1 pr-3" onPress={() => setOpen((o) => !o)}>
           <Text className="text-text-subtle text-caption">{SLOT_LABEL[meal.slot]}</Text>
-          <Text className={`text-footnote font-medium mt-1 ${meal.logged ? 'text-text-subtle' : 'text-text'}`}>{meal.name}</Text>
+          <Text className={`text-footnote font-medium mt-1 ${meal.logged ? 'text-text-subtle' : 'text-text'}`}>{capitalize(meal.name)}</Text>
           <View className="flex-row items-center mt-1 gap-1">
             <Text className="text-text-subtle text-caption">
-              {meal.totals.calories} kcal · {Math.round(meal.totals.protein_g)} g protein
+              {formatNumber(meal.totals.calories)} kcal · {Math.round(meal.totals.protein_g)} g protein
             </Text>
             {open ? <ChevronUp size={12} color={colors['text-subtle']} /> : <ChevronDown size={12} color={colors['text-subtle']} />}
           </View>
@@ -241,7 +242,7 @@ function MealRow({ meal, last }: { meal: Today['meals'][number]; last: boolean }
               <Text className="text-text-muted text-caption flex-1 pr-2">
                 {i.food} · {i.grams} g
               </Text>
-              <Text className="text-text-subtle text-caption">{i.calories} kcal</Text>
+              <Text className="text-text-subtle text-caption">{formatNumber(i.calories)} kcal</Text>
             </View>
           ))}
         </View>
@@ -293,7 +294,7 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
           <View className="flex-row items-end justify-between mb-2">
             <Text className="text-text-subtle text-caption">Meals</Text>
             <Text className="text-text-subtle text-caption">
-              {loggedKcal} / {today.targets.kcal} kcal logged from plan
+              {formatNumber(loggedKcal)} / {formatNumber(today.targets.kcal)} kcal logged from plan
             </Text>
           </View>
           <Card>
@@ -336,8 +337,8 @@ function WhyCard({ plan }: { plan: Plan }) {
           <Text className="text-text-muted text-footnote">{plan.rationale}</Text>
           {plan.meal_plan_enabled && (
             <Text className="text-text-subtle text-caption">
-              Daily target {t.kcal} kcal, {t.protein_g} g protein, {t.carbs_g} g carbs, {t.fat_g} g fat
-              {t.tdee ? `. Estimated maintenance ${t.tdee} kcal (${t.tdee_source === 'measured' ? 'from your logs and weigh-ins' : 'from a formula'}).` : '.'}
+              Daily target {formatNumber(t.kcal)} kcal, {t.protein_g} g protein, {t.carbs_g} g carbs, {t.fat_g} g fat
+              {t.tdee ? `. Estimated maintenance ${formatNumber(t.tdee)} kcal (${t.tdee_source === 'measured' ? 'from your logs and weigh-ins' : 'from a formula'}).` : '.'}
             </Text>
           )}
           {[...t.notes, ...t.warnings].map((n) => (

@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { capitalize } from '../lib/format'
 import {
   View,
   Text,
@@ -299,7 +300,7 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
             ) : null}
             <View className="flex-1">
               <Text className="text-text text-headline font-semibold" numberOfLines={2}>
-                {product.name}
+                {capitalize(product.name)}
               </Text>
               {product.brand ? (
                 <Text className="text-text-subtle text-footnote" numberOfLines={1}>

@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native'
+import { capitalize } from '../lib/format'
 import { useMemo, useState } from 'react'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useLocalSearchParams } from 'expo-router'
@@ -78,9 +79,9 @@ function IngredientRow({
     >
       <View className="flex-row items-baseline justify-between">
         <Text className="text-text text-footnote flex-1" numberOfLines={1}>
-          {item.name}
+          {capitalize(item.name)}
         </Text>
-        <Text className="text-text-muted text-caption ml-2">{grams}g</Text>
+        <Text className="text-text-muted text-caption ml-2">{grams} g</Text>
       </View>
       <View className="flex-row items-center gap-2 mt-1">
         <Text className="text-text-subtle text-caption">{calories} kcal</Text>

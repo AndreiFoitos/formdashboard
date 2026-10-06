@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { capitalize } from '../lib/format'
 import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
@@ -93,7 +94,7 @@ export default function ShoppingListScreen() {
                           className="flex-1 text-footnote"
                           style={{ color: done ? colors['text-subtle'] : colors.text, textDecorationLine: done ? 'line-through' : 'none' }}
                         >
-                          {i.name}
+                          {capitalize(i.name)}
                         </Text>
                         <View className="items-end">
                           <Text className="text-footnote" style={{ color: done ? colors['text-subtle'] : colors.text }}>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { formatNumber } from '../lib/format'
 import { Text, TextProps } from 'react-native'
 import {
   useSharedValue,
@@ -55,7 +56,7 @@ export function CountUp({
   )
 
   const rounded = Number(display.toFixed(decimals))
-  const text = separator ? rounded.toLocaleString() : rounded.toFixed(decimals)
+  const text = separator ? formatNumber(rounded) : rounded.toFixed(decimals)
 
   return <Text {...textProps}>{text}</Text>
 }

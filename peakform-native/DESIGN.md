@@ -345,3 +345,9 @@ One line per decision made during the autonomous redesign run (2026-10-06).
 - Phase 3: SF Symbols — Today `house`/`house.fill`, Training `dumbbell.fill`, Nutrition `fork.knife`, Body `figure`, Pit `bubble.left.and.text.bubble.right` (chat = AI coach, §5).
 - Phase 3: Camera screens (snap, barcode, body-comp) stay headerless full-screen pushes (§5 media exception); login/register/onboarding stay headerless as the signed-out flow.
 - Phase 3: Paywall is a native modal titled "Plans" with Cancel; methodology topic sets its title at runtime.
+- Phase 4: Weekly race date is intentional (last completed Mon–Sun week, per backend `_recap_week_bounds`); labelled "Last week · …" / "This week · …" instead of changing the range.
+- Phase 4: Friends entry points = Today race card + Training "Find friends" button. The Training race card is no longer tappable; the invite CTA inside it is removed (Friends screen still reachable from both entry points).
+- Phase 4: Range chips filter both PR progression and History; they sit inside the PR card and History shows "last N days". Chips get a 44pt min height and `surface-raised` fill inside the card.
+- Phase 4: Macro tiles are all compact (no bars): value + one caption — protein "of 160 g" (target), carbs/fat "% of calories". The macro split bar below carries the visual; the protein target bar still lives on Today.
+- Phase 4: "Pit Crew" stays in Pit-tab content, the paywall and the policy notice (product/legal copy, outside Settings); §1.7 only bans it in settings.
+- Phase 4: Food name capitalization is display-only; stored names and edit fields keep what the user typed.

@@ -272,7 +272,7 @@ export function FoodPrefsFields({ value, onChange }: { value: Preferences; onCha
         />
       </View>
       <View>
-        <Label hint="You can also tell Pit Crew later.">Foods you won't eat</Label>
+        <Label hint="You can also tell the Pit later.">Foods you won't eat</Label>
         <MultiChoice
           presets={[]}
           values={value.dislikes}
@@ -285,7 +285,7 @@ export function FoodPrefsFields({ value, onChange }: { value: Preferences; onCha
         <SingleChoice options={COOKING} value={value.cooking} onChange={(v) => onChange({ cooking: v })} />
       </View>
       <View>
-        <Label hint="If one applies, Pit Crew plans your training but leaves food to a doctor or dietitian.">
+        <Label hint="If one applies, the Pit plans your training but leaves food to a doctor or dietitian.">
           Do any of these apply?
         </Label>
         <View className="gap-2">
@@ -299,7 +299,7 @@ export function FoodPrefsFields({ value, onChange }: { value: Preferences; onCha
           />
         </View>
         <Text className="text-text-subtle text-caption mt-3">
-          Pit Crew gives general fitness guidance, not medical advice. If you have a medical condition, check with
+          The Pit gives general fitness guidance, not medical advice. If you have a medical condition, check with
           your doctor before changing how you eat or train.
         </Text>
       </View>

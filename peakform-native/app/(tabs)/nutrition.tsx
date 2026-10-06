@@ -22,6 +22,7 @@ import { SkeletonCard } from '../../components/Skeleton'
 import { SwipeableRow } from '../../components/SwipeableRow'
 import { PressableScale } from '../../components/PressableScale'
 import { hapticSuccess } from '../../lib/haptics'
+import { formatNumber, capitalize } from '../../lib/format'
 import { colors } from '../../theme/tokens'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -136,14 +137,14 @@ function CalorieBar({ calories, target }: { calories: number; target: number | n
               className="text-text text-display font-bold"
             />
             {target && (
-              <Text className="text-text-subtle text-footnote">/ {target.toLocaleString()} kcal</Text>
+              <Text className="text-text-subtle text-footnote">/ {formatNumber(target)} kcal</Text>
             )}
           </View>
         </View>
         {over && (
           <View className="bg-warning/15 border border-warning/40 px-2 py-1 rounded-full" style={{ borderCurve: 'continuous' }}>
             <Text className="text-warning text-caption font-medium">
-              +{(calories - target!).toLocaleString()} over
+              +{formatNumber(calories - target!)} over
             </Text>
           </View>
         )}
@@ -162,37 +163,23 @@ function CalorieBar({ calories, target }: { calories: number; target: number | n
 function MacroCard({
   label,
   value,
-  target,
-  unit,
-  color,
+  caption,
 }: {
   label: string
   value: number
-  target: number | null
-  unit: string
-  color: string
+  /** One line under the value; every tile has one so the row stays even (DESIGN.md §9). */
+  caption: string
 }) {
-  const p = pct(value, target)
-
   return (
     <View className="flex-1 bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
       <Text className="text-text-muted text-caption mb-2 font-semibold">
         {label}
       </Text>
       <Text className="text-text font-bold text-title">
-        {Math.round(value)}
-        <Text className="text-text-subtle text-footnote font-normal"> {unit}</Text>
+        {formatNumber(Math.round(value))}
+        <Text className="text-text-subtle text-footnote font-normal"> g</Text>
       </Text>
-      {target && (
-        <>
-          <View className="mt-3">
-            <AnimatedBar percent={Math.min(100, p ?? 0)} color={color} height={5} />
-          </View>
-          <Text className="text-text-subtle text-caption mt-2 font-medium">
-            of {Math.round(target)}{unit}
-          </Text>
-        </>
-      )}
+      <Text className="text-text-subtle text-caption mt-2 font-medium">{caption}</Text>
     </View>
   )
 }
@@ -278,10 +265,10 @@ function SearchResultRow({
     <View className="bg-surface border border-divider rounded-xl px-3 py-3 flex-row items-center" style={{ borderCurve: 'continuous' }}>
       <View className="flex-1 pr-3">
         <Text className="text-text text-footnote font-medium" numberOfLines={1}>
-          {displayName}
+          {capitalize(displayName)}
         </Text>
         <Text className="text-text-subtle text-caption mt-1">
-          ~{result.per_100g.calories} kcal/100g
+          ~{result.per_100g.calories} kcal / 100 g
         </Text>
       </View>
       <TextInput
@@ -447,10 +434,10 @@ function BuildMealModal({
                   >
                     <View className="flex-1 pr-3">
                       <Text className="text-text text-footnote" numberOfLines={1}>
-                        {item.food_name}
+                        {capitalize(item.food_name)}
                       </Text>
                       <Text className="text-text-subtle text-caption mt-1">
-                        {item.grams}g · {item.calories} kcal · {Math.round(item.protein_g)}p ·{' '}
+                        {item.grams} g · {formatNumber(item.calories)} kcal · {Math.round(item.protein_g)}p ·{' '}
                         {Math.round(item.carbs_g)}c · {Math.round(item.fat_g)}f
                       </Text>
                     </View>
@@ -633,7 +620,7 @@ function SavedMealCard({
   onDelete: () => void
   busy?: boolean
 }) {
-  const preview = meal.items.map((i) => i.food_name).join(', ')
+  const preview = meal.items.map((i) => capitalize(i.food_name)).join(', ')
   return (
     <View className="bg-surface border border-divider rounded-xl px-4 py-3" style={{ borderCurve: 'continuous' }}>
       <View className="flex-row items-center justify-between mb-1">
@@ -643,7 +630,7 @@ function SavedMealCard({
           className="flex-row items-center flex-1 pr-2"
         >
           <Text className="text-text text-footnote font-semibold mr-2" numberOfLines={1}>
-            {meal.name}
+            {capitalize(meal.name)}
           </Text>
           {/* Inline rename pencil. Smaller when the user has already named the
               meal so it doesn't compete with the title. */}
@@ -1250,29 +1237,29 @@ function EntryRow({
       <View className="flex-1">
         <View className="flex-row items-baseline justify-between">
           <Text className="text-text text-footnote font-medium flex-1" numberOfLines={1}>
-            {entry.meal_name ?? 'Unnamed meal'}
+            {entry.meal_name ? capitalize(entry.meal_name) : 'Unnamed meal'}
           </Text>
           <Text className="text-text-subtle text-caption ml-2">{formatTime(entry.logged_at)}</Text>
         </View>
         <View className="flex-row flex-wrap gap-x-3 mt-1">
           {entry.calories != null && (
             <Text className="text-text-muted text-caption">
-              {entry.calories.toLocaleString()} kcal
+              {formatNumber(entry.calories)} kcal
             </Text>
           )}
           {entry.protein_g != null && (
             <Text className="text-caption" style={{ color: colors.data.protein }}>
-              {Math.round(entry.protein_g)}g protein
+              {Math.round(entry.protein_g)} g protein
             </Text>
           )}
           {entry.carbs_g != null && (
             <Text className="text-caption" style={{ color: colors.data.carbs }}>
-              {Math.round(entry.carbs_g)}g carbs
+              {Math.round(entry.carbs_g)} g carbs
             </Text>
           )}
           {entry.fat_g != null && (
             <Text className="text-caption" style={{ color: colors.data.fat }}>
-              {Math.round(entry.fat_g)}g fat
+              {Math.round(entry.fat_g)} g fat
             </Text>
           )}
         </View>
@@ -1327,6 +1314,10 @@ export default function NutritionScreen() {
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'long', day: 'numeric',
   })
+
+  // Share of today's macro calories, for the carbs/fat tiles.
+  const macroKcal = totals.protein_g * 4 + totals.carbs_g * 4 + totals.fat_g * 9
+  const macroShare = (kcal: number) => (macroKcal > 0 ? `${Math.round((kcal / macroKcal) * 100)}% of calories` : 'None yet')
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
@@ -1413,24 +1404,10 @@ export default function NutritionScreen() {
               <MacroCard
                 label="Protein"
                 value={totals.protein_g}
-                target={targets.protein_g}
-                unit="g"
-                color={colors.data.protein}
+                caption={targets.protein_g ? `of ${formatNumber(Math.round(targets.protein_g))} g` : macroShare(totals.protein_g * 4)}
               />
-              <MacroCard
-                label="Carbs"
-                value={totals.carbs_g}
-                target={null}
-                unit="g"
-                color={colors.data.carbs}
-              />
-              <MacroCard
-                label="Fat"
-                value={totals.fat_g}
-                target={null}
-                unit="g"
-                color={colors.data.fat}
-              />
+              <MacroCard label="Carbs" value={totals.carbs_g} caption={macroShare(totals.carbs_g * 4)} />
+              <MacroCard label="Fat" value={totals.fat_g} caption={macroShare(totals.fat_g * 9)} />
             </View>
 
             {(totals.protein_g > 0 || totals.carbs_g > 0 || totals.fat_g > 0) && (
