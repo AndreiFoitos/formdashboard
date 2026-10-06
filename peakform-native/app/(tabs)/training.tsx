@@ -24,6 +24,17 @@ import { hapticSuccess, hapticSelection, hapticLight } from '../../lib/haptics'
 import { TrustedShield } from '../../components/icons/TrustedShield'
 import { SusFace } from '../../components/icons/SusFace'
 import { ALL_EXERCISES, EXERCISE_NAME, GROUPS, type Exercise, type Group } from '../../lib/exercises'
+import {
+  KIND_COLOUR,
+  KIND_LABEL,
+  PROGRESSION_KEY,
+  targetHeadline,
+  useProgression,
+  useProgressionOverview,
+  type ExerciseProgression,
+} from '../../hooks/useProgression'
+import { UndoToast } from '../../components/UndoToast'
+import { showUndo } from '../../store/undo'
 
 // ─── Exercise catalogue ───────────────────────────────────────────────────────
 
@@ -273,6 +284,23 @@ interface CustomExerciseRow {
   created_at: string
 }
 
+/** ↑ kg when an exercise is ready for more weight, Stalled when stuck. */
+function ProgressBadge({
+  info,
+}: {
+  info?: { ready_for_weight: boolean; stalled: boolean }
+}) {
+  if (!info || (!info.ready_for_weight && !info.stalled)) return null
+  const colour = info.stalled ? '#fbbf24' : '#a3e635'
+  return (
+    <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: `${colour}22` }}>
+      <Text className="text-[10px] font-semibold" style={{ color: colour }}>
+        {info.stalled ? 'Stalled' : '↑ kg'}
+      </Text>
+    </View>
+  )
+}
+
 function ExercisePickerModal({
   onPick,
   onClose,
@@ -292,6 +320,7 @@ function ExercisePickerModal({
   // If we're filtering to one group, default the new-custom-exercise group
   // to that group so the user doesn't have to re-pick.
   const [newGroup, setNewGroup] = useState<string>(filterGroup ?? 'Chest')
+  const { data: progress } = useProgressionOverview()
 
   const customQ = useQuery<CustomExerciseRow[]>({
     queryKey: ['custom-exercises'],
@@ -446,9 +475,10 @@ function ExercisePickerModal({
                     <TouchableOpacity
                       key={e.key}
                       onPress={() => { hapticSelection(); onPick(e.key) }}
-                      className="px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800"
+                      className="px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 flex-row items-center justify-between"
                     >
                       <Text className="text-white text-sm">{e.name}</Text>
+                      <ProgressBadge info={progress?.[e.key]} />
                     </TouchableOpacity>
                   ))}
                   {customs.map((c) => (
@@ -458,7 +488,10 @@ function ExercisePickerModal({
                       className="px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 flex-row items-center justify-between"
                     >
                       <Text className="text-white text-sm">{c.name}</Text>
-                      <Text className="text-zinc-600 text-[10px] uppercase tracking-widest">custom</Text>
+                      <View className="flex-row items-center" style={{ gap: 8 }}>
+                        <ProgressBadge info={progress?.[c.key]} />
+                        <Text className="text-zinc-600 text-[10px] uppercase tracking-widest">custom</Text>
+                      </View>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -482,7 +515,10 @@ function ExercisePickerModal({
                     className="px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800 flex-row items-center justify-between"
                   >
                     <Text className="text-white text-sm">{c.name}</Text>
-                    <Text className="text-zinc-600 text-[10px] uppercase tracking-widest">custom</Text>
+                    <View className="flex-row items-center" style={{ gap: 8 }}>
+                      <ProgressBadge info={progress?.[c.key]} />
+                      <Text className="text-zinc-600 text-[10px] uppercase tracking-widest">custom</Text>
+                    </View>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -531,23 +567,72 @@ function LogExerciseModal({
   ])
   const [notes, setNotes] = useState('')
 
+  // Progressive overload target: pre-fill the sets with it. The old pre-fill
+  // read history in useState's initialiser, before the query had loaded, so
+  // the sheet usually opened empty; this waits for the data and stops once
+  // the user edits anything.
+  const progression = useProgression(exerciseKey)
+  const target = progression.data?.target
+  const [touched, setTouched] = useState(false)
+  useEffect(() => {
+    if (touched) return
+    if (target?.sets.length) {
+      setSets(target.sets.map(t => ({
+        reps: String(t.reps),
+        weight: t.weight_kg != null ? String(t.weight_kg) : '',
+      })))
+    } else if (progression.isFetched && lastSession?.length) {
+      setSets(lastSession.map(l => ({
+        reps: l.reps != null ? String(l.reps) : '',
+        weight: l.weight_kg != null ? String(l.weight_kg) : '',
+      })))
+    }
+  }, [target, lastSession, progression.isFetched, touched])
+
+  function invalidateTraining() {
+    qc.invalidateQueries({ queryKey: ['training-volume'] })
+    qc.invalidateQueries({ queryKey: ['exercise-history'] })
+    qc.invalidateQueries({ queryKey: ['training-history'] })
+    qc.invalidateQueries({ queryKey: ['dashboard'] })
+    qc.invalidateQueries({ queryKey: PROGRESSION_KEY })
+  }
+
   const { mutate, isPending } = useMutation({
     mutationFn: (body: object) => api.post('/training/log-exercise', body),
-    onSuccess: () => {
+    onSuccess: async (res) => {
       hapticSuccess()
-      qc.invalidateQueries({ queryKey: ['training-volume'] })
-      qc.invalidateQueries({ queryKey: ['exercise-history'] })
-      qc.invalidateQueries({ queryKey: ['training-history'] })
-      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      invalidateTraining()
       onClose()
+      // "Saved · Next time: 82.5 kg × 8", with Undo deleting what was just logged.
+      const ids: string[] = (res.data ?? []).map((l: { id: string }) => l.id)
+      let label = 'Saved'
+      try {
+        const { data } = await api.get<ExerciseProgression>(`/training/progression/${exerciseKey}`)
+        const nxt = data.next ?? data.target
+        if (nxt && nxt.kind !== 'first') {
+          label = nxt.kind === 'stall'
+            ? 'Saved · Stalled: next time add a set or go lighter'
+            : `Saved · Next time: ${targetHeadline(nxt)}`
+        }
+      } catch {}
+      showUndo({
+        label,
+        durationMs: 7000,
+        onUndo: async () => {
+          await Promise.all(ids.map(id => api.delete(`/training/${id}`).catch(() => {})))
+          invalidateTraining()
+        },
+      })
     },
   })
 
   function updateSet(i: number, field: 'reps' | 'weight', value: string) {
+    setTouched(true)
     setSets(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
   }
 
   function addSet() {
+    setTouched(true)
     hapticLight()
     setSets(prev => [...prev, {
       reps: prev[prev.length - 1]?.reps ?? '',
@@ -557,6 +642,7 @@ function LogExerciseModal({
 
   function removeSet(i: number) {
     if (sets.length === 1) return
+    setTouched(true)
     setSets(prev => prev.filter((_, idx) => idx !== i))
   }
 
@@ -600,6 +686,25 @@ function LogExerciseModal({
         </View>
 
         <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
+          {/* Progressive overload target */}
+          {target && target.kind !== 'first' && (
+            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 mb-3">
+              <View className="flex-row items-center justify-between mb-1.5">
+                <Text className="text-zinc-500 text-xs uppercase tracking-widest">Next target</Text>
+                <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: `${KIND_COLOUR[target.kind]}22` }}>
+                  <Text className="text-[11px] font-semibold" style={{ color: KIND_COLOUR[target.kind] }}>
+                    {KIND_LABEL[target.kind]}
+                  </Text>
+                </View>
+              </View>
+              <Text className="text-white text-lg font-bold">{targetHeadline(target)}</Text>
+              <Text className="text-zinc-400 text-xs leading-5 mt-1">{target.reason}</Text>
+              <Text className="text-zinc-600 text-[11px] mt-1.5">
+                Rep range {target.range[0]}–{target.range[1]} · sets below are pre-filled, edit what you actually did
+              </Text>
+            </View>
+          )}
+
           {/* Last session reference */}
           {lastSession && lastSession.length > 0 && (
             <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 mb-4">
@@ -1627,6 +1732,7 @@ export default function TrainingScreen() {
           onClose={() => setLogExercise(null)}
         />
       )}
+      <UndoToast />
     </SafeAreaView>
   )
 }

@@ -1,9 +1,8 @@
 """Today's slice of a Pit Crew plan, with progression (docs/ai-plans-design.md §6).
 
-Progression is plain code, no AI: double progression. When every planned set
-of an exercise reached the top of its rep range last session, the weight goes
-up one step; otherwise it stays and the goal is to reach the top. Lifts with
-no history use the plan's starting weight.
+Progression is plain code, no AI: double progression, shared with the
+Training tab (services/progression.py). Lifts with no history use the plan's
+starting weight.
 
 When the chat rescales the rest of a day (adjust_today, after an off-plan
 meal), the factors live in plan["today_scale"][date][meal_id] and every
@@ -28,48 +27,25 @@ from models.ai_plan import AiPlan
 from models.nutrition_log import NutritionLog
 from models.training_log import TrainingLog
 from models.user import User
+from services.progression import next_target
 
 LOOKBACK = timedelta(weeks=8)
 KEEP_LOGGED_DAYS = 14
 
 
-def _step(group: str, weight: float) -> float:
-    """Smallest sensible jump: 5 kg on lower-body barbell work, 1 kg on
-    light dumbbell/isolation weights, else 2.5 kg."""
-    if weight < 20:
-        return 1.0
-    return 5.0 if group == "Legs" else 2.5
-
-
-def suggest(ex: dict, last: list[TrainingLog]) -> dict:
-    """Weight and reps to aim for, and a short reason the app can show."""
-    lo, hi, sets = ex["reps_min"], ex["reps_max"], ex["sets"]
-    weighted = [s for s in last if s.weight_kg]
-    if ex.get("basis") == "bodyweight" or (last and not weighted):
-        if last and all((s.reps or 0) >= hi for s in last) and len(last) >= sets:
-            return {"weight_kg": None, "reps": hi, "reason": f"You hit {hi} reps on every set. Add a rep, slow it down, or add weight."}
-        return {"weight_kg": None, "reps": hi, "reason": f"Aim for {lo}-{hi} reps."}
-    if not weighted:
-        w = ex.get("start_weight_kg")
-        if w is None:
-            return {"weight_kg": None, "reps": hi, "reason": f"First time: pick a weight you can lift for {hi} reps with 2 to spare."}
-        return {"weight_kg": w, "reps": hi, "reason": "Starting weight from your estimated 1RM."}
-
-    top = max(s.weight_kg for s in weighted)
-    at_top = [s for s in weighted if s.weight_kg == top]
-    fewest = min((s.reps or 0) for s in at_top)
-    # Earned: every planned set at the top weight reached the top of the range,
-    # or fewer sets but clearly beyond it (e.g. last plan's 12s vs this one's 6).
-    if fewest >= hi and (len(at_top) >= sets or fewest >= hi + 2):
-        new = top + _step(ex["group"], top)
-        start = ex.get("start_weight_kg")
-        if start and start > new:
-            # A heavier rep range than they've been doing: the 1RM-based start
-            # is the better guess than one small step.
-            return {"weight_kg": start, "reps": hi, "reason": f"This plan is a heavier rep range than your last {top:g} kg x {fewest}. Start at {start:g} kg (from your est. 1RM)."}
-        return {"weight_kg": new, "reps": lo, "reason": f"You hit {hi}+ reps at {top:g} kg. Up to {new:g} kg."}
-    best = max((s.reps or 0) for s in at_top)
-    return {"weight_kg": top, "reps": hi, "reason": f"Stay at {top:g} kg until you get {hi} reps on every set (best last time: {best})."}
+def suggest(ex: dict, sessions: list[list[TrainingLog]]) -> dict:
+    """Weight and reps to aim for, and a short reason the app can show.
+    Same double progression as the Training tab (services/progression.py),
+    with the plan's rep range, set count and 1RM-based starting weight."""
+    t = next_target(
+        sessions,
+        ex["group"],
+        rep_range=(ex["reps_min"], ex["reps_max"]),
+        planned_sets=ex["sets"],
+        start_weight=ex.get("start_weight_kg"),
+        bodyweight=ex.get("basis") == "bodyweight",
+    )
+    return {"weight_kg": t["weight_kg"], "reps": t["reps"], "reason": t["reason"], "kind": t["kind"]}
 
 
 async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
@@ -97,11 +73,11 @@ async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
         for ex in day["exercises"]:
             sessions = by_key.get(ex["key"], {})
             done = sessions.get(today, [])
-            past = [d for d in sessions if d < today]
-            last = sessions[max(past)] if past else []
+            past = sorted(d for d in sessions if d < today)
+            last = sessions[past[-1]] if past else []
             exercises.append({
                 **ex,
-                "suggestion": suggest(ex, last),
+                "suggestion": suggest(ex, [sessions[d] for d in past]),
                 "last": [{"weight_kg": s.weight_kg, "reps": s.reps} for s in last],
                 "last_date": max(past).isoformat() if past else None,
                 "logged_today": [{"weight_kg": s.weight_kg, "reps": s.reps} for s in done],

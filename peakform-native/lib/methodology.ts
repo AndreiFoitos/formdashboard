@@ -196,6 +196,35 @@ e.g. 100kg x 5:
     ],
   },
   {
+    slug: 'progression',
+    title: 'Progressive overload targets',
+    summary:
+      'The "next target" when you log an exercise: one more rep, or more weight, based on your last session.',
+    prose: `To keep getting stronger you need to do a little more over time: more reps, or more weight. The next target tells you which, for every exercise you log, using a method called double progression.
+
+Each exercise works in a rep range, taken from what you did last time: a session of 10s puts you in 8–12, a session of 5s in 3–5. Keep the weight and add a rep to each set. Once every set reaches the top of the range, add weight and start again from the bottom of the range.
+
+Warm-up sets (under 60% of your heaviest set that day) are ignored, and lighter back-off sets after your top sets stay as they were. For bodyweight moves you add reps; once every set is at the top of the range, add weight with a vest or belt, or move to a harder variation.
+
+If the weight hasn't moved and you haven't added reps for three sessions in a row, you're stalled. Add one extra set, or take a lighter week (about 10% less) and build back up. The ↑ kg and Stalled badges in the exercise list show which exercises need what.
+
+Pit Crew plans use the same rules, with the plan's own rep range and number of sets.`,
+    formula: `range from last session's best reps at the top weight:
+  ≤5 → 3–5 · ≤8 → 6–8 · ≤12 → 8–12 · ≤15 → 12–15 · more → 15–20
+
+every top set ≥ top of range  → + weight, reps back to the bottom
+otherwise                     → same weight, +1 rep per set (up to the top)
+
+weight step: +5 kg leg lifts · +1 kg under 20 kg · +2.5 kg otherwise
+
+stalled = same top weight and no more total reps across 3 sessions
+  → one extra set, or a week at ~90% of the weight`,
+    sources: [
+      { name: 'Helms, E., Morgan, A., Valdez, A. (2019). The Muscle and Strength Pyramid: Training, 2nd ed. — double progression and stall handling.' },
+      { name: 'Schoenfeld, B.J., Ogborn, D., Krieger, J.W. (2017). Dose-response relationship between weekly resistance training volume and increases in muscle mass. J Sports Sci 35(11).' },
+    ],
+  },
+  {
     slug: 'plans',
     title: 'Pit Crew plans',
     summary:

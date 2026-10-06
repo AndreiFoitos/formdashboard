@@ -18,7 +18,9 @@ from models.training_log import TrainingLog
 from models.custom_exercise import CustomExercise
 from models.user_split import UserSplit
 from services.daily import get_or_create_today
+from services.exercise_taxonomy import group_for_exercise, groups_for_exercises
 from services.one_rm import estimate as estimate_one_rm
+from services.progression import next_target
 from services.plans import history_window
 from services.social_notifications import (
     notify_pr_if_applicable,
@@ -608,6 +610,82 @@ async def get_split(
             }
             for r in rows
         ]
+    }
+
+
+# ─── Progressive overload ─────────────────────────────────────────────────────
+
+PROGRESSION_LOOKBACK_DAYS = 120  # long enough to see 3 sessions of a weekly lift
+
+
+def _sessions(logs: list[TrainingLog]) -> list[list[TrainingLog]]:
+    """One exercise's logs grouped by day, oldest first, sets in order."""
+    by_day: dict = defaultdict(list)
+    for lg in sorted(logs, key=lambda x: (x.date, x.volume_sets or 0)):
+        by_day[lg.date].append(lg)
+    return [by_day[d] for d in sorted(by_day)]
+
+
+@router.get("/progression")
+async def progression_overview(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Per exercise logged lately: is it ready for more weight, or stalled?
+    Drives the badges in the exercise list."""
+    from core.timezone import user_today
+    today = user_today(current_user.timezone)
+    logs = (await db.execute(
+        select(TrainingLog).where(
+            TrainingLog.user_id == current_user.id,
+            TrainingLog.date >= today - timedelta(days=PROGRESSION_LOOKBACK_DAYS),
+            TrainingLog.reps.is_not(None),
+        )
+    )).scalars().all()
+    by_key: dict[str, list[TrainingLog]] = defaultdict(list)
+    for lg in logs:
+        by_key[lg.type].append(lg)
+    groups = await groups_for_exercises(list(by_key), db)
+    out = {}
+    for key, rows in by_key.items():
+        t = next_target(_sessions(rows), groups.get(key))
+        out[key] = {"kind": t["kind"], "ready_for_weight": t["ready_for_weight"], "stalled": t["stalled"]}
+    return {"exercises": out}
+
+
+@router.get("/progression/{exercise_key}")
+async def progression_for_exercise(
+    exercise_key: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Next-session target for one exercise (services/progression.py): the
+    "+1 rep" or "+weight" line and pre-filled sets in the log sheet."""
+    from core.timezone import user_today
+    today = user_today(current_user.timezone)
+    logs = (await db.execute(
+        select(TrainingLog).where(
+            TrainingLog.user_id == current_user.id,
+            TrainingLog.type == exercise_key,
+            TrainingLog.date >= today - timedelta(days=PROGRESSION_LOOKBACK_DAYS),
+            TrainingLog.reps.is_not(None),
+        )
+    )).scalars().all()
+    sessions = _sessions(logs)
+    # A session logged today is "this session", not the one to beat: target
+    # off the one before so reopening the sheet mid-workout stays stable.
+    done_today = bool(sessions) and sessions[-1][0].date == today
+    basis = sessions[:-1] if done_today else sessions
+    group = await group_for_exercise(exercise_key, db)
+    target = next_target(basis, group)
+    nxt = next_target(sessions, group) if done_today else None
+    return {
+        "exercise": exercise_key,
+        "target": target,
+        "last_date": basis[-1][0].date.isoformat() if basis else None,
+        "logged_today": done_today,
+        # After today's session: what to aim for next time.
+        "next": nxt,
     }
 
 
