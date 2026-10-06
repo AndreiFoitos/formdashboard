@@ -103,12 +103,12 @@ function MetricChart({
 
   if (data.length < 2) {
     return (
-      <View className="bg-surface border border-divider rounded-2xl p-4">
-        <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1">
+      <View className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
+        <Text className="text-text-subtle text-caption mb-1">
           {label} trend
         </Text>
         <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
-          <Text className="text-text-subtle text-xs">Log at least 2 entries to see a chart</Text>
+          <Text className="text-text-subtle text-caption">Log at least 2 entries to see a chart</Text>
         </View>
       </View>
     )
@@ -147,8 +147,8 @@ function MetricChart({
   const yTicks = [minV - pad, (minV + maxV) / 2, maxV + pad]
 
   return (
-    <View className="bg-surface border border-divider rounded-2xl p-4">
-      <Text className="text-text-subtle text-xs uppercase tracking-widest mb-3">
+    <View className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
+      <Text className="text-text-subtle text-caption mb-3">
         {label} trend
       </Text>
       <Svg width={chartWidth} height={chartHeight}>
@@ -241,37 +241,37 @@ function TrendCard({
   const t30 = trendInfo(change30d, isWeight)
 
   return (
-    <View className="flex-1 bg-surface border border-divider rounded-2xl p-4">
-      <Text className="text-text-muted text-xs uppercase tracking-widest mb-2 font-semibold">
+    <View className="flex-1 bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
+      <Text className="text-text-muted text-caption mb-2 font-semibold">
         {label}
       </Text>
-      <Text className="text-text text-3xl font-bold mb-3">
+      <Text className="text-text text-display font-bold mb-3">
         {value != null ? (
-          <CountUp value={value} decimals={1} className="text-text text-3xl font-bold" />
+          <CountUp value={value} decimals={1} className="text-text text-display font-bold" />
         ) : (
           '—'
         )}
-        <Text className="text-text-subtle text-base font-normal"> {unit}</Text>
+        <Text className="text-text-subtle text-body font-normal"> {unit}</Text>
       </Text>
       <View className="flex-row gap-4">
         {t7 && (
           <View>
-            <Text className="text-text-subtle text-xs mb-0.5 font-medium">7d</Text>
-            <Text className="text-sm font-semibold" style={{ color: t7.color }}>
+            <Text className="text-text-subtle text-caption mb-1 font-medium">7d</Text>
+            <Text className="text-footnote font-semibold" style={{ color: t7.color }}>
               {t7.arrow} {t7.label}
             </Text>
           </View>
         )}
         {t30 && (
           <View>
-            <Text className="text-text-subtle text-xs mb-0.5 font-medium">30d</Text>
-            <Text className="text-sm font-semibold" style={{ color: t30.color }}>
+            <Text className="text-text-subtle text-caption mb-1 font-medium">30d</Text>
+            <Text className="text-footnote font-semibold" style={{ color: t30.color }}>
               {t30.arrow} {t30.label}
             </Text>
           </View>
         )}
         {!t7 && !t30 && (
-          <Text className="text-text-subtle text-xs">Log more to see trends</Text>
+          <Text className="text-text-subtle text-caption">Log more to see trends</Text>
         )}
       </View>
     </View>
@@ -325,7 +325,7 @@ function LogModal({
     >
       <View className="flex-1 bg-surface">
         <View className="items-center pt-3 pb-2">
-          <View className="w-10 h-1 bg-border rounded-full" />
+          <View className="w-10 h-1 bg-border rounded-full" style={{ borderCurve: 'continuous' }} />
         </View>
 
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
@@ -333,16 +333,16 @@ function LogModal({
           <TouchableOpacity
             onPress={onClose}
             hitSlop={12}
-            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center"
+            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center" style={{ borderCurve: 'continuous' }}
           >
             <X size={20} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
 
-        <View className="px-4 pt-6" style={{ gap: 16 }}>
+        <View className="px-4 pt-6 gap-4">
           {/* Weight */}
           <View>
-            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1.5">
+            <Text className="text-text-subtle text-caption mb-2">
               Weight
             </Text>
             <View>
@@ -352,20 +352,20 @@ function LogModal({
                 placeholder={currentWeight ? currentWeight.toFixed(1) : '80.0'}
                 placeholderTextColor={colors['text-subtle']}
                 keyboardType="decimal-pad"
-                className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm"
+                className="bg-surface-raised border border-border rounded-xl px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
               />
-              <Text className="absolute right-4 top-4 text-text-subtle text-sm">kg</Text>
+              <Text className="absolute right-4 top-4 text-text-subtle text-footnote">kg</Text>
             </View>
             {bmiVal && (
-              <Text className="text-text-subtle text-xs mt-1.5">BMI: {bmiVal}</Text>
+              <Text className="text-text-subtle text-caption mt-2">BMI: {bmiVal}</Text>
             )}
           </View>
 
-          {/* Body Fat */}
+          {/* Body fat */}
           <View>
-            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1.5">
-              Body Fat{' '}
-              <Text className="text-text-subtle normal-case">(optional)</Text>
+            <Text className="text-text-subtle text-caption mb-2">
+              Body fat{' '}
+              <Text className="text-text-subtle">(optional)</Text>
             </Text>
             <View>
               <TextInput
@@ -374,22 +374,22 @@ function LogModal({
                 placeholder="15.0"
                 placeholderTextColor={colors['text-subtle']}
                 keyboardType="decimal-pad"
-                className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm"
+                className="bg-surface-raised border border-border rounded-xl px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
               />
-              <Text className="absolute right-4 top-4 text-text-subtle text-sm">%</Text>
+              <Text className="absolute right-4 top-4 text-text-subtle text-footnote">%</Text>
             </View>
           </View>
 
           <TouchableOpacity
             onPress={handleLog}
             disabled={!hasValue || isPending}
-            className="bg-accent rounded-2xl py-4 items-center"
-            style={{ opacity: !hasValue || isPending ? 0.4 : 1 }}
+            className="bg-accent rounded-xl py-4 items-center"
+            style={{ borderCurve: 'continuous', opacity: !hasValue || isPending ? 0.4 : 1 }}
           >
             {isPending ? (
               <ActivityIndicator color={colors['on-accent']} />
             ) : (
-              <Text className="text-on-accent font-semibold text-base">Save</Text>
+              <Text className="text-on-accent font-semibold text-body">Save</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -413,18 +413,18 @@ function HistoryRow({
       style={{ borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.divider }}
     >
       <View className="flex-1">
-        <Text className="text-text-subtle text-xs">{formatDateFull(metric.date)}</Text>
-        <View className="flex-row gap-4 mt-0.5">
+        <Text className="text-text-subtle text-caption">{formatDateFull(metric.date)}</Text>
+        <View className="flex-row gap-4 mt-1">
           {metric.weight_kg != null && (
-            <Text className="text-text text-sm font-semibold">
+            <Text className="text-text text-footnote font-semibold">
               {metric.weight_kg.toFixed(1)}
-              <Text className="text-text-subtle text-xs font-normal"> kg</Text>
+              <Text className="text-text-subtle text-caption font-normal"> kg</Text>
             </Text>
           )}
           {metric.body_fat_pct != null && (
-            <Text className="text-text text-sm font-semibold">
+            <Text className="text-text text-footnote font-semibold">
               {metric.body_fat_pct.toFixed(1)}
-              <Text className="text-text-subtle text-xs font-normal"> % BF</Text>
+              <Text className="text-text-subtle text-caption font-normal"> % BF</Text>
             </Text>
           )}
         </View>
@@ -465,7 +465,7 @@ export default function BodyScreen() {
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+        contentContainerClassName="px-4 pb-6"
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
@@ -477,34 +477,33 @@ export default function BodyScreen() {
         {/* Header */}
         <View className="pt-6 pb-5 flex-row items-end justify-between">
           <View>
-            <Text className="text-text-muted text-xs uppercase tracking-widest font-semibold">{today}</Text>
-            <Text className="text-text text-3xl font-bold mt-1.5">Body</Text>
+            <Text className="text-text-muted text-caption font-semibold">{today}</Text>
+            <Text className="text-text text-title font-bold mt-2">Body</Text>
           </View>
-          <View className="flex-row" style={{ gap: 8 }}>
+          <View className="flex-row gap-2">
             {/* BF% estimator. The photo is sent to Claude and dropped after
                 the response — nothing is persisted server-side, so no privacy
                 exposure beyond the in-flight request. */}
             <PressableScale
               haptic
               onPress={() => router.push('/body-comp-snap')}
-              className="bg-surface border border-divider px-3 py-2 rounded-2xl flex-row items-center"
-              style={{ gap: 6 }}
+              className="bg-surface border border-divider px-3 py-2 rounded-xl flex-row items-center gap-2" style={{ borderCurve: 'continuous' }}
             >
               <Camera size={14} color={colors.text} strokeWidth={2} />
-              <Text className="text-text text-sm font-semibold">Scan BF</Text>
+              <Text className="text-text text-footnote font-semibold">Scan BF</Text>
             </PressableScale>
             <PressableScale
               haptic
               onPress={() => setShowLog(true)}
-              className="bg-accent px-4 py-2 rounded-2xl"
+              className="bg-accent px-4 py-2 rounded-xl" style={{ borderCurve: 'continuous' }}
             >
-              <Text className="text-on-accent text-sm font-semibold">+ Log</Text>
+              <Text className="text-on-accent text-footnote font-semibold">+ Log</Text>
             </PressableScale>
           </View>
         </View>
 
         {isLoading ? (
-          <View style={{ gap: 12, marginTop: 4 }}>
+          <View className="gap-3 mt-1">
             <View className="flex-row gap-3">
               <View className="flex-1"><SkeletonCard height={96} /></View>
               <View className="flex-1"><SkeletonCard height={96} /></View>
@@ -512,7 +511,7 @@ export default function BodyScreen() {
             <SkeletonCard height={140} />
           </View>
         ) : (
-          <View style={{ gap: 12 }}>
+          <View className="gap-3">
             {/* Trend cards */}
             {stats && (
               <View className="flex-row gap-3">
@@ -525,7 +524,7 @@ export default function BodyScreen() {
                   isWeight
                 />
                 <TrendCard
-                  label="Body Fat"
+                  label="Body fat"
                   value={stats.current_body_fat_pct}
                   unit="%"
                   change7d={stats.bf_change_7d}
@@ -538,18 +537,18 @@ export default function BodyScreen() {
             {/* Empty state */}
             {entries.length === 0 && (
               <>
-                <View className="bg-surface border border-divider rounded-2xl p-8 items-center">
-                  <Text className="text-text-muted text-sm font-medium">
+                <View className="bg-surface border border-divider rounded-xl p-8 items-center" style={{ borderCurve: 'continuous' }}>
+                  <Text className="text-text-muted text-footnote font-medium">
                     No body metrics yet
                   </Text>
-                  <Text className="text-text-subtle text-xs mt-1 mb-4 text-center">
+                  <Text className="text-text-subtle text-caption mt-1 mb-4 text-center">
                     Track your weight and body fat to see trends over time
                   </Text>
                   <TouchableOpacity
                     onPress={() => setShowLog(true)}
-                    className="bg-surface-raised px-4 py-2 rounded-2xl"
+                    className="bg-surface-raised px-4 py-2 rounded-xl" style={{ borderCurve: 'continuous' }}
                   >
-                    <Text className="text-text text-sm font-medium">
+                    <Text className="text-text text-footnote font-medium">
                       Log your first entry →
                     </Text>
                   </TouchableOpacity>
@@ -561,22 +560,23 @@ export default function BodyScreen() {
               <>
                 {/* Range selector */}
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-text-subtle text-xs">
+                  <Text className="text-text-subtle text-caption">
                     {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
                   </Text>
-                  <View className="flex-row gap-1.5">
+                  <View className="flex-row gap-2">
                     {([30, 60, 90] as const).map((r) => (
                       <TouchableOpacity
                         key={r}
                         onPress={() => { hapticSelection(); setRange(r) }}
-                        className="px-3 py-1.5 rounded-xl border"
+                        className="px-3 py-2 rounded-full border"
                         style={{
+                          borderCurve: 'continuous',
                           backgroundColor: range === r ? colors.text : colors.surface,
                           borderColor: range === r ? colors.text : colors.border,
                         }}
                       >
                         <Text
-                          className="text-xs font-medium"
+                          className="text-caption font-medium"
                           style={{ color: range === r ? colors.bg : colors['text-subtle'] }}
                         >
                           {r}d
@@ -600,37 +600,37 @@ export default function BodyScreen() {
                     entries={entries}
                     field="body_fat_pct"
                     color={colors.data.bodyfat}
-                    label="Body Fat"
+                    label="Body fat"
                   />
                 )}
 
                 {/* Range stats */}
                 {stats?.lowest_weight_kg != null && (
-                  <View className="bg-surface border border-divider rounded-2xl p-4">
-                    <Text className="text-text-subtle text-xs uppercase tracking-widest mb-3">
+                  <View className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
+                    <Text className="text-text-subtle text-caption mb-3">
                       {range}-day range
                     </Text>
                     <View className="flex-row gap-6">
                       <View>
-                        <Text className="text-text-subtle text-xs mb-0.5">Low</Text>
-                        <Text className="text-text text-sm font-semibold">
+                        <Text className="text-text-subtle text-caption mb-1">Low</Text>
+                        <Text className="text-text text-footnote font-semibold">
                           {stats.lowest_weight_kg?.toFixed(1)}
-                          <Text className="text-text-subtle text-xs font-normal"> kg</Text>
+                          <Text className="text-text-subtle text-caption font-normal"> kg</Text>
                         </Text>
                       </View>
                       <View>
-                        <Text className="text-text-subtle text-xs mb-0.5">High</Text>
-                        <Text className="text-text text-sm font-semibold">
+                        <Text className="text-text-subtle text-caption mb-1">High</Text>
+                        <Text className="text-text text-footnote font-semibold">
                           {stats.highest_weight_kg?.toFixed(1)}
-                          <Text className="text-text-subtle text-xs font-normal"> kg</Text>
+                          <Text className="text-text-subtle text-caption font-normal"> kg</Text>
                         </Text>
                       </View>
                       {stats.highest_weight_kg != null && stats.lowest_weight_kg != null && (
                         <View>
-                          <Text className="text-text-subtle text-xs mb-0.5">Variance</Text>
-                          <Text className="text-text text-sm font-semibold">
+                          <Text className="text-text-subtle text-caption mb-1">Variance</Text>
+                          <Text className="text-text text-footnote font-semibold">
                             {(stats.highest_weight_kg - stats.lowest_weight_kg).toFixed(1)}
-                            <Text className="text-text-subtle text-xs font-normal"> kg</Text>
+                            <Text className="text-text-subtle text-caption font-normal"> kg</Text>
                           </Text>
                         </View>
                       )}
@@ -639,10 +639,10 @@ export default function BodyScreen() {
                 )}
 
                 {/* History list */}
-                <Text className="text-text-subtle text-xs uppercase tracking-widest">
+                <Text className="text-text-subtle text-caption">
                   History
                 </Text>
-                <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
+                <View className="bg-surface border border-divider rounded-xl overflow-hidden" style={{ borderCurve: 'continuous' }}>
                   {[...entries].reverse().map((metric, i) => (
                     <SwipeableRow
                       key={metric.id}

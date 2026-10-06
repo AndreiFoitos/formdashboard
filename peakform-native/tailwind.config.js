@@ -12,6 +12,7 @@ module.exports = {
     extend: {
       colors,
       fontSize,
+      borderRadius: { md: '8px', xl: '16px' },
     },
   },
   plugins: [],

@@ -129,43 +129,41 @@ function VolumeChart({ data }: { data: VolumeWeek | undefined }) {
   const today = todayISO()
 
   return (
-    <View className="bg-surface border border-divider rounded-2xl p-4">
+    <View className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
       <View className="flex-row items-end justify-between mb-4">
         <View>
-          <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5 font-semibold">
-            This Week
+          <Text className="text-text-muted text-caption mb-2 font-semibold">
+            This week
           </Text>
-          <View className="flex-row items-baseline gap-1.5">
-            <Text className="text-text text-4xl font-bold">
+          <View className="flex-row items-baseline gap-2">
+            <Text className="text-text text-hero">
               {total.toLocaleString()}
             </Text>
-            <Text className="text-text-muted text-base">kg moved</Text>
+            <Text className="text-text-muted text-body">kg moved</Text>
           </View>
         </View>
       </View>
 
-      <View className="flex-row items-end gap-1.5" style={{ height: 80 }}>
+      <View className="flex-row items-end gap-2" style={{ height: 96 }}>
         {days.map((d, i) => {
           const h = Math.max(4, (d.volume_kg / max) * 72)
           const isToday = d.date === today
           const hasVol = d.volume_kg > 0
           return (
-            <View key={d.date} className="flex-1 items-center" style={{ gap: 6 }}>
+            <View key={d.date} className="flex-1 items-center gap-2">
               <View
                 style={{
                   width: '100%',
                   height: h,
                   borderRadius: 4,
+                  borderCurve: 'continuous',
                   backgroundColor: hasVol ? colors.data.volume : colors['surface-raised'],
                   opacity: hasVol ? (isToday ? 1 : 0.7) : 1,
                 }}
               />
               <Text
-                style={{
-                  color: isToday ? colors.text : colors['text-subtle'],
-                  fontSize: 9,
-                  fontWeight: '500',
-                }}
+                className="text-caption"
+                style={{ color: isToday ? colors.text : colors['text-subtle'] }}
               >
                 {DAY_LABELS[i]}
               </Text>
@@ -216,19 +214,19 @@ function PRChart({
   }, [points])
 
   return (
-    <View className="bg-surface border border-divider rounded-2xl p-4">
+    <View className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
       <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-text-subtle text-xs uppercase tracking-widest">
-          PR Progression
+        <Text className="text-text-subtle text-caption">
+          PR progression
         </Text>
         <TouchableOpacity
           onPress={onPickExercise}
-          className="flex-row items-center gap-1 px-3 py-1 rounded-full border border-border"
+          className="flex-row items-center gap-1 px-3 py-1 rounded-full border border-border" style={{ borderCurve: 'continuous' }}
         >
-          <Text className="text-text text-xs font-medium">
+          <Text className="text-text text-caption font-medium">
             {displayName(exerciseKey)}
           </Text>
-          <Text className="text-text-subtle text-xs">▾</Text>
+          <Text className="text-text-subtle text-caption">▾</Text>
         </TouchableOpacity>
       </View>
 
@@ -247,7 +245,7 @@ function PRChart({
         </Svg>
       ) : (
         <View style={{ height: H }} className="items-center justify-center">
-          <Text className="text-text-subtle text-xs">
+          <Text className="text-text-subtle text-caption">
             {points.length === 1 ? 'Log one more session to see progression' : 'No data yet'}
           </Text>
         </View>
@@ -256,16 +254,16 @@ function PRChart({
       <View className="flex-row gap-4 mt-3">
         {pr && (
           <View>
-            <Text className="text-text-subtle text-xs">PR</Text>
-            <Text className="text-text text-sm font-semibold">
+            <Text className="text-text-subtle text-caption">PR</Text>
+            <Text className="text-text text-footnote font-semibold">
               {pr.top_weight_kg}kg × {pr.top_reps}
             </Text>
           </View>
         )}
         {last && (
           <View>
-            <Text className="text-text-subtle text-xs">Last</Text>
-            <Text className="text-text text-sm font-semibold">
+            <Text className="text-text-subtle text-caption">Last</Text>
+            <Text className="text-text text-footnote font-semibold">
               {last.top_weight_kg}kg × {last.top_reps}
             </Text>
           </View>
@@ -294,8 +292,8 @@ function ProgressBadge({
   if (!info || (!info.ready_for_weight && !info.stalled)) return null
   const colour = info.stalled ? colors.warning : colors.success
   return (
-    <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: `${colour}22` }}>
-      <Text className="text-[10px] font-semibold" style={{ color: colour }}>
+    <View className="rounded-full px-2 py-1" style={{ borderCurve: 'continuous', backgroundColor: `${colour}22` }}>
+      <Text className="text-caption font-semibold" style={{ color: colour }}>
         {info.stalled ? 'Stalled' : '↑ kg'}
       </Text>
     </View>
@@ -354,7 +352,7 @@ function ExercisePickerModal({
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View className="flex-1 bg-surface">
         <View className="items-center pt-3 pb-2">
-          <View className="w-10 h-1 bg-border rounded-full" />
+          <View className="w-10 h-1 bg-border rounded-full" style={{ borderCurve: 'continuous' }} />
         </View>
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
           <Text className="text-text font-semibold">
@@ -363,14 +361,14 @@ function ExercisePickerModal({
           <TouchableOpacity
             onPress={onClose}
             hitSlop={12}
-            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center"
+            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center" style={{ borderCurve: 'continuous' }}
           >
             <X size={20} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
         <ScrollView
           className="flex-1 px-4 pt-4"
-          contentContainerStyle={{ paddingBottom: 24 }}
+          contentContainerClassName="pb-6"
           keyboardShouldPersistTaps="handled"
         >
           {/* Custom-exercise creation block. Stays at the top so it's
@@ -378,38 +376,39 @@ function ExercisePickerModal({
           {!creating ? (
             <TouchableOpacity
               onPress={() => setCreating(true)}
-              className="rounded-2xl border border-border bg-surface-raised px-4 py-3 mb-4"
+              className="rounded-xl border border-border bg-surface-raised px-4 py-3 mb-4" style={{ borderCurve: 'continuous' }}
             >
-              <Text className="text-text text-sm font-medium">+ New custom exercise</Text>
-              <Text className="text-text-subtle text-xs mt-0.5">
+              <Text className="text-text text-footnote font-medium">+ New custom exercise</Text>
+              <Text className="text-text-subtle text-caption mt-1">
                 Add a movement we don't have in the catalogue.
               </Text>
             </TouchableOpacity>
           ) : (
-            <View className="bg-surface-raised border border-border rounded-2xl p-3 mb-4">
+            <View className="bg-surface-raised border border-border rounded-xl p-3 mb-4" style={{ borderCurve: 'continuous' }}>
               <TextInput
                 value={newName}
                 onChangeText={setNewName}
                 placeholder="Exercise name"
                 placeholderTextColor={colors['text-subtle']}
                 maxLength={80}
-                className="bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-text text-sm mb-2"
+                className="bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote mb-2" style={{ borderCurve: 'continuous' }}
               />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
                 {GROUPS.map((g) => {
                   const active = newGroup === g.name
                   return (
                     <TouchableOpacity
                       key={g.name}
                       onPress={() => setNewGroup(g.name)}
-                      className="px-3 py-1.5 rounded-full border"
+                      className="px-3 py-2 rounded-full border"
                       style={{
+                        borderCurve: 'continuous',
                         backgroundColor: active ? g.colour : colors.surface,
                         borderColor: active ? g.colour : colors.border,
                       }}
                     >
                       <Text
-                        className="text-xs font-medium"
+                        className="text-caption font-medium"
                         style={{ color: active ? colors.bg : colors['text-muted'] }}
                       >
                         {g.name}
@@ -420,26 +419,27 @@ function ExercisePickerModal({
                 {/* Other bucket as a non-coloured chip */}
                 <TouchableOpacity
                   onPress={() => setNewGroup('Other')}
-                  className="px-3 py-1.5 rounded-full border"
+                  className="px-3 py-2 rounded-full border"
                   style={{
+                    borderCurve: 'continuous',
                     backgroundColor: newGroup === 'Other' ? colors.text : colors.surface,
                     borderColor: newGroup === 'Other' ? colors.text : colors.border,
                   }}
                 >
                   <Text
-                    className="text-xs font-medium"
+                    className="text-caption font-medium"
                     style={{ color: newGroup === 'Other' ? colors.bg : colors['text-muted'] }}
                   >
                     Other
                   </Text>
                 </TouchableOpacity>
               </ScrollView>
-              <View className="flex-row mt-3" style={{ gap: 8 }}>
+              <View className="flex-row mt-3 gap-2">
                 <TouchableOpacity
                   onPress={() => { setCreating(false); setNewName('') }}
-                  className="flex-1 py-2 rounded-xl bg-surface-raised border border-border items-center"
+                  className="flex-1 py-2 rounded-md bg-surface-raised border border-border items-center" style={{ borderCurve: 'continuous' }}
                 >
-                  <Text className="text-text-muted text-sm">Cancel</Text>
+                  <Text className="text-text-muted text-footnote">Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
@@ -448,13 +448,13 @@ function ExercisePickerModal({
                     createMutation.mutate({ name: trimmed, group_name: newGroup })
                   }}
                   disabled={!newName.trim() || createMutation.isPending}
-                  className="flex-1 py-2 rounded-xl bg-accent items-center"
-                  style={{ opacity: !newName.trim() || createMutation.isPending ? 0.4 : 1 }}
+                  className="flex-1 py-2 rounded-md bg-accent items-center"
+                  style={{ borderCurve: 'continuous', opacity: !newName.trim() || createMutation.isPending ? 0.4 : 1 }}
                 >
                   {createMutation.isPending ? (
                     <ActivityIndicator color={colors['on-accent']} />
                   ) : (
-                    <Text className="text-on-accent text-sm font-semibold">Save</Text>
+                    <Text className="text-on-accent text-footnote font-semibold">Save</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -467,18 +467,18 @@ function ExercisePickerModal({
               <View key={g.name} className="mb-4">
                 {!filterGroup && (
                   <View className="flex-row items-center gap-2 mb-2">
-                    <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: g.colour }} />
-                    <Text className="text-text-subtle text-xs uppercase tracking-widest">{g.name}</Text>
+                    <View className="w-1.5 h-1.5 rounded-full" style={{ borderCurve: 'continuous', backgroundColor: g.colour }} />
+                    <Text className="text-text-subtle text-caption">{g.name}</Text>
                   </View>
                 )}
-                <View style={{ gap: 6 }}>
+                <View className="gap-2">
                   {g.exercises.map((e) => (
                     <TouchableOpacity
                       key={e.key}
                       onPress={() => { hapticSelection(); onPick(e.key) }}
-                      className="px-4 py-3 rounded-xl bg-surface border border-divider flex-row items-center justify-between"
+                      className="px-4 py-3 rounded-xl bg-surface border border-divider flex-row items-center justify-between" style={{ borderCurve: 'continuous' }}
                     >
-                      <Text className="text-text text-sm">{e.name}</Text>
+                      <Text className="text-text text-footnote">{e.name}</Text>
                       <ProgressBadge info={progress?.[e.key]} />
                     </TouchableOpacity>
                   ))}
@@ -486,12 +486,12 @@ function ExercisePickerModal({
                     <TouchableOpacity
                       key={c.id}
                       onPress={() => { hapticSelection(); onPick(c.key) }}
-                      className="px-4 py-3 rounded-xl bg-surface border border-divider flex-row items-center justify-between"
+                      className="px-4 py-3 rounded-xl bg-surface border border-divider flex-row items-center justify-between" style={{ borderCurve: 'continuous' }}
                     >
-                      <Text className="text-text text-sm">{c.name}</Text>
-                      <View className="flex-row items-center" style={{ gap: 8 }}>
+                      <Text className="text-text text-footnote">{c.name}</Text>
+                      <View className="flex-row items-center gap-2">
                         <ProgressBadge info={progress?.[c.key]} />
-                        <Text className="text-text-subtle text-[10px] uppercase tracking-widest">custom</Text>
+                        <Text className="text-text-subtle text-caption">Custom</Text>
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -505,20 +505,20 @@ function ExercisePickerModal({
           {!filterGroup && (customByGroup['Other']?.length ?? 0) > 0 && (
             <View className="mb-4">
               <View className="flex-row items-center gap-2 mb-2">
-                <View className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.muscle.other }} />
-                <Text className="text-text-subtle text-xs uppercase tracking-widest">Other</Text>
+                <View className="w-1.5 h-1.5 rounded-full" style={{ borderCurve: 'continuous', backgroundColor: colors.muscle.other }} />
+                <Text className="text-text-subtle text-caption">Other</Text>
               </View>
-              <View style={{ gap: 6 }}>
+              <View className="gap-2">
                 {customByGroup['Other'].map((c) => (
                   <TouchableOpacity
                     key={c.id}
                     onPress={() => { hapticSelection(); onPick(c.key) }}
-                    className="px-4 py-3 rounded-xl bg-surface border border-divider flex-row items-center justify-between"
+                    className="px-4 py-3 rounded-xl bg-surface border border-divider flex-row items-center justify-between" style={{ borderCurve: 'continuous' }}
                   >
-                    <Text className="text-text text-sm">{c.name}</Text>
-                    <View className="flex-row items-center" style={{ gap: 8 }}>
+                    <Text className="text-text text-footnote">{c.name}</Text>
+                    <View className="flex-row items-center gap-2">
                       <ProgressBadge info={progress?.[c.key]} />
-                      <Text className="text-text-subtle text-[10px] uppercase tracking-widest">custom</Text>
+                      <Text className="text-text-subtle text-caption">Custom</Text>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -670,7 +670,7 @@ function LogExerciseModal({
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View className="flex-1 bg-surface">
         <View className="items-center pt-3 pb-2">
-          <View className="w-10 h-1 bg-border rounded-full" />
+          <View className="w-10 h-1 bg-border rounded-full" style={{ borderCurve: 'continuous' }} />
         </View>
 
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
@@ -680,7 +680,7 @@ function LogExerciseModal({
           <TouchableOpacity
             onPress={onClose}
             hitSlop={12}
-            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center"
+            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center" style={{ borderCurve: 'continuous' }}
           >
             <X size={20} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
@@ -689,18 +689,18 @@ function LogExerciseModal({
         <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
           {/* Progressive overload target */}
           {target && target.kind !== 'first' && (
-            <View className="bg-surface-raised border border-border rounded-2xl p-3 mb-3">
-              <View className="flex-row items-center justify-between mb-1.5">
-                <Text className="text-text-subtle text-xs uppercase tracking-widest">Next target</Text>
-                <View className="rounded-full px-2 py-0.5" style={{ backgroundColor: `${KIND_COLOUR[target.kind]}22` }}>
-                  <Text className="text-[11px] font-semibold" style={{ color: KIND_COLOUR[target.kind] }}>
+            <View className="bg-surface-raised border border-border rounded-xl p-3 mb-3" style={{ borderCurve: 'continuous' }}>
+              <View className="flex-row items-center justify-between mb-2">
+                <Text className="text-text-subtle text-caption">Next target</Text>
+                <View className="rounded-full px-2 py-1" style={{ borderCurve: 'continuous', backgroundColor: `${KIND_COLOUR[target.kind]}22` }}>
+                  <Text className="text-caption font-semibold" style={{ color: KIND_COLOUR[target.kind] }}>
                     {KIND_LABEL[target.kind]}
                   </Text>
                 </View>
               </View>
-              <Text className="text-text text-lg font-bold">{targetHeadline(target)}</Text>
-              <Text className="text-text-muted text-xs leading-5 mt-1">{target.reason}</Text>
-              <Text className="text-text-subtle text-[11px] mt-1.5">
+              <Text className="text-text text-headline font-bold">{targetHeadline(target)}</Text>
+              <Text className="text-text-muted text-caption mt-1">{target.reason}</Text>
+              <Text className="text-text-subtle text-caption mt-2">
                 Rep range {target.range[0]}–{target.range[1]} · sets below are pre-filled, edit what you actually did
               </Text>
             </View>
@@ -708,11 +708,11 @@ function LogExerciseModal({
 
           {/* Last session reference */}
           {lastSession && lastSession.length > 0 && (
-            <View className="bg-surface-raised border border-border rounded-2xl p-3 mb-4">
-              <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1.5">
+            <View className="bg-surface-raised border border-border rounded-xl p-3 mb-4" style={{ borderCurve: 'continuous' }}>
+              <Text className="text-text-subtle text-caption mb-2">
                 Last session
               </Text>
-              <Text className="text-text-muted text-sm">
+              <Text className="text-text-muted text-footnote">
                 {lastSession.map((s, i) =>
                   `${s.weight_kg ?? '–'}kg × ${s.reps ?? '–'}`
                 ).join('  ·  ')}
@@ -721,28 +721,28 @@ function LogExerciseModal({
           )}
 
           {/* Sets */}
-          <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">Sets</Text>
+          <Text className="text-text-subtle text-caption mb-2">Sets</Text>
 
-          <View style={{ gap: 8 }}>
+          <View className="gap-2">
             {sets.map((s, i) => (
               <View key={i} className="flex-row items-center gap-2">
-                <Text className="text-text-subtle text-xs w-8">#{i + 1}</Text>
+                <Text className="text-text-subtle text-caption w-8">#{i + 1}</Text>
                 <TextInput
                   value={s.reps}
                   onChangeText={v => updateSet(i, 'reps', v)}
                   placeholder="reps"
                   placeholderTextColor={colors['text-subtle']}
                   keyboardType="number-pad"
-                  className="flex-1 bg-surface-raised border border-border rounded-xl px-3 py-3 text-text text-sm"
+                  className="flex-1 bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}
                 />
-                <Text className="text-text-subtle text-xs">×</Text>
+                <Text className="text-text-subtle text-caption">×</Text>
                 <TextInput
                   value={s.weight}
                   onChangeText={v => updateSet(i, 'weight', v)}
                   placeholder="kg"
                   placeholderTextColor={colors['text-subtle']}
                   keyboardType="decimal-pad"
-                  className="flex-1 bg-surface-raised border border-border rounded-xl px-3 py-3 text-text text-sm"
+                  className="flex-1 bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}
                 />
                 {sets.length > 1 && (
                   <TouchableOpacity
@@ -750,7 +750,7 @@ function LogExerciseModal({
                     hitSlop={8}
                     className="px-2"
                   >
-                    <Text className="text-text-subtle text-base">−</Text>
+                    <Text className="text-text-subtle text-body">−</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -759,15 +759,15 @@ function LogExerciseModal({
 
           <TouchableOpacity
             onPress={addSet}
-            className="mt-3 py-3 rounded-xl border border-dashed border-border items-center"
+            className="mt-3 py-3 rounded-md border border-dashed border-border items-center" style={{ borderCurve: 'continuous' }}
           >
-            <Text className="text-text-muted text-sm">+ Add set</Text>
+            <Text className="text-text-muted text-footnote">+ Add set</Text>
           </TouchableOpacity>
 
           {/* Notes */}
           <View className="mt-5">
-            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1.5">
-              Notes <Text className="text-text-subtle normal-case">(optional)</Text>
+            <Text className="text-text-subtle text-caption mb-2">
+              Notes <Text className="text-text-subtle">(optional)</Text>
             </Text>
             <TextInput
               value={notes}
@@ -775,21 +775,21 @@ function LogExerciseModal({
               placeholder="Felt heavy, paused on chest…"
               placeholderTextColor={colors['text-subtle']}
               multiline
-              className="bg-surface-raised border border-border rounded-2xl px-4 py-3 text-text text-sm"
-              style={{ minHeight: 70, textAlignVertical: 'top' }}
+              className="bg-surface-raised border border-border rounded-xl px-4 py-3 text-text text-footnote"
+              style={{ borderCurve: 'continuous', minHeight: 70, textAlignVertical: 'top' }}
             />
           </View>
 
           <TouchableOpacity
             onPress={handleSave}
             disabled={!hasValidSet || isPending}
-            className="bg-accent rounded-2xl py-4 items-center mt-5 mb-10"
-            style={{ opacity: !hasValidSet || isPending ? 0.4 : 1 }}
+            className="bg-accent rounded-xl py-4 items-center mt-5 mb-12"
+            style={{ borderCurve: 'continuous', opacity: !hasValidSet || isPending ? 0.4 : 1 }}
           >
             {isPending ? (
               <ActivityIndicator color={colors['on-accent']} />
             ) : (
-              <Text className="text-on-accent font-semibold text-base">Save</Text>
+              <Text className="text-on-accent font-semibold text-body">Save</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -822,13 +822,13 @@ function ExerciseRow({
       }}
     >
       <View className="flex-row items-center justify-between px-4 py-4">
-        <Text className="text-text text-sm font-medium">{exercise.name}</Text>
+        <Text className="text-text text-footnote font-medium">{exercise.name}</Text>
         {pr ? (
-          <Text className="text-text-subtle text-xs">
+          <Text className="text-text-subtle text-caption">
             {pr.weight_kg}kg × {pr.reps}
           </Text>
         ) : (
-          <Text className="text-text-subtle text-xs">—</Text>
+          <Text className="text-text-subtle text-caption">—</Text>
         )}
       </View>
     </PressableScale>
@@ -866,21 +866,21 @@ function WeeklyRaceCard() {
   // Empty / solo state — surface the social pull without the full UI.
   if (rows.length <= 1) {
     return (
-      <View className="bg-surface border border-divider rounded-2xl p-4">
+      <View className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
         <View className="flex-row items-center justify-between mb-2">
-          <Text className="text-text-subtle text-xs uppercase tracking-widest">Weekly Race</Text>
+          <Text className="text-text-subtle text-caption">Weekly race</Text>
         </View>
-        <Text className="text-text-muted text-sm">
+        <Text className="text-text-muted text-footnote">
           {meRow ? `You've moved ${meRow.total_volume_kg.toLocaleString()} kg this week.` : 'No volume logged yet this week.'}
         </Text>
-        <Text className="text-text-subtle text-xs mt-1">
+        <Text className="text-text-subtle text-caption mt-1">
           Add friends to race them on weekly weight moved.
         </Text>
         <TouchableOpacity
           onPress={() => router.push('/friends')}
-          className="mt-3 self-start bg-surface-raised px-3 py-1.5 rounded-xl"
+          className="mt-3 self-start bg-surface-raised px-3 py-2 rounded-md" style={{ borderCurve: 'continuous' }}
         >
-          <Text className="text-text text-xs font-medium">+ Invite friends</Text>
+          <Text className="text-text text-caption font-medium">+ Invite friends</Text>
         </TouchableOpacity>
       </View>
     )
@@ -895,22 +895,16 @@ function WeeklyRaceCard() {
     <PressableScale
       haptic
       onPress={() => router.push('/friends')}
-      style={{
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.divider,
-        borderRadius: 16,
-        padding: 16,
-      }}
+      className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}
     >
       <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-text-subtle text-xs uppercase tracking-widest">Weekly Race</Text>
-        <Text className="text-text-subtle text-[10px]">
+        <Text className="text-text-subtle text-caption">Weekly race</Text>
+        <Text className="text-text-subtle text-caption">
           Crew of {rows.length} · resets Sunday →
         </Text>
       </View>
 
-      <View style={{ gap: 6 }}>
+      <View className="gap-2">
         {topThree.map((row) => (
           <RaceRowView key={row.user.id} row={row} maxVol={maxVol} />
         ))}
@@ -918,7 +912,7 @@ function WeeklyRaceCard() {
           <>
             <View className="flex-row items-center my-1">
               <View className="flex-1 h-px bg-divider" />
-              <Text className="text-text-subtle text-[10px] mx-2">···</Text>
+              <Text className="text-text-subtle text-caption mx-2">···</Text>
               <View className="flex-1 h-px bg-divider" />
             </View>
             <RaceRowView row={meRow} maxVol={maxVol} />
@@ -941,29 +935,29 @@ function RaceRowView({ row, maxVol }: { row: RaceRow; maxVol: number }) {
         <View className="w-6 items-center">
           {medal
             ? <medal.Icon size={14} color={medal.color} strokeWidth={2} />
-            : <Text className="text-text-subtle text-xs">{row.rank}</Text>}
+            : <Text className="text-text-subtle text-caption">{row.rank}</Text>}
         </View>
-        <View className="flex-row items-center flex-1" style={{ gap: 6 }}>
-          <Text className="text-sm flex-shrink" style={{ color: row.is_me ? colors.text : colors['text-muted'], fontWeight: row.is_me ? '700' : '500' }} numberOfLines={1}>
+        <View className="flex-row items-center flex-1 gap-2">
+          <Text className="text-footnote flex-shrink" style={{ color: row.is_me ? colors.text : colors['text-muted'], fontWeight: row.is_me ? '700' : '500' }} numberOfLines={1}>
             {row.user.name}{row.is_me ? ' (you)' : ''}
           </Text>
           {row.is_trusted && <TrustedShield size={12} />}
           {row.is_sus && <SusFace size={12} />}
         </View>
         <View className="items-end" style={{ minWidth: 68 }}>
-          <Text className="text-xs tabular-nums" style={{ color: row.is_me ? colors.text : colors['text-muted'], fontWeight: '600' }}>
+          <Text className="text-caption tabular-nums" style={{ color: row.is_me ? colors.text : colors['text-muted'], fontWeight: '600' }}>
             {row.total_volume_kg.toLocaleString()}
-            <Text className="text-text-subtle text-[9px] font-normal"> kg</Text>
+            <Text className="text-text-subtle text-caption font-normal"> kg</Text>
           </Text>
-          <Text className="text-[10px] tabular-nums mt-0.5" style={{ color: row.is_me ? colors['text-muted'] : colors['text-subtle'] }}>
+          <Text className="text-caption tabular-nums mt-1" style={{ color: row.is_me ? colors['text-muted'] : colors['text-subtle'] }}>
             {row.dots_volume != null ? row.dots_volume.toLocaleString() : '—'}
-            <Text className="text-text-subtle text-[9px]"> DOTS</Text>
+            <Text className="text-text-subtle text-caption"> DOTS</Text>
           </Text>
         </View>
       </View>
       <View
         className="mt-1 rounded-full overflow-hidden"
-        style={{ height: 3, backgroundColor: colors['surface-raised'] }}
+        style={{ borderCurve: 'continuous', height: 3, backgroundColor: colors['surface-raised'] }}
       >
         <View
           style={{
@@ -1036,46 +1030,19 @@ function MuscleGroupTile({
     <PressableScale
       haptic
       onPress={onPress}
-      style={{
-        flex: 1,
-        backgroundColor: colors.surface,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: isToday ? group.colour : colors.divider,
-        padding: 14,
-        minHeight: 96,
-        // Today's-split tile gets a coloured halo. Keeps the visual hierarchy
-        // clear without screaming the colour at full opacity.
-        shadowColor: isToday ? group.colour : undefined,
-        shadowOpacity: isToday ? 0.5 : 0,
-        shadowRadius: isToday ? 6 : 0,
-        shadowOffset: { width: 0, height: 0 },
-      }}
+      className="flex-1 bg-surface border border-divider rounded-xl p-4"
+      style={{ borderCurve: 'continuous', minHeight: 96 }}
     >
-      <View className="flex-row items-center mb-2" style={{ gap: 6 }}>
-        <View
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: group.colour,
-          }}
-        />
-        <Text className="text-text text-sm font-semibold">{group.name}</Text>
+      <View className="flex-row items-center mb-2 gap-2">
+        <View className="w-2 h-2 rounded-full" style={{ borderCurve: 'continuous', backgroundColor: group.colour }} />
+        <Text className="text-text text-footnote font-semibold">{group.name}</Text>
         {isToday && (
           <View
-            style={{
-              marginLeft: 'auto',
-              backgroundColor: `${group.colour}33`,
-              paddingHorizontal: 6,
-              paddingVertical: 2,
-              borderRadius: 6,
-            }}
+            className="ml-auto px-2 py-1 rounded-md"
+            style={{ borderCurve: 'continuous', backgroundColor: `${group.colour}33` }}
           >
-            <Text
-              style={{ color: group.colour, fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}
-            >
-              TODAY
+            <Text className="text-caption font-bold" style={{ color: group.colour }}>
+              Today
             </Text>
           </View>
         )}
@@ -1083,18 +1050,27 @@ function MuscleGroupTile({
 
       {last ? (
         <>
-          <Text className="text-text-muted text-xs" numberOfLines={1}>
+          <Text className="text-text-muted text-caption" numberOfLines={1}>
             {last.exerciseName}
           </Text>
-          <Text className="text-text-subtle text-[11px] mt-0.5" numberOfLines={1}>
+          <Text className="text-text-subtle text-caption mt-1" numberOfLines={1}>
             {last.weightKg ?? '–'}kg × {last.reps ?? '–'}
           </Text>
-          <Text className="text-text-subtle text-[10px] mt-1">
+          <Text className="text-text-subtle text-caption mt-1">
             {daysSince === 0 ? 'today' : `${daysSince}d ago`}
           </Text>
         </>
       ) : (
-        <Text className="text-text-subtle text-xs mt-1">No sessions yet</Text>
+        <Text className="text-text-subtle text-caption mt-1">No sessions yet</Text>
+      )}
+      {/* Today's-split accent ring. An overlay rather than a thicker border so
+          the content lines up with the other tiles. */}
+      {isToday && (
+        <View
+          pointerEvents="none"
+          className="absolute -inset-px border-2 border-accent rounded-xl"
+          style={{ borderCurve: 'continuous' }}
+        />
       )}
     </PressableScale>
   )
@@ -1114,11 +1090,11 @@ function SplitWeekStrip({
   const byDay = new Map(split.map(r => [r.weekday, r]))
 
   return (
-    <View className="bg-surface border border-divider rounded-2xl p-4">
-      <Text className="text-text-subtle text-xs uppercase tracking-widest mb-3">
+    <View className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
+      <Text className="text-text-subtle text-caption mb-3">
         Your weekly split
       </Text>
-      <View className="flex-row" style={{ gap: 4 }}>
+      <View className="flex-row gap-1">
         {WEEK_SHORT.map((label, i) => {
           const row = byDay.get(i)
           const colour = row ? GROUPS.find(g => g.name === row.group_name)?.colour ?? colors['text-subtle'] : colors.divider
@@ -1126,18 +1102,19 @@ function SplitWeekStrip({
           return (
             <View
               key={label}
-              className="flex-1 items-center rounded-xl py-2"
+              className="flex-1 items-center rounded-md py-2"
               style={{
+                borderCurve: 'continuous',
                 backgroundColor: row ? `${colour}1A` : colors.surface,
                 borderWidth: 1,
                 borderColor: isToday ? `${colors.text}55` : row ? `${colour}44` : colors.divider,
               }}
             >
-              <Text className="text-[10px] font-semibold" style={{ color: isToday ? colors.text : colors['text-subtle'] }}>
+              <Text className="text-caption font-semibold" style={{ color: isToday ? colors.text : colors['text-subtle'] }}>
                 {label}
               </Text>
               <Text
-                className="text-[9px] mt-1 text-center"
+                className="text-caption mt-1 text-center"
                 numberOfLines={1}
                 style={{ color: row ? colour : colors['text-subtle'] }}
               >
@@ -1167,27 +1144,20 @@ function TodaysSplitBanner({
   const colour = match?.colour ?? colors['text-muted']
   return (
     <View
-      className="rounded-2xl px-4 py-3 flex-row items-center"
+      className="rounded-xl px-4 py-3 flex-row items-center"
       style={{
+        borderCurve: 'continuous',
         backgroundColor: `${colour}1A`,
         borderWidth: 1,
         borderColor: `${colour}44`,
       }}
     >
-      <View
-        style={{
-          width: 10,
-          height: 10,
-          borderRadius: 5,
-          backgroundColor: colour,
-          marginRight: 10,
-        }}
-      />
+      <View className="rounded-full mr-3" style={{ borderCurve: 'continuous', width: 10, height: 10, backgroundColor: colour }} />
       <View className="flex-1">
-        <Text className="text-text text-sm font-semibold">
+        <Text className="text-text text-footnote font-semibold">
           Today's usual: {todaysGroup.group_name}
         </Text>
-        <Text className="text-text-subtle text-[11px] mt-0.5">
+        <Text className="text-text-subtle text-caption mt-1">
           {weekdayLabel} pattern · {Math.round(todaysGroup.confidence * 100)}% of recent {weekdayLabel}s
         </Text>
       </View>
@@ -1217,18 +1187,18 @@ function OneRMCard() {
   const top = (data?.estimates ?? []).slice(0, 5)
 
   return (
-    <View className="bg-surface border border-divider rounded-2xl p-4">
+    <View className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
       <View className="flex-row items-baseline justify-between mb-2">
-        <Text className="text-text-subtle text-xs uppercase tracking-widest">
+        <Text className="text-text-subtle text-caption">
           Estimated 1RM
         </Text>
-        <Text className="text-text-subtle text-[10px]">last 90 days</Text>
+        <Text className="text-text-subtle text-caption">last 90 days</Text>
       </View>
 
       {/* The card used to show only numbers, with nothing saying what a 1RM
           is or where the figure came from. */}
       <TouchableOpacity onPress={() => router.push('/methodology/one-rm')} className="mb-3">
-        <Text className="text-text-subtle text-xs leading-4">
+        <Text className="text-text-subtle text-caption">
           The heaviest single you could probably lift today, estimated from the
           sets you logged — no max-out needed.{' '}
           <Text className="text-text-muted font-medium">How? ›</Text>
@@ -1238,27 +1208,27 @@ function OneRMCard() {
       {isLoading ? (
         <ActivityIndicator color={colors['text-subtle']} />
       ) : top.length === 0 ? (
-        <Text className="text-text-subtle text-xs">
+        <Text className="text-text-subtle text-caption">
           Log a few weighted sets to see your estimated max.
         </Text>
       ) : (
-        <View style={{ gap: 6 }}>
+        <View className="gap-2">
           {top.map((row) => (
             <View
               key={row.exercise}
               className="flex-row items-center justify-between"
             >
               <View className="flex-1 pr-2">
-                <Text className="text-text text-sm" numberOfLines={1}>
+                <Text className="text-text text-footnote" numberOfLines={1}>
                   {displayName(row.exercise)}
                 </Text>
-                <Text className="text-text-subtle text-[10px] mt-0.5">
+                <Text className="text-text-subtle text-caption mt-1">
                   from {row.source.weight_kg}kg × {row.source.reps}
                 </Text>
               </View>
-              <Text className="text-text text-sm font-semibold">
+              <Text className="text-text text-footnote font-semibold">
                 {row.mean}
-                <Text className="text-text-subtle text-[10px] font-normal"> kg</Text>
+                <Text className="text-text-subtle text-caption font-normal"> kg</Text>
               </Text>
             </View>
           ))}
@@ -1295,15 +1265,16 @@ function RangePicker({
 }) {
   return (
     <View>
-      <View className="flex-row" style={{ gap: 6 }}>
+      <View className="flex-row gap-2">
         {RANGES.map(r => {
           const active = r.days === value
           return (
             <TouchableOpacity
               key={r.days}
               onPress={() => onChange(r.days)}
-              className="flex-1 py-2 rounded-xl border items-center"
+              className="flex-1 py-2 rounded-full border items-center"
               style={{
+                borderCurve: 'continuous',
                 backgroundColor: active ? colors.text : colors.surface,
                 borderColor: active ? colors.text : colors.border,
               }}
@@ -1311,7 +1282,7 @@ function RangePicker({
               accessibilityState={{ selected: active }}
             >
               <Text
-                className="text-xs font-semibold"
+                className="text-caption font-semibold"
                 style={{ color: active ? colors.bg : colors['text-muted'] }}
               >
                 {r.label}
@@ -1322,9 +1293,9 @@ function RangePicker({
       </View>
       {clamped && windowDays != null && (
         <TouchableOpacity onPress={() => openPaywall()} className="mt-2">
-          <Text className="text-text-subtle text-xs">
+          <Text className="text-text-subtle text-caption">
             Your plan stores {windowDays} days of history — showing that.{' '}
-            <Text className="text-sm font-semibold text-accent">Upgrade for more ›</Text>
+            <Text className="text-footnote font-semibold text-accent">Upgrade for more ›</Text>
           </Text>
         </TouchableOpacity>
       )}
@@ -1366,19 +1337,19 @@ function SessionRow({
     <View className="border-b border-divider">
       <TouchableOpacity
         onPress={() => setOpen(o => !o)}
-        className="px-4 py-3.5"
+        className="px-4 py-4"
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
       >
         <View className="flex-row items-center justify-between">
-          <Text className="text-text text-sm font-medium">
+          <Text className="text-text text-footnote font-medium">
             {sessionDateLabel(session.date)}
           </Text>
-          <Text className="text-text-subtle text-xs">
+          <Text className="text-text-subtle text-caption">
             {Math.round(session.volume_kg).toLocaleString()} kg {open ? '▾' : '▸'}
           </Text>
         </View>
-        <Text className="text-text-subtle text-xs mt-0.5" numberOfLines={open ? undefined : 1}>
+        <Text className="text-text-subtle text-caption mt-1" numberOfLines={open ? undefined : 1}>
           {session.exercise_count} exercises · {session.set_count} sets
           {summary ? ` · ${summary}` : ''}
           {extra > 0 && !open ? ` +${extra}` : ''}
@@ -1386,13 +1357,13 @@ function SessionRow({
       </TouchableOpacity>
 
       {open && (
-        <View className="px-4 pb-3.5" style={{ gap: 6 }}>
+        <View className="px-4 pb-4 gap-2">
           {session.exercises.map(e => (
             <View key={e.type} className="flex-row items-center justify-between">
-              <Text className="text-text-muted text-xs flex-1 pr-3" numberOfLines={1}>
+              <Text className="text-text-muted text-caption flex-1 pr-3" numberOfLines={1}>
                 {nameForKey(e.type)}
               </Text>
-              <Text className="text-text-subtle text-xs">
+              <Text className="text-text-subtle text-caption">
                 {e.sets} {e.sets === 1 ? 'set' : 'sets'}
                 {e.top_weight_kg != null
                   ? ` · top ${e.top_weight_kg}kg×${e.top_reps ?? '?'}`
@@ -1420,13 +1391,13 @@ function SessionHistory({
   const sessions = data?.sessions ?? []
 
   return (
-    <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
+    <View className="bg-surface border border-divider rounded-xl overflow-hidden" style={{ borderCurve: 'continuous' }}>
       <View className="px-4 pt-4 pb-2">
-        <Text className="text-text-subtle text-xs uppercase tracking-widest">History</Text>
+        <Text className="text-text-subtle text-caption">History</Text>
       </View>
       {sessions.length === 0 ? (
         <View className="px-4 pb-4">
-          <Text className="text-text-subtle text-sm">
+          <Text className="text-text-subtle text-footnote">
             No sessions in this range. Log a lift and it'll show up here.
           </Text>
         </View>
@@ -1437,7 +1408,7 @@ function SessionHistory({
       )}
       {data?.has_more && (
         <View className="px-4 py-3">
-          <Text className="text-text-subtle text-xs">
+          <Text className="text-text-subtle text-caption">
             Showing your most recent {sessions.length} sessions.
           </Text>
         </View>
@@ -1595,7 +1566,7 @@ export default function TrainingScreen() {
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+        contentContainerClassName="px-4 pb-6"
         refreshControl={
           <RefreshControl refreshing={isRefetching} onRefresh={refetchAll} tintColor={colors.text} />
         }
@@ -1603,30 +1574,23 @@ export default function TrainingScreen() {
         {/* Header */}
         <View className="pt-6 pb-5 flex-row items-end justify-between">
           <View>
-            <Text className="text-text-muted text-xs uppercase tracking-widest font-semibold">{today}</Text>
-            <Text className="text-text text-3xl font-bold mt-1.5">Training</Text>
+            <Text className="text-text-muted text-caption font-semibold">{today}</Text>
+            <Text className="text-text text-title font-bold mt-2">Training</Text>
           </View>
-          <View className="flex-row" style={{ gap: 8 }}>
+          <View className="flex-row gap-2">
             <PressableScale
               haptic
               onPress={() => router.push('/friends')}
-              className="bg-surface border border-divider px-3 py-2 rounded-2xl"
+              className="bg-surface border border-divider px-3 py-2 rounded-xl" style={{ borderCurve: 'continuous' }}
             >
-              <View className="flex-row items-center gap-1.5">
-                <Text className="text-text text-xs font-semibold">Friends</Text>
+              <View className="flex-row items-center gap-2">
+                <Text className="text-text text-caption font-semibold">Friends</Text>
                 {pendingInvites > 0 && (
                   <View
-                    style={{
-                      minWidth: 16,
-                      height: 16,
-                      paddingHorizontal: 4,
-                      borderRadius: 8,
-                      backgroundColor: colors.danger,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
+                    className="bg-danger px-1 rounded-full items-center justify-center"
+                    style={{ borderCurve: 'continuous', minWidth: 16, height: 16 }}
                   >
-                    <Text style={{ color: colors.text, fontSize: 10, fontWeight: '700' }}>
+                    <Text className="text-text text-caption font-bold">
                       {pendingInvites}
                     </Text>
                   </View>
@@ -1637,13 +1601,13 @@ export default function TrainingScreen() {
         </View>
 
         {isLoading ? (
-          <View style={{ gap: 12 }}>
+          <View className="gap-3">
             <SkeletonCard height={140} />
             <SkeletonCard height={160} />
             <SkeletonCard height={240} />
           </View>
         ) : (
-          <View style={{ gap: 12 }}>
+          <View className="gap-3">
             {/* Weekly race — the social hook for the tab. Sits above your
                 personal volume so the comparison frames the rest. */}
             <WeeklyRaceCard />
@@ -1673,23 +1637,23 @@ export default function TrainingScreen() {
 
             {/* Muscle-group tiles. Tap one to open a group-filtered picker;
                 pick an exercise → opens LogExerciseModal. The detected split
-                banner + per-tile TODAY chip drive the 'where do I lift today'
+                banner + per-tile Today chip drive the 'where do I lift today'
                 signal that used to live nowhere on this screen. */}
             <View className="mt-2">
               <TodaysSplitBanner
                 todaysGroup={todaysSplit}
                 weekdayLabel={WEEKDAY_LABEL_FULL[todayWeekday]}
               />
-              <View style={{ marginTop: todaysSplit ? 10 : 0 }}>
+              <View className={todaysSplit ? 'mt-3' : undefined}>
                 <SplitWeekStrip
                   split={splitQ.data?.split ?? []}
                   todayWeekday={todayWeekday}
                 />
               </View>
-              <View style={{ marginTop: todaysSplit ? 12 : 0, gap: 10 }}>
+              <View className={todaysSplit ? 'mt-3 gap-3' : 'gap-3'}>
                 {/* Render in pairs so each row is two tiles. */}
                 {Array.from({ length: Math.ceil(GROUPS.length / 2) }, (_, rowIdx) => (
-                  <View key={rowIdx} className="flex-row" style={{ gap: 10 }}>
+                  <View key={rowIdx} className="flex-row gap-3">
                     {GROUPS.slice(rowIdx * 2, rowIdx * 2 + 2).map(g => (
                       <MuscleGroupTile
                         key={g.name}

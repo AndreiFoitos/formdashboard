@@ -20,11 +20,11 @@ export default function PitCrewScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <View className="px-4 pt-6 pb-3">
-        <Text className="text-text-muted text-xs uppercase tracking-widest font-semibold">Pit Crew</Text>
-        <View className="flex-row items-end justify-between mt-1.5">
-          <Text className="text-text text-3xl font-bold">{segment === 'plan' ? 'Your Plan' : 'Ask Your Crew'}</Text>
+        <Text className="text-text-muted text-caption font-semibold">Pit Crew</Text>
+        <View className="flex-row items-end justify-between mt-2">
+          <Text className="text-text text-title font-bold">{segment === 'plan' ? 'Your plan' : 'Ask your crew'}</Text>
         </View>
-        <View className="flex-row bg-surface border border-divider rounded-xl p-1 mt-4">
+        <View className="flex-row bg-surface border border-divider rounded-full p-1 mt-4" style={{ borderCurve: 'continuous' }}>
           {(['plan', 'chat'] as Segment[]).map((s) => {
             const active = segment === s
             return (
@@ -34,10 +34,10 @@ export default function PitCrewScreen() {
                   if (!active) hapticSelection()
                   setSegment(s)
                 }}
-                className="flex-1 py-2 rounded-lg items-center"
-                style={{ backgroundColor: active ? colors.text : 'transparent' }}
+                className="flex-1 py-2 rounded-full items-center"
+                style={{ borderCurve: 'continuous', backgroundColor: active ? colors.text : 'transparent' }}
               >
-                <Text className="text-sm font-semibold" style={{ color: active ? colors.bg : colors['text-muted'] }}>
+                <Text className="text-footnote font-semibold" style={{ color: active ? colors.bg : colors['text-muted'] }}>
                   {s === 'plan' ? 'Plan' : 'Chat'}
                 </Text>
               </TouchableOpacity>

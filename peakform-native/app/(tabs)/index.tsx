@@ -118,13 +118,13 @@ function FormScoreCard({ summary }: { summary: Summary | undefined }) {
 
   if (!summary.form_score_unlocked) {
     return (
-      <View className="bg-surface border border-divider rounded-3xl p-5">
-        <Text className="text-text-subtle text-xs uppercase tracking-widest mb-3">
-          Form Score
+      <View className="bg-surface border border-divider rounded-xl p-5" style={{ borderCurve: 'continuous' }}>
+        <Text className="text-text-subtle text-caption mb-3">
+          Form score
         </Text>
-        <Text className="text-text font-semibold text-sm">Calibrating…</Text>
-        <Text className="text-text-subtle text-xs mt-1 leading-5">
-          Log 5 days in a row to activate your personalized Form Score.
+        <Text className="text-text font-semibold text-footnote">Calibrating…</Text>
+        <Text className="text-text-subtle text-caption mt-1">
+          Log 5 days in a row to activate your personalized form score.
         </Text>
         <AiDigest />
       </View>
@@ -164,27 +164,27 @@ function FormScoreCard({ summary }: { summary: Summary | undefined }) {
   }
 
   return (
-    <View className="bg-surface border border-divider rounded-3xl p-5">
+    <View className="bg-surface border border-divider rounded-xl p-5" style={{ borderCurve: 'continuous' }}>
       <View className="flex-row items-center justify-between mb-4">
-        <Text className="text-text-subtle text-xs uppercase tracking-widest">
-          Form Score
+        <Text className="text-text-subtle text-caption">
+          Form score
         </Text>
-        <TouchableOpacity onPress={() => router.push('/trends')} hitSlop={10} className="flex-row items-center" style={{ gap: 4 }}>
-          <Text className="text-text-muted text-xs font-medium">Trends</Text>
-          <Text className="text-text-subtle text-xs">›</Text>
+        <TouchableOpacity onPress={() => router.push('/trends')} hitSlop={10} className="flex-row items-center gap-1">
+          <Text className="text-text-muted text-caption font-medium">Trends</Text>
+          <Text className="text-text-subtle text-caption">›</Text>
         </TouchableOpacity>
       </View>
       <View className="flex-row items-center gap-5">
         <View
           className="w-20 h-20 rounded-full items-center justify-center border-2"
-          style={{ borderColor: color }}
+          style={{ borderCurve: 'continuous', borderColor: color }}
         >
-          <CountUp value={score} className="text-text text-3xl font-bold" />
+          <CountUp value={score} className="text-text text-display font-bold" />
         </View>
 
         <View className="flex-1">
-          <Text className="text-text font-semibold text-lg">{label}</Text>
-          <Text className="text-text-muted text-sm mt-1">{subtitle}</Text>
+          <Text className="text-text font-semibold text-headline">{label}</Text>
+          <Text className="text-text-muted text-footnote mt-1">{subtitle}</Text>
         </View>
       </View>
 
@@ -209,26 +209,28 @@ function StatTile({
   const p = pct(value, target)
 
   return (
-    <View className="bg-surface border border-divider rounded-2xl p-4 flex-1">
-      <Text className="text-text-muted text-xs uppercase tracking-widest mb-2 font-semibold">
+    <View className="bg-surface border border-divider rounded-xl p-4 flex-1" style={{ borderCurve: 'continuous' }}>
+      <Text className="text-text-muted text-caption mb-2 font-semibold">
         {label}
       </Text>
-      <Text className="text-text font-bold text-2xl">
+      <Text className="text-text font-bold text-title">
         {value != null ? (
           <CountUp
             value={Math.round(value)}
             separator
-            className="text-text font-bold text-2xl"
+            className="text-text font-bold text-title"
           />
         ) : (
           '—'
         )}
-        <Text className="text-text-subtle text-sm font-normal"> {unit}</Text>
+        <Text className="text-text-subtle text-footnote font-normal"> {unit}</Text>
       </Text>
       {target != null && (
         <>
-          <AnimatedBar percent={p} color={colors.accent} height={4} style={{ marginTop: 12 }} />
-          <Text className="text-text-subtle text-xs mt-1.5 font-medium">{p}%</Text>
+          <View className="mt-3">
+            <AnimatedBar percent={p} color={colors.accent} height={4} />
+          </View>
+          <Text className="text-text-subtle text-caption mt-2 font-medium">{p}%</Text>
         </>
       )}
     </View>
@@ -316,18 +318,20 @@ function HydrationQuickLog({
   }
 
   return (
-    <View className="bg-surface border border-divider rounded-2xl p-4">
+    <View className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
       <View className="flex-row items-center justify-between mb-3">
-        <Text className="text-text-muted text-xs uppercase tracking-widest font-semibold">
+        <Text className="text-text-muted text-caption font-semibold">
           Hydration
         </Text>
-        <Text className="text-sm text-text-muted">
-          <Text className="text-text font-bold text-base">{current.toLocaleString()}</Text>
+        <Text className="text-footnote text-text-muted">
+          <Text className="text-text font-bold text-body">{current.toLocaleString()}</Text>
           <Text className="text-text-subtle"> / {target.toLocaleString()}ml</Text>
         </Text>
       </View>
 
-      <AnimatedBar percent={p} color={colors.data.water} height={8} style={{ marginBottom: 14 }} />
+      <View className="mb-4">
+        <AnimatedBar percent={p} color={colors.data.water} height={8} />
+      </View>
 
       <View className="flex-row gap-2">
         {WATER_PRESETS.map((ml) => (
@@ -335,10 +339,10 @@ function HydrationQuickLog({
             key={ml}
             onPress={() => handleLog(ml)}
             disabled={isPending}
-            className="flex-1 py-3 rounded-xl bg-surface-raised items-center"
-            style={{ opacity: isPending ? 0.6 : 1 }}
+            className="flex-1 py-3 rounded-md bg-surface-raised items-center"
+            style={{ borderCurve: 'continuous', opacity: isPending ? 0.6 : 1 }}
           >
-            <Text className="text-text text-sm font-semibold">+{ml}ml</Text>
+            <Text className="text-text text-footnote font-semibold">+{ml}ml</Text>
           </PressableScale>
         ))}
       </View>
@@ -351,34 +355,34 @@ function HydrationQuickLog({
         accessibilityRole="button"
         accessibilityState={{ expanded: showLog }}
       >
-        <Text className="text-text-subtle text-xs">
+        <Text className="text-text-subtle text-caption">
           {showLog ? 'Hide today’s log ▾' : 'Today’s log ▸'}
         </Text>
       </TouchableOpacity>
 
       {showLog && (
-        <View className="mt-2 rounded-xl overflow-hidden border border-divider">
+        <View className="mt-2 rounded-xl overflow-hidden border border-divider" style={{ borderCurve: 'continuous' }}>
           {(todayQ.data?.entries ?? []).length === 0 ? (
-            <Text className="text-text-subtle text-xs px-3 py-3">
+            <Text className="text-text-subtle text-caption px-3 py-3">
               {todayQ.isLoading ? 'Loading…' : 'Nothing logged yet today.'}
             </Text>
           ) : (
             (todayQ.data?.entries ?? []).map((entry, i, arr) => (
               <SwipeableRow key={entry.id} onDelete={() => removeEntry.mutate(entry.id)}>
                 <View
-                  className="flex-row items-center justify-between bg-surface px-3 py-2.5"
+                  className="flex-row items-center justify-between bg-surface px-3 py-3"
                   style={{
                     borderBottomWidth: i === arr.length - 1 ? 0 : 1,
                     borderBottomColor: colors.divider,
                   }}
                 >
-                  <Text className="text-text-muted text-xs">
+                  <Text className="text-text-muted text-caption">
                     {entry.amount_ml.toLocaleString()} ml
                     {entry.source && entry.source !== 'water'
                       ? ` · ${entry.source.replace(/_/g, ' ')}`
                       : ''}
                   </Text>
-                  <Text className="text-text-subtle text-xs">{timeLabel(entry.logged_at)}</Text>
+                  <Text className="text-text-subtle text-caption">{timeLabel(entry.logged_at)}</Text>
                 </View>
               </SwipeableRow>
             ))
@@ -392,7 +396,7 @@ function HydrationQuickLog({
 // ─── Weekly Race Card ─────────────────────────────────────────────────────────
 //
 // Replaces the old Sunday-Recap-headlines card. Two visual modes:
-//   - Hero    (Sun-Mon): "WEEKLY RACE · NEW", winner name, crew + total stats,
+//   - Hero    (Sun-Mon): "Weekly race · New", winner name, crew + total stats,
 //                        large Play button. The 'event' moment.
 //   - Compact (Tue-Sat): single-line "Replay last week's race ▶". Stays
 //                        available all week per the spec.
@@ -412,18 +416,12 @@ function WeeklyRaceCard() {
       <PressableScale
         haptic
         onPress={() => refetch()}
-        style={{
-          backgroundColor: colors.surface,
-          borderColor: colors.divider,
-          borderWidth: 1,
-          borderRadius: 16,
-          padding: 16,
-        }}
+        className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}
       >
-        <Text className="text-text-subtle text-xs uppercase tracking-[2px] mb-2">
-          Weekly Race
+        <Text className="text-text-subtle text-caption mb-2">
+          Weekly race
         </Text>
-        <Text className="text-text-muted text-sm">
+        <Text className="text-text-muted text-footnote">
           Couldn't load this week's race. Tap to retry.
         </Text>
       </PressableScale>
@@ -446,32 +444,26 @@ function WeeklyRaceCard() {
       <PressableScale
         haptic
         onPress={() => router.push('/friends')}
-        style={{
-          backgroundColor: colors.surface,
-          borderColor: colors.divider,
-          borderWidth: 1,
-          borderRadius: 16,
-          padding: 16,
-        }}
+        className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}
       >
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-text-subtle text-xs uppercase tracking-[2px]">
-            Weekly Race
+          <Text className="text-text-subtle text-caption">
+            Weekly race
           </Text>
-          <Text className="text-text-subtle text-[10px]">{weekShort}</Text>
+          <Text className="text-text-subtle text-caption">{weekShort}</Text>
         </View>
-        <Text className="text-text text-base font-semibold">
+        <Text className="text-text text-body font-semibold">
           Race your friends
         </Text>
-        <Text className="text-text-subtle text-xs mt-1">
+        <Text className="text-text-subtle text-caption mt-1">
           Add friends to see who moves the most weight each week.
         </Text>
         <View
-          className="flex-row items-center justify-center gap-2 mt-3 py-2.5 rounded-xl"
-          style={{ backgroundColor: colors['surface-raised'] }}
+          className="flex-row items-center justify-center gap-2 mt-3 py-3 rounded-md"
+          style={{ borderCurve: 'continuous', backgroundColor: colors['surface-raised'] }}
         >
           <UserPlus size={14} color={colors.text} />
-          <Text className="text-text text-sm font-semibold">Find friends</Text>
+          <Text className="text-text text-footnote font-semibold">Find friends</Text>
         </View>
       </PressableScale>
     )
@@ -489,23 +481,16 @@ function WeeklyRaceCard() {
       <PressableScale
         haptic
         onPress={() => router.push('/weekly-recap')}
-        style={{
-          backgroundColor: colors.surface,
-          borderColor: colors.divider,
-          borderWidth: 1,
-          borderRadius: 16,
-          paddingVertical: 12,
-          paddingHorizontal: 16,
-        }}
+        className="bg-surface border border-divider rounded-xl px-4 py-3" style={{ borderCurve: 'continuous' }}
       >
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center gap-2">
             <Play size={14} color={colors['text-subtle']} fill={colors['text-subtle']} />
-            <Text className="text-text-muted text-sm font-medium">
+            <Text className="text-text-muted text-footnote font-medium">
               Quiet week — no lifts logged
             </Text>
           </View>
-          <Text className="text-text-subtle text-[10px]">{weekShort}</Text>
+          <Text className="text-text-subtle text-caption">{weekShort}</Text>
         </View>
       </PressableScale>
     )
@@ -516,46 +501,40 @@ function WeeklyRaceCard() {
       <PressableScale
         haptic
         onPress={() => router.push('/weekly-recap')}
-        style={{
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
-          borderWidth: 1,
-          borderRadius: 16,
-          padding: 16,
-        }}
+        className="bg-surface border border-border rounded-xl p-4" style={{ borderCurve: 'continuous' }}
       >
         <View className="flex-row items-center justify-between mb-3">
           <View className="flex-row items-center gap-2">
-            <Text className="text-text-subtle text-xs uppercase tracking-[2px]">
-              Weekly Race
+            <Text className="text-text-subtle text-caption">
+              Weekly race
             </Text>
             <View
-              className="px-1.5 py-0.5 rounded-full"
-              style={{ backgroundColor: colors.accent }}
+              className="px-2 py-1 rounded-full"
+              style={{ borderCurve: 'continuous', backgroundColor: colors.accent }}
             >
-              <Text className="text-on-accent text-[9px] font-bold tracking-wider">
-                NEW
+              <Text className="text-on-accent text-caption font-bold">
+                New
               </Text>
             </View>
           </View>
-          <Text className="text-text-subtle text-[10px]">
+          <Text className="text-text-subtle text-caption">
             {formatWeekShort(data.week_start, data.week_end)}
           </Text>
         </View>
 
-        <Text className="text-text text-base font-semibold">
+        <Text className="text-text text-body font-semibold">
           @{winner.username ?? winner.name} took the week
         </Text>
-        <Text className="text-text-subtle text-xs mt-1">
+        <Text className="text-text-subtle text-caption mt-1">
           {totalCrewKg.toLocaleString()} kg moved by crew of {data.crew.length}
         </Text>
 
         <View
-          className="flex-row items-center justify-center gap-2 mt-3 py-2.5 rounded-xl"
-          style={{ backgroundColor: colors.accent }}
+          className="flex-row items-center justify-center gap-2 mt-3 py-3 rounded-md"
+          style={{ borderCurve: 'continuous', backgroundColor: colors.accent }}
         >
           <Play size={14} color={colors['on-accent']} fill={colors['on-accent']} />
-          <Text className="text-on-accent text-sm font-semibold">Watch</Text>
+          <Text className="text-on-accent text-footnote font-semibold">Watch</Text>
         </View>
       </PressableScale>
     )
@@ -566,23 +545,16 @@ function WeeklyRaceCard() {
     <PressableScale
       haptic
       onPress={() => router.push('/weekly-recap')}
-      style={{
-        backgroundColor: colors.surface,
-        borderColor: colors.divider,
-        borderWidth: 1,
-        borderRadius: 16,
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-      }}
+      className="bg-surface border border-divider rounded-xl px-4 py-3" style={{ borderCurve: 'continuous' }}
     >
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-2">
           <Play size={14} color={colors.text} fill={colors.text} />
-          <Text className="text-text text-sm font-medium">
+          <Text className="text-text text-footnote font-medium">
             Replay last week's race
           </Text>
         </View>
-        <Text className="text-text-subtle text-[10px]">
+        <Text className="text-text-subtle text-caption">
           {formatWeekShort(data.week_start, data.week_end)}
         </Text>
       </View>
@@ -647,7 +619,7 @@ export default function DashboardScreen() {
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+        contentContainerClassName="px-4 pb-6"
         // Pull-to-refresh — not available in the web version but expected on mobile
         refreshControl={
           <RefreshControl
@@ -671,10 +643,10 @@ export default function DashboardScreen() {
             </View>
           )}
           <View className="flex-1">
-            <Text className="text-text-muted text-xs uppercase tracking-widest font-semibold">
+            <Text className="text-text-muted text-caption font-semibold">
               {today}
             </Text>
-            <Text className="text-text text-3xl font-bold mt-1.5">
+            <Text className="text-text text-title font-bold mt-2">
               {getGreeting()}{firstName ? `, ${firstName}` : ''}
             </Text>
           </View>
@@ -690,7 +662,7 @@ export default function DashboardScreen() {
         <NotificationsCard />
 
         {isLoading ? (
-          <View style={{ gap: 12 }}>
+          <View className="gap-3">
             <SkeletonCard height={96} />
             <View className="flex-row gap-3">
               <View className="flex-1"><SkeletonCard height={80} /></View>
@@ -703,7 +675,7 @@ export default function DashboardScreen() {
             <SkeletonCard height={80} />
           </View>
         ) : (
-          <View style={{ gap: 12 }}>
+          <View className="gap-3">
             <FormScoreCard summary={summary} />
 
             <WeeklyRaceCard />
@@ -733,9 +705,9 @@ export default function DashboardScreen() {
 
             {/* Trained badge */}
             {summary?.trained && (
-              <View className="flex-row items-center gap-2.5 bg-surface border border-divider rounded-2xl px-4 py-3">
-                <View className="w-2 h-2 rounded-full bg-success" />
-                <Text className="text-text-muted text-sm">
+              <View className="flex-row items-center gap-3 bg-surface border border-divider rounded-xl px-4 py-3" style={{ borderCurve: 'continuous' }}>
+                <View className="w-2 h-2 rounded-full bg-success" style={{ borderCurve: 'continuous' }} />
+                <Text className="text-text-muted text-footnote">
                   Trained today
                   {summary.training_type ? (
                     <Text className="text-text-subtle"> · {summary.training_type}</Text>

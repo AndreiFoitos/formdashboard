@@ -109,7 +109,8 @@ Off-scale values (1, 3, 5, 7, 18, -11, …) get rounded to the nearest step.
 - Gap between cards: `gap-3` (12). Gap inside a card: `gap-2` (8).
 - Section spacing on a screen: `mt-6` (24).
 
-Radius: `rounded-md` 8 (chips, inputs), `rounded-xl` 16 (cards, list groups, sheets), `rounded-full` (avatars, pills). Nothing else.
+Radius: `rounded-md` 8 (buttons, inputs), `rounded-xl` 16 (cards, list groups, sheets), `rounded-full` (avatars, pills). Nothing else, except chart marks below.
+Anything picked one-of-several (segmented controls, choice and filter chips) is rounded-full. Buttons and inputs are rounded-md. Chart marks (bars, segments) may use radius 2-4 and 1px gaps.
 All rounded surfaces use `borderCurve: 'continuous'` via style prop.
 
 Elevation: no shadows on black. Separate layers with `surface` vs `bg`, and hairline `border` where needed.
