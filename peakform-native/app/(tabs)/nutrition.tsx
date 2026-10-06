@@ -281,7 +281,7 @@ function SearchResultRow({
         className="bg-surface-raised border border-border rounded-md px-2 py-2 text-text text-footnote text-right mr-2"
         style={{ borderCurve: 'continuous', width: 56 }}
       />
-      <TouchableOpacity
+      <TouchableOpacity hitSlop={10}
         onPress={handlePress}
         disabled={!canLog}
         className="bg-accent rounded-md px-3 py-2"
@@ -412,7 +412,7 @@ function BuildMealModal({
               placeholder="My usual breakfast"
               placeholderTextColor={colors['text-subtle']}
               maxLength={80}
-              className="bg-surface-raised border border-border rounded-xl px-4 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}
+              className="bg-surface-raised border border-border rounded-md px-4 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}
             />
           </View>
 
@@ -529,7 +529,7 @@ function BuildMealModal({
               })
             }
             disabled={!canSave}
-            className="bg-accent rounded-xl py-3 items-center"
+            className="bg-accent rounded-md py-3 items-center"
             style={{ borderCurve: 'continuous', opacity: canSave ? 1 : 0.4 }}
           >
             {saveMutation.isPending ? (
@@ -582,7 +582,7 @@ function SaveEntryAsMealModal({
             className="bg-surface-raised border border-border rounded-md px-4 py-3 text-text text-footnote mb-4" style={{ borderCurve: 'continuous' }}
           />
           <View className="flex-row justify-end gap-2">
-            <TouchableOpacity
+            <TouchableOpacity hitSlop={10}
               onPress={onClose}
               className="px-4 py-2 rounded-md bg-surface-raised border border-border" style={{ borderCurve: 'continuous' }}
             >
@@ -661,7 +661,7 @@ function SavedMealCard({
             {Math.round(meal.total_fat_g)}f
           </Text>
         </View>
-        <TouchableOpacity
+        <TouchableOpacity hitSlop={10}
           onPress={onLog}
           disabled={busy}
           className="bg-accent rounded-md px-4 py-2"
@@ -712,7 +712,7 @@ function RenameSavedMealModal({
             className="bg-surface-raised border border-border rounded-md px-4 py-3 text-text text-footnote mb-4" style={{ borderCurve: 'continuous' }}
           />
           <View className="flex-row justify-end gap-2">
-            <TouchableOpacity
+            <TouchableOpacity hitSlop={10}
               onPress={onClose}
               className="px-4 py-2 rounded-md bg-surface-raised border border-border" style={{ borderCurve: 'continuous' }}
             >
@@ -1045,7 +1045,7 @@ function LogModal({
                   onChangeText={setManualName}
                   placeholder="What you ate"
                   placeholderTextColor={colors['text-subtle']}
-                  className="bg-surface-raised border border-border rounded-xl px-4 py-3 text-text text-footnote mb-3" style={{ borderCurve: 'continuous' }}
+                  className="bg-surface-raised border border-border rounded-md px-4 py-3 text-text text-footnote mb-3" style={{ borderCurve: 'continuous' }}
                 />
 
                 <Text className="text-text-subtle text-caption mb-2">
@@ -1057,7 +1057,7 @@ function LogModal({
                   placeholder={estimatedCals ? `~${estimatedCals} (estimated)` : 'e.g. 450'}
                   placeholderTextColor={colors['text-subtle']}
                   keyboardType="number-pad"
-                  className="bg-surface-raised border border-border rounded-xl px-4 py-3 text-text text-footnote mb-3" style={{ borderCurve: 'continuous' }}
+                  className="bg-surface-raised border border-border rounded-md px-4 py-3 text-text text-footnote mb-3" style={{ borderCurve: 'continuous' }}
                 />
 
                 <View className="flex-row gap-2 mb-2">
@@ -1098,7 +1098,7 @@ function LogModal({
                 <TouchableOpacity
                   onPress={handleManualLog}
                   disabled={!hasManualValue || logMutation.isPending}
-                  className="bg-accent rounded-xl py-3 items-center mt-1"
+                  className="bg-accent rounded-md py-3 items-center mt-1"
                   style={{ borderCurve: 'continuous', opacity: !hasManualValue || logMutation.isPending ? 0.4 : 1 }}
                 >
                   {logMutation.isPending ? (
@@ -1361,7 +1361,7 @@ export default function NutritionScreen() {
               setLogInitialTab('saved')
               setShowLog(true)
             }}
-            className="flex-1 bg-surface border border-divider rounded-xl py-4 items-center gap-2" style={{ borderCurve: 'continuous' }}
+            className="flex-1 bg-surface border border-divider rounded-md py-4 items-center gap-2" style={{ borderCurve: 'continuous' }}
           >
             <Bookmark size={18} color={colors.text} strokeWidth={2} />
             <Text className="text-text text-footnote font-semibold">Saved</Text>
@@ -1370,7 +1370,7 @@ export default function NutritionScreen() {
           <PressableScale
             haptic
             onPress={() => router.push('/nutrition-barcode')}
-            className="flex-1 bg-surface border border-divider rounded-xl py-4 items-center gap-2" style={{ borderCurve: 'continuous' }}
+            className="flex-1 bg-surface border border-divider rounded-md py-4 items-center gap-2" style={{ borderCurve: 'continuous' }}
           >
             <ScanBarcode size={18} color={colors.text} strokeWidth={2} />
             <Text className="text-text text-footnote font-semibold">Barcode</Text>
@@ -1379,7 +1379,7 @@ export default function NutritionScreen() {
           <PressableScale
             haptic
             onPress={() => router.push('/nutrition-snap')}
-            className="flex-1 bg-accent rounded-xl py-4 items-center gap-2" style={{ borderCurve: 'continuous' }}
+            className="flex-1 bg-accent rounded-md py-4 items-center gap-2" style={{ borderCurve: 'continuous' }}
           >
             <Camera size={18} color={colors['on-accent']} strokeWidth={2} />
             <Text className="text-on-accent text-footnote font-semibold">Photo</Text>
@@ -1433,7 +1433,7 @@ export default function NutritionScreen() {
                     setLogInitialTab('search')
                     setShowLog(true)
                   }}
-                  className="bg-surface-raised px-4 py-2 rounded-xl" style={{ borderCurve: 'continuous' }}
+                  className="bg-surface-raised px-4 py-2 rounded-md" style={{ borderCurve: 'continuous' }}
                 >
                   <Text className="text-text text-footnote font-medium">
                     Log your first meal →

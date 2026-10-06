@@ -351,3 +351,6 @@ One line per decision made during the autonomous redesign run (2026-10-06).
 - Phase 4: Macro tiles are all compact (no bars): value + one caption — protein "of 160 g" (target), carbs/fat "% of calories". The macro split bar below carries the visual; the protein target bar still lives on Today.
 - Phase 4: "Pit Crew" stays in Pit-tab content, the paywall and the policy notice (product/legal copy, outside Settings); §1.7 only bans it in settings.
 - Phase 4: Food name capitalization is display-only; stored names and edit fields keep what the user typed.
+- Phase 5: Undersized buttons get `hitSlop={10}` to reach 44pt rather than growing their visual size.
+- Phase 5: Native tab labels use `accent` at the system tab-label size — the system tab bar's own tint behavior, accepted as a rule 9 exception (rule 5 names the active tab as an accent use).
+- Phase 5: Inputs and buttons moved to `rounded-md`; multi-line selectable cards and list rows in pickers stay `rounded-xl` (§4).

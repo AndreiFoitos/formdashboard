@@ -226,7 +226,7 @@ function PRChart({
         <Text className="text-text-subtle text-caption">
           PR progression
         </Text>
-        <TouchableOpacity
+        <TouchableOpacity hitSlop={10}
           onPress={onPickExercise}
           className="flex-row items-center gap-1 px-3 py-1 rounded-full border border-border" style={{ borderCurve: 'continuous' }}
         >
@@ -785,7 +785,7 @@ function LogExerciseModal({
               placeholder="Felt heavy, paused on chest…"
               placeholderTextColor={colors['text-subtle']}
               multiline
-              className="bg-surface-raised border border-border rounded-xl px-4 py-3 text-text text-footnote"
+              className="bg-surface-raised border border-border rounded-md px-4 py-3 text-text text-footnote"
               style={{ borderCurve: 'continuous', minHeight: 70, textAlignVertical: 'top' }}
             />
           </View>
@@ -793,7 +793,7 @@ function LogExerciseModal({
           <TouchableOpacity
             onPress={handleSave}
             disabled={!hasValidSet || isPending}
-            className="bg-accent rounded-xl py-4 items-center mt-5 mb-12"
+            className="bg-accent rounded-md py-4 items-center mt-5 mb-12"
             style={{ borderCurve: 'continuous', opacity: !hasValidSet || isPending ? 0.4 : 1 }}
           >
             {isPending ? (

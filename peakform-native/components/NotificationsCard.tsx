@@ -89,7 +89,7 @@ export function NotificationsCard() {
         ))}
       </View>
       <View className="flex-row mt-4 gap-2">
-        <TouchableOpacity onPress={turnOn} disabled={busy} className="bg-accent rounded-full px-4 py-2" style={{ borderCurve: 'continuous' }}>
+        <TouchableOpacity hitSlop={10} onPress={turnOn} disabled={busy} className="bg-accent rounded-full px-4 py-2" style={{ borderCurve: 'continuous' }}>
           {busy ? (
             <ActivityIndicator size="small" color={colors['on-accent']} />
           ) : (
@@ -98,7 +98,7 @@ export function NotificationsCard() {
             </Text>
           )}
         </TouchableOpacity>
-        <TouchableOpacity onPress={notNow} className="rounded-full px-4 py-2 border border-border" style={{ borderCurve: 'continuous' }}>
+        <TouchableOpacity hitSlop={10} onPress={notNow} className="rounded-full px-4 py-2 border border-border" style={{ borderCurve: 'continuous' }}>
           <Text className="text-text-muted text-footnote font-semibold">Not now</Text>
         </TouchableOpacity>
       </View>

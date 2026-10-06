@@ -408,7 +408,7 @@ function PillButton({
   disabled?: boolean
 }) {
   return (
-    <TouchableOpacity
+    <TouchableOpacity hitSlop={10}
       onPress={onPress}
       disabled={disabled}
       className="px-3 py-2 rounded-full"

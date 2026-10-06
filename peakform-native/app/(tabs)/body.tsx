@@ -360,7 +360,7 @@ function LogModal({
                 placeholder={shownCurrent ?? (u.system === 'imperial' ? '175.0' : '80.0')}
                 placeholderTextColor={colors['text-subtle']}
                 keyboardType="decimal-pad"
-                className="bg-surface-raised border border-border rounded-xl px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
+                className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
               />
               <Text className="absolute right-4 top-4 text-text-subtle text-footnote">{u.weightUnit}</Text>
             </View>
@@ -382,7 +382,7 @@ function LogModal({
                 placeholder="15.0"
                 placeholderTextColor={colors['text-subtle']}
                 keyboardType="decimal-pad"
-                className="bg-surface-raised border border-border rounded-xl px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
+                className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
               />
               <Text className="absolute right-4 top-4 text-text-subtle text-footnote">%</Text>
             </View>
@@ -391,7 +391,7 @@ function LogModal({
           <TouchableOpacity
             onPress={handleLog}
             disabled={!hasValue || isPending}
-            className="bg-accent rounded-xl py-4 items-center"
+            className="bg-accent rounded-md py-4 items-center"
             style={{ borderCurve: 'continuous', opacity: !hasValue || isPending ? 0.4 : 1 }}
           >
             {isPending ? (
@@ -497,7 +497,7 @@ export default function BodyScreen() {
             <PressableScale
               haptic
               onPress={() => router.push('/body-comp-snap')}
-              className="bg-surface border border-divider px-3 py-2 rounded-xl flex-row items-center gap-2" style={{ borderCurve: 'continuous' }}
+              className="bg-surface border border-divider px-3 py-2 rounded-md flex-row items-center gap-2" style={{ borderCurve: 'continuous' }}
             >
               <Camera size={14} color={colors.text} strokeWidth={2} />
               <Text className="text-text text-footnote font-semibold">Scan body fat</Text>
@@ -505,7 +505,7 @@ export default function BodyScreen() {
             <PressableScale
               haptic
               onPress={() => setShowLog(true)}
-              className="bg-accent px-4 py-2 rounded-xl" style={{ borderCurve: 'continuous' }}
+              className="bg-accent px-4 py-2 rounded-md" style={{ borderCurve: 'continuous' }}
             >
               <Text className="text-on-accent text-footnote font-semibold">+ Log</Text>
             </PressableScale>
@@ -556,7 +556,7 @@ export default function BodyScreen() {
                   </Text>
                   <TouchableOpacity
                     onPress={() => setShowLog(true)}
-                    className="bg-surface-raised px-4 py-2 rounded-xl" style={{ borderCurve: 'continuous' }}
+                    className="bg-surface-raised px-4 py-2 rounded-md" style={{ borderCurve: 'continuous' }}
                   >
                     <Text className="text-text text-footnote font-medium">
                       Log your first entry →

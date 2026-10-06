@@ -328,7 +328,7 @@ function Chip({
   onPress: () => void
 }) {
   return (
-    <TouchableOpacity
+    <TouchableOpacity hitSlop={10}
       onPress={onPress}
       className="flex-row items-center px-3 py-2 rounded-full border gap-2"
       style={{

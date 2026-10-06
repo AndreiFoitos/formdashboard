@@ -1058,7 +1058,7 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
 
           {isPrefsStep && (
-            <TouchableOpacity onPress={skipPrefsStep} disabled={loading} className="py-2 items-center">
+            <TouchableOpacity hitSlop={10} onPress={skipPrefsStep} disabled={loading} className="py-2 items-center">
               <Text className="text-text-subtle text-footnote">Skip for now</Text>
             </TouchableOpacity>
           )}
@@ -1070,7 +1070,7 @@ export default function OnboardingScreen() {
           )}
 
           {canSkip && (
-            <TouchableOpacity
+            <TouchableOpacity hitSlop={10}
               onPress={handleNext}
               disabled={loading}
               className="py-2 items-center"

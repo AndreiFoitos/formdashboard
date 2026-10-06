@@ -86,3 +86,15 @@ Done:
 - Today: gear icon (lucide Settings) with accessibility label; TabIcons.tsx deleted (unused).
 - "Scan BF" → "Scan body fat". Pit header: date line + "Pit" title. Macro tiles: all compact, same caption line.
 - Food names capitalized on display (nutrition log, search results, saved meals, confirm, barcode, plan, shopping list).
+
+Commit: 3b30aec
+
+## Phase 5 — §8 step 8 final check
+In progress: rerun audit + tsc, walk §1 rules 1-11.
+Done. Audit: 10 hits, all logged exceptions (160pt countdown, chart-mark radius ×3 + gap-px,
+letterSpacing on codes ×2, 3 comment false positives). tsc clean. §1 walk:
+1 hex ✓ · 2 inline numbers ✓ (exceptions) · 3 scales ✓ · 4 tap targets: 11 small buttons got hitSlop,
+Training Find friends + range chips min 44 · 5 accent ✓ · 6 dark ✓ (app.json + ThemeProvider) ·
+7 labels ✓ · 8 sentence case ✓ · 9 accent text ✓ (only tab labels, system-sized) · 10 on-accent ✓ ·
+11 SDK 54 ✓. Radius roles: 6 inputs and 11 buttons moved from rounded-xl to rounded-md.
+Not verifiable here: on-device rendering (Windows host, no simulator; no web target).
