@@ -291,3 +291,19 @@ Do these as separate commits/PRs, verify on device/simulator after each.
 6. Switch to native tabs; remove swipe tabs and custom BottomNav. Add native headers to pushed screens.
 7. Rename user-facing jargon in settings ("Pit Crew" → Training / Nutrition preferences, remove Labs). The Pit tab keeps its name.
 8. Final pass: every screen against §1 rules; run a grep for `#[0-9a-fA-F]{3,6}` and `fontSize:` in app/ and components/ — target zero.
+
+---
+
+## 9. Polish backlog
+
+Agreed, not implemented yet. Each item still follows §1–§8.
+
+- One number formatter app-wide: consistent thousands separators, a space before units.
+- Friends: one label, "Find friends". Entry points are the Today race card and the Training Friends button only; remove the extra Training invite CTA.
+- Today race card shows "Sep 28 — Oct 4" on Oct 6: label it as last week, or fix the range.
+- Training range chips: move them inside the card they filter.
+- Today settings icon: gear, not sliders.
+- "Scan BF" → "Scan body fat".
+- Pit header: title "Pit" with the date line above it, like the other tabs.
+- Macro tiles: consistent — all with target bars, or all compact.
+- Food names: capitalize the first letter on display.
