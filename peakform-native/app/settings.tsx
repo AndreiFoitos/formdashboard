@@ -43,8 +43,8 @@ import { colors } from '../theme/tokens'
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="mb-6">
-      <Text className="text-text-subtle text-xs uppercase tracking-widest mb-3">{title}</Text>
-      <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
+      <Text className="text-text-subtle text-caption mb-3">{title}</Text>
+      <View className="bg-surface border border-divider rounded-xl overflow-hidden" style={{ borderCurve: 'continuous' }}>
         {children}
       </View>
     </View>
@@ -85,26 +85,26 @@ function PlanSection() {
       <TouchableOpacity onPress={() => openPaywall()} className="px-4 py-4 border-b border-divider">
         <View className="flex-row items-center justify-between">
           <View className="flex-1 pr-3">
-            <Text className="text-text text-sm font-medium">GainRace {PLAN_NAMES[plan.plan]}</Text>
-            <Text className="text-text-subtle text-xs mt-0.5">
+            <Text className="text-text text-footnote font-medium">GainRace {PLAN_NAMES[plan.plan]}</Text>
+            <Text className="text-text-subtle text-caption mt-1">
               {food.remaining}/{food.limit} food scans left {food.window === 'day' ? 'today' : 'this week'} ·{' '}
               {bf.remaining}/{bf.limit} body-fat {bf.window === 'day' ? 'today' : 'this week'} · {ask.remaining}/
               {ask.limit} questions · {plan.friends.count}/{plan.friends.limit} friends
             </Text>
-            {paid && renews && <Text className="text-text-subtle text-xs mt-0.5">Renews or ends {renews}</Text>}
+            {paid && renews && <Text className="text-text-subtle text-caption mt-1">Renews or ends {renews}</Text>}
           </View>
-          <Text className="text-sm font-semibold" style={{ color: paid ? colors['text-muted'] : colors.accent }}>
+          <Text className="text-footnote font-semibold" style={{ color: paid ? colors['text-muted'] : colors.accent }}>
             {plan.plan === 'pro' ? '›' : 'Upgrade ›'}
           </Text>
         </View>
       </TouchableOpacity>
       {paid && (
         <TouchableOpacity onPress={() => manageSubscription()} className="px-4 py-4 border-b border-divider">
-          <Text className="text-text text-sm font-medium">Manage subscription</Text>
+          <Text className="text-text text-footnote font-medium">Manage subscription</Text>
         </TouchableOpacity>
       )}
       <TouchableOpacity onPress={restore} disabled={restoring} className="px-4 py-4">
-        <Text className="text-text-muted text-sm font-medium">{restoring ? 'Restoring…' : 'Restore purchases'}</Text>
+        <Text className="text-text-muted text-footnote font-medium">{restoring ? 'Restoring…' : 'Restore purchases'}</Text>
       </TouchableOpacity>
     </Section>
   )
@@ -132,8 +132,8 @@ function TargetRow({
   placeholder: string
 }) {
   return (
-    <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-divider">
-      <Text className="text-text-muted text-sm">{label}</Text>
+    <View className="flex-row items-center justify-between px-4 py-4 border-b border-divider">
+      <Text className="text-text-muted text-footnote">{label}</Text>
       <View className="flex-row items-center">
         <TextInput
           value={value}
@@ -141,10 +141,10 @@ function TargetRow({
           placeholder={placeholder}
           placeholderTextColor={colors['text-subtle']}
           keyboardType="number-pad"
-          className="text-text text-sm text-right"
+          className="text-text text-footnote text-right"
           style={{ minWidth: 64 }}
         />
-        <Text className="text-text-subtle text-xs ml-1">{unit}</Text>
+        <Text className="text-text-subtle text-caption ml-1">{unit}</Text>
       </View>
     </View>
   )
@@ -238,13 +238,13 @@ function ProfileSection() {
   }
 
   return (
-    <Section title="Profile & Targets">
+    <Section title="Profile & targets">
       {/* Username */}
-      <View className="px-4 py-3.5 border-b border-divider">
-        <Text className="text-text-muted text-sm mb-1">Username</Text>
-        <Text className="text-text-subtle text-xs mb-2">Friends invite you with this handle</Text>
-        <View className="flex-row items-center bg-surface-raised border border-border rounded-xl px-3">
-          <Text className="text-text-subtle text-sm">@</Text>
+      <View className="px-4 py-4 border-b border-divider">
+        <Text className="text-text-muted text-footnote mb-1">Username</Text>
+        <Text className="text-text-subtle text-caption mb-2">Friends invite you with this handle</Text>
+        <View className="flex-row items-center bg-surface-raised border border-border rounded-md px-3" style={{ borderCurve: 'continuous' }}>
+          <Text className="text-text-subtle text-footnote">@</Text>
           <TextInput
             value={username}
             onChangeText={(v) => {
@@ -257,11 +257,11 @@ function ProfileSection() {
             autoCapitalize="none"
             autoCorrect={false}
             maxLength={24}
-            className="flex-1 py-2.5 text-text text-sm ml-1"
+            className="flex-1 py-3 text-text text-footnote ml-1"
           />
         </View>
         {usernameError && (
-          <Text className="text-danger text-xs mt-1.5">{usernameError}</Text>
+          <Text className="text-danger text-caption mt-2">{usernameError}</Text>
         )}
       </View>
 
@@ -276,26 +276,26 @@ function ProfileSection() {
         onChangeText={(v) => { markTouched('calories'); setCalories(v) }} />
 
       {/* Bedtime */}
-      <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-divider">
+      <View className="flex-row items-center justify-between px-4 py-4 border-b border-divider">
         <View className="flex-1 pr-3">
-          <Text className="text-text-muted text-sm">Bedtime</Text>
-          <Text className="text-text-subtle text-xs mt-0.5">Drives caffeine-at-night scoring</Text>
+          <Text className="text-text-muted text-footnote">Bedtime</Text>
+          <Text className="text-text-subtle text-caption mt-1">Drives caffeine-at-night scoring</Text>
         </View>
-        <View className="flex-row items-center" style={{ gap: 10 }}>
+        <View className="flex-row items-center gap-3">
           <TouchableOpacity
             onPress={() => { markTouched('bedtime'); setBedtime((h) => (h + 23) % 24) }}
-            className="w-8 h-8 rounded-full bg-surface-raised items-center justify-center"
+            className="w-8 h-8 rounded-full bg-surface-raised items-center justify-center" style={{ borderCurve: 'continuous' }}
           >
-            <Text className="text-text text-lg leading-5">−</Text>
+            <Text className="text-text text-headline">−</Text>
           </TouchableOpacity>
-          <Text className="text-text text-sm font-medium text-center" style={{ width: 76 }}>
+          <Text className="text-text text-footnote font-medium text-center" style={{ width: 76 }}>
             {hourLabel(bedtime)}
           </Text>
           <TouchableOpacity
             onPress={() => { markTouched('bedtime'); setBedtime((h) => (h + 1) % 24) }}
-            className="w-8 h-8 rounded-full bg-surface-raised items-center justify-center"
+            className="w-8 h-8 rounded-full bg-surface-raised items-center justify-center" style={{ borderCurve: 'continuous' }}
           >
-            <Text className="text-text text-lg leading-5">+</Text>
+            <Text className="text-text text-headline">+</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -310,7 +310,7 @@ function ProfileSection() {
           <ActivityIndicator color={colors.text} />
         ) : (
           <Text
-            className="text-sm font-semibold"
+            className="text-footnote font-semibold"
             style={{ color: saved ? colors.success : colors.text }}
           >
             {saved ? 'Saved ✓' : 'Save changes'}
@@ -405,8 +405,8 @@ function NudgesSection() {
     <Section title="Smart nudges">
       <View className="flex-row items-center justify-between px-4 py-4 border-b border-divider">
         <View className="flex-1 pr-3">
-          <Text className="text-text text-sm font-semibold">Predictive log reminders</Text>
-          <Text className="text-text-subtle text-xs mt-0.5">
+          <Text className="text-text text-footnote font-semibold">Predictive log reminders</Text>
+          <Text className="text-text-subtle text-caption mt-1">
             Notifies you when you usually log water or coffee. Tap the notification
             action to log it without opening the app.
           </Text>
@@ -415,40 +415,40 @@ function NudgesSection() {
           <ActivityIndicator color={colors.text} />
         ) : enabled ? (
           <TouchableOpacity onPress={() => disable.mutate()}>
-            <Text className="text-danger text-sm font-medium">Turn off</Text>
+            <Text className="text-danger text-footnote font-medium">Turn off</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
             onPress={() => enable.mutate()}
-            className="bg-accent px-3 py-1.5 rounded-lg"
+            className="bg-accent px-3 py-2 rounded-md" style={{ borderCurve: 'continuous' }}
           >
-            <Text className="text-on-accent text-xs font-semibold">Turn on</Text>
+            <Text className="text-on-accent text-caption font-semibold">Turn on</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {enabled && (
-        <View className="px-4 py-3.5">
-          <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
+        <View className="px-4 py-4">
+          <Text className="text-text-subtle text-caption mb-2">
             Detected patterns
           </Text>
           {slotsLoading ? (
             <ActivityIndicator color={colors['text-subtle']} />
           ) : previewSlots.length === 0 ? (
-            <Text className="text-text-subtle text-xs">
+            <Text className="text-text-subtle text-caption">
               Not enough log history yet. Patterns appear after ~3 weeks of consistent logging.
             </Text>
           ) : (
             previewSlots.map((s, i) => (
               <View
                 key={`${s.log_type}-${s.weekday}-${s.slot_minute}`}
-                className="flex-row items-center justify-between py-1.5"
+                className="flex-row items-center justify-between py-2"
                 style={{ borderTopWidth: i === 0 ? 0 : 0.5, borderColor: colors.divider }}
               >
-                <Text className="text-text-muted text-sm">
+                <Text className="text-text-muted text-footnote">
                   {WEEKDAY_SHORT[s.weekday]} {formatTime12h(s.slot_minute)}
                 </Text>
-                <Text className="text-text-subtle text-xs">{slotSummary(s)}</Text>
+                <Text className="text-text-subtle text-caption">{slotSummary(s)}</Text>
               </View>
             ))
           )}
@@ -475,8 +475,8 @@ function LegalRow({
       className={`px-4 py-4 ${showBorder ? 'border-b border-divider' : ''}`}
     >
       <View className="flex-row items-center justify-between">
-        <Text className="text-text text-sm">{label}</Text>
-        <Text className="text-text-subtle text-base">›</Text>
+        <Text className="text-text text-footnote">{label}</Text>
+        <Text className="text-text-subtle text-body">›</Text>
       </View>
     </TouchableOpacity>
   )
@@ -493,11 +493,11 @@ function AboutSection() {
   return (
     <Section title="About">
       <LegalRow
-        label="Privacy Policy"
+        label="Privacy policy"
         onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
       />
       <LegalRow
-        label="Terms of Service"
+        label="Terms of service"
         onPress={() => Linking.openURL(TERMS_OF_SERVICE_URL)}
       />
       <LegalRow
@@ -506,7 +506,7 @@ function AboutSection() {
         showBorder={false}
       />
       <View className="px-4 py-3 border-t border-divider">
-        <Text className="text-text-subtle text-xs">
+        <Text className="text-text-subtle text-caption">
           Version {version} (build {build})
         </Text>
       </View>
@@ -566,17 +566,17 @@ function DeleteAccountSection() {
         }
         className="px-4 py-4"
       >
-        <Text className="text-danger text-sm font-medium">Delete account</Text>
+        <Text className="text-danger text-footnote font-medium">Delete account</Text>
       </TouchableOpacity>
     )
   }
 
   return (
     <View className="px-4 py-4">
-      <Text className="text-danger text-sm font-semibold mb-1">
+      <Text className="text-danger text-footnote font-semibold mb-1">
         Type DELETE to confirm
       </Text>
-      <Text className="text-text-subtle text-xs mb-3">
+      <Text className="text-text-subtle text-caption mb-3">
         Account: <Text className="text-text-muted">{email || '—'}</Text>
       </Text>
       <TextInput
@@ -587,29 +587,29 @@ function DeleteAccountSection() {
         autoCapitalize="characters"
         autoCorrect={false}
         editable={step !== 'submitting'}
-        className="bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-text text-sm mb-3"
+        className="bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote mb-3" style={{ borderCurve: 'continuous' }}
       />
-      <View className="flex-row" style={{ gap: 8 }}>
+      <View className="flex-row gap-2">
         <TouchableOpacity
           onPress={() => {
             setStep('idle')
             setTyped('')
           }}
           disabled={step === 'submitting'}
-          className="flex-1 bg-surface-raised rounded-xl py-3 items-center"
+          className="flex-1 bg-surface-raised rounded-md py-3 items-center" style={{ borderCurve: 'continuous' }}
         >
-          <Text className="text-text text-sm font-medium">Cancel</Text>
+          <Text className="text-text text-footnote font-medium">Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={submit}
           disabled={!matches || step === 'submitting'}
-          className="flex-1 rounded-xl py-3 items-center"
-          style={{ backgroundColor: matches && step !== 'submitting' ? colors.danger : colors.border }}
+          className="flex-1 rounded-md py-3 items-center"
+          style={{ borderCurve: 'continuous', backgroundColor: matches && step !== 'submitting' ? colors.danger : colors.border }}
         >
           {step === 'submitting' ? (
             <ActivityIndicator color={colors.text} />
           ) : (
-            <Text className="text-text text-sm font-semibold">Delete forever</Text>
+            <Text className="text-text text-footnote font-semibold">Delete forever</Text>
           )}
         </TouchableOpacity>
       </View>
@@ -651,14 +651,14 @@ function ExportRow() {
     <TouchableOpacity onPress={exportData} disabled={busy} className="px-4 py-4">
       <View className="flex-row items-center justify-between">
         <View className="flex-1 pr-3">
-          <Text className="text-text text-sm font-medium">
+          <Text className="text-text text-footnote font-medium">
             {busy ? 'Preparing your file…' : 'Export everything (CSV)'}
           </Text>
-          <Text className="text-text-subtle text-xs mt-0.5">
+          <Text className="text-text-subtle text-caption mt-1">
             A zip of your logs, one spreadsheet per type.{plan?.export ? '' : ' Pro feature.'}
           </Text>
         </View>
-        <Text className="text-text-subtle text-base">{plan?.export ? '›' : 'Pro ›'}</Text>
+        <Text className="text-text-subtle text-body">{plan?.export ? '›' : 'Pro ›'}</Text>
       </View>
     </TouchableOpacity>
   )
@@ -688,11 +688,11 @@ export default function SettingsScreen() {
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       {/* Header */}
       <View className="flex-row items-center px-4 pt-2 pb-4">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center" style={{ gap: 2 }}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center gap-1">
           <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-base font-medium">Back</Text>
+          <Text className="text-text-muted text-body font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-text text-xl font-bold">Settings</Text>
+        <Text className="text-text text-headline font-bold">Settings</Text>
       </View>
 
       <KeyboardAvoidingView
@@ -701,7 +701,7 @@ export default function SettingsScreen() {
       >
       <ScrollView
         className="flex-1 px-4"
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 40 }}
+        contentContainerClassName="pt-2 pb-12"
         keyboardShouldPersistTaps="handled"
       >
         <PlanSection />
@@ -713,10 +713,10 @@ export default function SettingsScreen() {
             <TouchableOpacity onPress={() => router.push('/avatar-edit')} className="px-4 py-4">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-3">
-                  <Text className="text-text text-sm font-medium">Edit avatar</Text>
-                  <Text className="text-text-subtle text-xs mt-0.5">Colors, body shape level-ups and privacy.</Text>
+                  <Text className="text-text text-footnote font-medium">Edit avatar</Text>
+                  <Text className="text-text-subtle text-caption mt-1">Colors, body shape level-ups and privacy.</Text>
                 </View>
-                <Text className="text-text-subtle text-base">›</Text>
+                <Text className="text-text-subtle text-body">›</Text>
               </View>
             </TouchableOpacity>
           </Section>
@@ -728,12 +728,12 @@ export default function SettingsScreen() {
           <TouchableOpacity onPress={() => router.push('/preferences')} className="px-4 py-4">
             <View className="flex-row items-center justify-between">
               <View className="flex-1 pr-3">
-                <Text className="text-text text-sm font-medium">Training & food</Text>
-                <Text className="text-text-subtle text-xs mt-0.5">
+                <Text className="text-text text-footnote font-medium">Training & food</Text>
+                <Text className="text-text-subtle text-caption mt-1">
                   Goal, equipment, injuries, diet and allergies.
                 </Text>
               </View>
-              <Text className="text-text-subtle text-base">›</Text>
+              <Text className="text-text-subtle text-body">›</Text>
             </View>
           </TouchableOpacity>
         </Section>
@@ -742,12 +742,12 @@ export default function SettingsScreen() {
           <TouchableOpacity onPress={() => router.push('/trends')} className="px-4 py-4 border-b border-divider">
             <View className="flex-row items-center justify-between">
               <View className="flex-1 pr-3">
-                <Text className="text-text text-sm font-medium">Trends</Text>
-                <Text className="text-text-subtle text-xs mt-0.5">
-                  Form Score, weight, volume and protein over time.
+                <Text className="text-text text-footnote font-medium">Trends</Text>
+                <Text className="text-text-subtle text-caption mt-1">
+                  Form score, weight, volume and protein over time.
                 </Text>
               </View>
-              <Text className="text-text-subtle text-base">›</Text>
+              <Text className="text-text-subtle text-body">›</Text>
             </View>
           </TouchableOpacity>
           <ExportRow />
@@ -760,12 +760,12 @@ export default function SettingsScreen() {
           >
             <View className="flex-row items-center justify-between">
               <View className="flex-1 pr-3">
-                <Text className="text-text text-sm font-medium">How is this calculated?</Text>
-                <Text className="text-text-subtle text-xs mt-0.5">
-                  Form Score, DOTS, caffeine curve, sus threshold, PR detection — formulas and sources.
+                <Text className="text-text text-footnote font-medium">How is this calculated?</Text>
+                <Text className="text-text-subtle text-caption mt-1">
+                  Form score, DOTS, caffeine curve, sus threshold, PR detection — formulas and sources.
                 </Text>
               </View>
-              <Text className="text-text-subtle text-base">›</Text>
+              <Text className="text-text-subtle text-body">›</Text>
             </View>
           </TouchableOpacity>
         </Section>
@@ -775,10 +775,10 @@ export default function SettingsScreen() {
             <TouchableOpacity onPress={() => router.push('/avatar-lab')} className="px-4 py-4">
               <View className="flex-row items-center justify-between">
                 <View className="flex-1 pr-3">
-                  <Text className="text-text text-sm font-medium">Avatar lab</Text>
-                  <Text className="text-text-subtle text-xs mt-0.5">3D avatar test — placeholder model, FPS + snapshot timing.</Text>
+                  <Text className="text-text text-footnote font-medium">Avatar lab</Text>
+                  <Text className="text-text-subtle text-caption mt-1">3D avatar test — placeholder model, FPS + snapshot timing.</Text>
                 </View>
-                <Text className="text-text-subtle text-base">›</Text>
+                <Text className="text-text-subtle text-body">›</Text>
               </View>
             </TouchableOpacity>
           </Section>
@@ -786,11 +786,11 @@ export default function SettingsScreen() {
 
         <Section title="Account">
           <View className="px-4 py-4 border-b border-divider">
-            <Text className="text-text-subtle text-xs">Signed in as</Text>
-            <Text className="text-text text-sm mt-0.5">{user?.email ?? '—'}</Text>
+            <Text className="text-text-subtle text-caption">Signed in as</Text>
+            <Text className="text-text text-footnote mt-1">{user?.email ?? '—'}</Text>
           </View>
           <TouchableOpacity onPress={signOut} className="px-4 py-4 border-b border-divider">
-            <Text className="text-danger text-sm font-medium">Sign out</Text>
+            <Text className="text-danger text-footnote font-medium">Sign out</Text>
           </TouchableOpacity>
           <DeleteAccountSection />
         </Section>

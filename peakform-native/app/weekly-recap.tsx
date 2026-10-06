@@ -22,6 +22,7 @@ import { randomFreeEmote } from '../lib/avatar/emotes'
 import type { PodiumAvatar } from '../components/recap/PodiumCanvas'
 import { FEATURES } from '../lib/featureFlags'
 import { colors } from '../theme/tokens'
+import { RECAP_CONTROL_OFFSET, RECAP_OVERLAY_CLEARANCE } from '../theme/layout'
 
 // ─── Types (mirror backend /friends/recap/race shape) ───────────────────────
 
@@ -144,7 +145,7 @@ export default function WeeklyRecapScreen() {
       <View className="flex-1 bg-bg items-center justify-center">
         <StatusBar hidden />
         <ActivityIndicator color={colors['text-muted']} />
-        <Text className="text-text-subtle text-xs mt-3">Loading the week…</Text>
+        <Text className="text-text-subtle text-caption mt-3">Loading the week…</Text>
       <CloseButton onPress={handleClose} />
       </View>
     )
@@ -154,8 +155,8 @@ export default function WeeklyRecapScreen() {
     return (
       <View className="flex-1 bg-bg items-center justify-center px-6">
         <StatusBar hidden />
-        <Text className="text-text text-base font-semibold">Couldn't load recap</Text>
-        <Text className="text-text-subtle text-xs mt-2 text-center">
+        <Text className="text-text text-body font-semibold">Couldn't load recap</Text>
+        <Text className="text-text-subtle text-caption mt-2 text-center">
           {(error as Error).message ?? 'Try again in a moment.'}
         </Text>
         <CloseButton onPress={handleClose} />
@@ -193,11 +194,11 @@ function IntroScene({ data }: { data: RecapRaceData }) {
   const label = formatWeekLabel(data.week_start, data.week_end)
   return (
     <View className="flex-1 items-center justify-center px-6">
-      <Text className="text-text-subtle text-xs uppercase tracking-[3px] mb-3">
-        Weekly Race
+      <Text className="text-text-subtle text-caption mb-3">
+        Weekly race
       </Text>
-      <Text className="text-text text-2xl font-bold text-center">{label}</Text>
-      <Text className="text-text-subtle text-sm mt-3">
+      <Text className="text-text text-title font-bold text-center">{label}</Text>
+      <Text className="text-text-subtle text-footnote mt-3">
         Crew of {data.crew.length}
       </Text>
     </View>
@@ -223,10 +224,10 @@ function RaceScene({
   return (
     <View className="flex-1 justify-center">
       <View className="items-center px-6 mb-4">
-        <Text className="text-text-subtle text-[10px] uppercase tracking-[3px]">
-          Weekly Race
+        <Text className="text-text-subtle text-caption">
+          Weekly race
         </Text>
-        <Text className="text-text text-base font-semibold mt-1">{weekLabel}</Text>
+        <Text className="text-text text-body font-semibold mt-1">{weekLabel}</Text>
       </View>
       <RaceCanvas
         crew={data.crew}
@@ -237,7 +238,7 @@ function RaceScene({
       />
       {phase === 'transition' && (
         <View className="items-center mt-6">
-          <Text className="text-text-subtle text-xs uppercase tracking-widest">
+          <Text className="text-text-subtle text-caption">
             Tallying podium…
           </Text>
         </View>
@@ -261,17 +262,17 @@ function PodiumScene({
 }) {
   return (
     <View className="flex-1">
-      <View className="items-center pt-16 pb-1">
-        <Text className="text-text-subtle text-[10px] uppercase tracking-[3px]">
-          Final Standings
+      <View className="items-center pb-1" style={{ paddingTop: RECAP_OVERLAY_CLEARANCE.top }}>
+        <Text className="text-text-subtle text-caption">
+          Final standings
         </Text>
-        <Text className="text-text text-base font-semibold mt-1">
+        <Text className="text-text text-body font-semibold mt-1">
           {formatWeekLabel(data.week_start, data.week_end)}
         </Text>
       </View>
       <PodiumCanvas crew={data.crew} runId={runId} heads={heads} avatars={avatars} />
       {phase === 'outro' && (
-        <Text className="text-text-subtle text-xs text-center mb-24">
+        <Text className="text-text-subtle text-caption text-center" style={{ marginBottom: RECAP_OVERLAY_CLEARANCE.bottom }}>
           Tap replay to watch again
         </Text>
       )}
@@ -286,7 +287,8 @@ function CloseButton({ onPress }: { onPress: () => void }) {
     <TouchableOpacity
       onPress={onPress}
       hitSlop={12}
-      className="absolute top-12 right-5"
+      className="absolute right-5"
+      style={{ top: RECAP_CONTROL_OFFSET }}
     >
       <X size={22} color={colors['text-muted']} strokeWidth={2} />
     </TouchableOpacity>
@@ -298,11 +300,11 @@ function ReplayButton({ onPress }: { onPress: () => void }) {
     <TouchableOpacity
       onPress={onPress}
       hitSlop={12}
-      className="absolute bottom-12 self-center flex-row items-center gap-2 px-5 py-3 rounded-full"
-      style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
+      className="absolute self-center flex-row items-center gap-2 px-5 py-3 rounded-full"
+      style={{ borderCurve: 'continuous', bottom: RECAP_CONTROL_OFFSET, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
     >
       <RotateCcw size={16} color={colors.text} strokeWidth={2} />
-      <Text className="text-text text-sm font-semibold">Replay</Text>
+      <Text className="text-text text-footnote font-semibold">Replay</Text>
     </TouchableOpacity>
   )
 }

@@ -71,7 +71,7 @@ const ACTIVITY_MULTIPLIER: Record<TrainingFreq, number> = {
 const STEPS = [
   { title: 'Pick a username',  subtitle: 'Friends invite you with this @ handle.' },
   { title: 'Your stats',       subtitle: 'Used to calculate protein, water, and calorie targets.' },
-  { title: 'Your baseline',    subtitle: 'Calibrates your Form Score from day one.' },
+  { title: 'Your baseline',    subtitle: 'Calibrates your Form score from day one.' },
   { title: 'Your targets',     subtitle: 'Pre-filled from your stats. You can edit any of these later in Settings.' },
   { title: 'Your training',    subtitle: 'So Pit Crew can build a plan that fits. Skip anything you’d rather not answer.' },
   { title: 'Your food',        subtitle: 'Used for your meal plan. You can change all of this in Settings.' },
@@ -99,8 +99,9 @@ function OptionButton({
   return (
     <TouchableOpacity
       onPress={onPress}
-      className="w-full px-4 py-4 rounded-2xl border mb-2"
+      className="w-full px-4 py-4 rounded-xl border mb-2"
       style={{
+        borderCurve: 'continuous',
         backgroundColor: selected ? colors.text : colors.surface,
         borderColor: selected ? colors.text : colors.border,
       }}
@@ -112,14 +113,15 @@ function OptionButton({
 
 function StepDots({ current, total }: { current: number; total: number }) {
   return (
-    <View className="flex-row justify-center gap-1.5 mb-8">
+    <View className="flex-row justify-center gap-2 mb-8">
       {Array.from({ length: total }).map((_, i) => (
         <View
           key={i}
+          className="rounded-full"
           style={{
+            borderCurve: 'continuous',
             height: 4,
             width: i <= current ? 24 : 12,
-            borderRadius: 2,
             backgroundColor: i <= current ? colors.accent : colors.border,
           }}
         />
@@ -184,10 +186,10 @@ function Step1Username({
   return (
     <View>
       <View
-        className="flex-row items-center bg-surface-raised border rounded-2xl px-4 py-1"
-        style={{ borderColor: BAD_USERNAME.has(state) ? colors.danger : colors.border }}
+        className="flex-row items-center bg-surface-raised border rounded-md px-4 py-1"
+        style={{ borderCurve: 'continuous', borderColor: BAD_USERNAME.has(state) ? colors.danger : colors.border }}
       >
-        <Text className="text-text-subtle text-base">@</Text>
+        <Text className="text-text-subtle text-body">@</Text>
         <TextInput
           value={value}
           onChangeText={(v) => onChange(v.replace(/^@/, '').toLowerCase())}
@@ -196,15 +198,15 @@ function Step1Username({
           autoCapitalize="none"
           autoCorrect={false}
           maxLength={24}
-          className="flex-1 py-3 text-text text-base ml-1"
+          className="flex-1 py-3 text-text text-body ml-1"
         />
         {state === 'checking' && <ActivityIndicator color={colors['text-subtle']} />}
         {state === 'ok' && (
-          <Text className="text-success text-sm font-medium">Available</Text>
+          <Text className="text-success text-footnote font-medium">Available</Text>
         )}
       </View>
       <Text
-        className="text-xs mt-2"
+        className="text-caption mt-2"
         style={{ color: BAD_USERNAME.has(state) ? colors.danger : colors['text-subtle'] }}
       >
         {state === 'taken'
@@ -240,10 +242,10 @@ function Step2Stats({
   ]
 
   const fieldsView = (
-    <View style={{ gap: 16, flex: 1 }}>
+    <View className="gap-4" style={{ flex: 1 }}>
       {/* Sex */}
       <View>
-        <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">
+        <Text className="text-text-muted text-caption mb-2">
           Biological sex
         </Text>
         <View className="flex-row gap-2">
@@ -251,14 +253,15 @@ function Step2Stats({
             <TouchableOpacity
               key={s}
               onPress={() => onChangeSex(s)}
-              className="flex-1 py-3 rounded-2xl border items-center"
+              className="flex-1 py-3 rounded-full border items-center"
               style={{
+                borderCurve: 'continuous',
                 backgroundColor: form.sex === s ? colors.text : colors.surface,
                 borderColor: form.sex === s ? colors.text : colors.border,
               }}
             >
               <Text
-                className="text-sm font-semibold capitalize"
+                className="text-footnote font-semibold capitalize"
                 style={{ color: form.sex === s ? colors.bg : colors['text-muted'] }}
               >
                 {s}
@@ -266,14 +269,14 @@ function Step2Stats({
             </TouchableOpacity>
           ))}
         </View>
-        <Text className="text-text-subtle text-xs mt-1.5">
+        <Text className="text-text-subtle text-caption mt-2">
           Used for BMR / calorie estimates only.
         </Text>
       </View>
 
       {fields.map((f) => (
         <View key={f.key}>
-          <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">
+          <Text className="text-text-muted text-caption mb-2">
             {f.label}
           </Text>
           <View>
@@ -283,9 +286,9 @@ function Step2Stats({
               placeholder={f.placeholder}
               placeholderTextColor={colors['text-subtle']}
               keyboardType="decimal-pad"
-              className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm"
+              className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
             />
-            <Text className="absolute right-4 top-4 text-text-subtle text-sm">{f.unit}</Text>
+            <Text className="absolute right-4 top-4 text-text-subtle text-footnote">{f.unit}</Text>
           </View>
         </View>
       ))}
@@ -295,7 +298,7 @@ function Step2Stats({
   if (!FEATURES.avatar) return fieldsView
 
   return (
-    <View className="flex-row" style={{ gap: 12 }}>
+    <View className="flex-row gap-3">
       {fieldsView}
       <StatsAvatarPreview form={form} />
     </View>
@@ -318,12 +321,12 @@ function StatsAvatarPreview({ form }: { form: FormState }) {
   )
   return (
     <View
-      className="rounded-3xl bg-surface overflow-hidden"
-      style={{ width: 124, height: 330, opacity: form.sex ? 1 : 0.55 }}
+      className="rounded-xl bg-surface overflow-hidden"
+      style={{ borderCurve: 'continuous', width: 124, height: 330, opacity: form.sex ? 1 : 0.55 }}
     >
       <AvatarCanvas base={base} state={state} interactive={false} style={{ flex: 1 }} errorFallback={null} />
       {!form.sex && (
-        <Text className="absolute bottom-2 self-center text-text-subtle text-[10px]">Pick your sex</Text>
+        <Text className="absolute bottom-2 self-center text-text-subtle text-caption">Pick your sex</Text>
       )}
     </View>
   )
@@ -339,10 +342,10 @@ function Step3Baseline({
   onChange: <K extends keyof FormState>(key: K, value: FormState[K]) => void
 }) {
   return (
-    <View style={{ gap: 24 }}>
+    <View className="gap-6">
       {/* Sleep */}
       <View>
-        <Text className="text-text-muted text-xs uppercase tracking-widest mb-2">
+        <Text className="text-text-muted text-caption mb-2">
           Average sleep last week
         </Text>
         <View className="flex-row flex-wrap gap-2">
@@ -350,14 +353,15 @@ function Step3Baseline({
             <TouchableOpacity
               key={s}
               onPress={() => onChange('avg_sleep_hours', s)}
-              className="px-4 py-3 rounded-2xl border"
+              className="px-4 py-3 rounded-full border"
               style={{
+                borderCurve: 'continuous',
                 backgroundColor: form.avg_sleep_hours === s ? colors.text : colors.surface,
                 borderColor: form.avg_sleep_hours === s ? colors.text : colors.border,
               }}
             >
               <Text
-                className="text-sm font-medium"
+                className="text-footnote font-medium"
                 style={{ color: form.avg_sleep_hours === s ? colors.bg : colors['text-muted'] }}
               >
                 {s}
@@ -369,7 +373,7 @@ function Step3Baseline({
 
       {/* Training frequency */}
       <View>
-        <Text className="text-text-muted text-xs uppercase tracking-widest mb-2">
+        <Text className="text-text-muted text-caption mb-2">
           Training sessions per week
         </Text>
         <View className="flex-row flex-wrap gap-2">
@@ -377,14 +381,15 @@ function Step3Baseline({
             <TouchableOpacity
               key={t}
               onPress={() => onChange('training_frequency', t)}
-              className="px-4 py-3 rounded-2xl border"
+              className="px-4 py-3 rounded-full border"
               style={{
+                borderCurve: 'continuous',
                 backgroundColor: form.training_frequency === t ? colors.text : colors.surface,
                 borderColor: form.training_frequency === t ? colors.text : colors.border,
               }}
             >
               <Text
-                className="text-sm font-medium"
+                className="text-footnote font-medium"
                 style={{ color: form.training_frequency === t ? colors.bg : colors['text-muted'] }}
               >
                 {t}
@@ -396,7 +401,7 @@ function Step3Baseline({
 
       {/* Caffeine */}
       <View>
-        <Text className="text-text-muted text-xs uppercase tracking-widest mb-2">
+        <Text className="text-text-muted text-caption mb-2">
           Daily caffeine habit
         </Text>
         {(
@@ -413,7 +418,7 @@ function Step3Baseline({
             onPress={() => onChange('caffeine_habit', c.key)}
           >
             <Text
-              className="text-sm font-medium"
+              className="text-footnote font-medium"
               style={{ color: form.caffeine_habit === c.key ? colors.bg : colors.text }}
             >
               {c.label}
@@ -445,38 +450,39 @@ function CalorieGoalChips({
 }) {
   return (
     <View>
-      <Text className="text-text-muted text-xs uppercase tracking-widest mb-2">
+      <Text className="text-text-muted text-caption mb-2">
         Suggested calorie goals
       </Text>
-      <View style={{ gap: 8 }}>
+      <View className="gap-2">
         {options.map((o) => {
           const active = selected === o.key
           return (
             <TouchableOpacity
               key={o.key}
               onPress={() => onPick(o)}
-              className="flex-row items-center justify-between px-4 py-3 rounded-2xl border"
+              className="flex-row items-center justify-between px-4 py-3 rounded-xl border"
               style={{
+                borderCurve: 'continuous',
                 backgroundColor: active ? colors.text : colors.surface,
                 borderColor: active ? colors.text : colors.border,
               }}
             >
               <View className="flex-1 pr-3">
                 <Text
-                  className="text-sm font-semibold"
+                  className="text-footnote font-semibold"
                   style={{ color: active ? colors.bg : colors.text }}
                 >
                   {o.label}
                 </Text>
                 <Text
-                  className="text-xs mt-0.5"
+                  className="text-caption mt-1"
                   style={{ color: colors['text-subtle'] }}
                 >
                   {o.desc}
                 </Text>
               </View>
               <Text
-                className="text-sm font-bold"
+                className="text-footnote font-bold"
                 style={{ color: active ? colors.bg : colors.text }}
               >
                 {o.kcal.toLocaleString()} kcal
@@ -485,7 +491,7 @@ function CalorieGoalChips({
           )
         })}
       </View>
-      <Text className="text-text-subtle text-xs mt-2">
+      <Text className="text-text-subtle text-caption mt-2">
         Mifflin-St Jeor BMR × your training-day activity factor. Cut: −500 kcal/day (~0.45 kg/week loss). Bulk: +300 kcal/day (lean-mass focus).
       </Text>
     </View>
@@ -508,10 +514,10 @@ function Step4Targets({
   onPickGoal: (o: CalorieOption) => void
 }) {
   return (
-    <View style={{ gap: 20 }}>
+    <View className="gap-5">
       {/* Protein */}
       <View>
-        <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">Protein</Text>
+        <Text className="text-text-muted text-caption mb-2">Protein</Text>
         <View>
           <TextInput
             value={form.protein_target_g}
@@ -519,15 +525,15 @@ function Step4Targets({
             placeholder="160"
             placeholderTextColor={colors['text-subtle']}
             keyboardType="number-pad"
-            className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm"
+            className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
           />
-          <Text className="absolute right-4 top-4 text-text-subtle text-sm">g</Text>
+          <Text className="absolute right-4 top-4 text-text-subtle text-footnote">g</Text>
         </View>
       </View>
 
       {/* Water */}
       <View>
-        <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">Water</Text>
+        <Text className="text-text-muted text-caption mb-2">Water</Text>
         <View>
           <TextInput
             value={form.water_target_ml}
@@ -535,9 +541,9 @@ function Step4Targets({
             placeholder="2800"
             placeholderTextColor={colors['text-subtle']}
             keyboardType="number-pad"
-            className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm"
+            className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
           />
-          <Text className="absolute right-4 top-4 text-text-subtle text-sm">ml</Text>
+          <Text className="absolute right-4 top-4 text-text-subtle text-footnote">ml</Text>
         </View>
       </View>
 
@@ -552,7 +558,7 @@ function Step4Targets({
 
       {/* Calorie target input */}
       <View>
-        <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">
+        <Text className="text-text-muted text-caption mb-2">
           Calorie target
         </Text>
         <View>
@@ -562,36 +568,36 @@ function Step4Targets({
             placeholder="2400"
             placeholderTextColor={colors['text-subtle']}
             keyboardType="number-pad"
-            className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm"
+            className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
           />
-          <Text className="absolute right-4 top-4 text-text-subtle text-sm">kcal</Text>
+          <Text className="absolute right-4 top-4 text-text-subtle text-footnote">kcal</Text>
         </View>
       </View>
 
       {/* Bedtime */}
       <View>
-        <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">
+        <Text className="text-text-muted text-caption mb-2">
           Bedtime
         </Text>
-        <View className="flex-row items-center justify-between bg-surface border border-divider rounded-2xl px-4 py-3">
-          <Text className="text-text-subtle text-xs flex-1 pr-3">
+        <View className="flex-row items-center justify-between bg-surface border border-divider rounded-xl px-4 py-3" style={{ borderCurve: 'continuous' }}>
+          <Text className="text-text-subtle text-caption flex-1 pr-3">
             Drives caffeine-at-night scoring
           </Text>
-          <View className="flex-row items-center" style={{ gap: 10 }}>
+          <View className="flex-row items-center gap-3">
             <TouchableOpacity
               onPress={() => onChangeBedtime(-1)}
-              className="w-8 h-8 rounded-full bg-surface-raised items-center justify-center"
+              className="w-8 h-8 rounded-full bg-surface-raised items-center justify-center" style={{ borderCurve: 'continuous' }}
             >
-              <Text className="text-text text-lg leading-5">−</Text>
+              <Text className="text-text text-headline">−</Text>
             </TouchableOpacity>
-            <Text className="text-text text-sm font-medium text-center" style={{ width: 76 }}>
+            <Text className="text-text text-footnote font-medium text-center" style={{ width: 76 }}>
               {hourLabel(form.sleep_hour)}
             </Text>
             <TouchableOpacity
               onPress={() => onChangeBedtime(1)}
-              className="w-8 h-8 rounded-full bg-surface-raised items-center justify-center"
+              className="w-8 h-8 rounded-full bg-surface-raised items-center justify-center" style={{ borderCurve: 'continuous' }}
             >
-              <Text className="text-text text-lg leading-5">+</Text>
+              <Text className="text-text text-headline">+</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -915,14 +921,14 @@ export default function OnboardingScreen() {
         <ScrollView
           className="flex-1 px-6"
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerClassName="pb-12"
         >
           {/* Top bar */}
           <View className="flex-row items-center justify-between pt-4 pb-6">
             {step > 0 && step !== TARGETS_STEP + 1 ? (
-              <TouchableOpacity onPress={() => setStep((s) => s - 1)} hitSlop={12} className="-ml-1 px-2 py-2 flex-row items-center" style={{ gap: 2 }}>
+              <TouchableOpacity onPress={() => setStep((s) => s - 1)} hitSlop={12} className="-ml-1 px-2 py-2 flex-row items-center gap-1">
                 <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-                <Text className="text-text-muted text-base font-medium">Back</Text>
+                <Text className="text-text-muted text-body font-medium">Back</Text>
               </TouchableOpacity>
             ) : step === TARGETS_STEP + 1 ? (
               <View />
@@ -931,10 +937,10 @@ export default function OnboardingScreen() {
                  a signed-in-but-unonboarded user can reach — without this the
                  screen is a dead end with no way out but deleting the app. */
               <TouchableOpacity onPress={confirmSignOut} hitSlop={12} className="-ml-1 px-2 py-2">
-                <Text className="text-text-muted text-base font-medium">Sign out</Text>
+                <Text className="text-text-muted text-body font-medium">Sign out</Text>
               </TouchableOpacity>
             )}
-            <Text className="text-text-subtle text-xs font-medium">
+            <Text className="text-text-subtle text-caption font-medium">
               {step + 1} / {STEPS.length}
             </Text>
           </View>
@@ -942,10 +948,10 @@ export default function OnboardingScreen() {
           <StepDots current={step} total={STEPS.length} />
 
           {/* Step header */}
-          <Text className="text-text text-2xl font-bold mb-1">
+          <Text className="text-text text-title font-bold mb-1">
             {STEPS[step].title}
           </Text>
-          <Text className="text-text-subtle text-sm mb-8">
+          <Text className="text-text-subtle text-footnote mb-8">
             {STEPS[step].subtitle}
           </Text>
 
@@ -978,14 +984,14 @@ export default function OnboardingScreen() {
           {step === 4 && <TrainingPrefsFields value={prefs} onChange={patchPrefs} />}
           {step === 5 && <FoodPrefsFields value={prefs} onChange={patchPrefs} />}
           {step === NOTIF_STEP && (
-            <View style={{ gap: 14 }}>
+            <View className="gap-4">
               {NOTIFICATION_REASONS.map((r) => (
-                <View key={r} className="flex-row items-start bg-surface border border-divider rounded-2xl p-4" style={{ gap: 12 }}>
-                  <Bell size={18} color={colors.accent} style={{ marginTop: 1 }} />
-                  <Text className="text-text text-sm leading-5 flex-1">{r}</Text>
+                <View key={r} className="flex-row items-start bg-surface border border-divider rounded-xl p-4 gap-3" style={{ borderCurve: 'continuous' }}>
+                  <Bell size={18} color={colors.accent} />
+                  <Text className="text-text text-footnote flex-1">{r}</Text>
                 </View>
               ))}
-              <Text className="text-text-subtle text-xs leading-5">
+              <Text className="text-text-subtle text-caption">
                 Reminders adapt to when you actually log, and you can turn them off in Settings.
               </Text>
             </View>
@@ -993,24 +999,24 @@ export default function OnboardingScreen() {
 
           {/* Error */}
           {error && (
-            <View className="bg-danger/15 border border-danger/40 rounded-2xl px-4 py-3 mt-4">
-              <Text className="text-danger text-sm">{error}</Text>
+            <View className="bg-danger/15 border border-danger/40 rounded-xl px-4 py-3 mt-4" style={{ borderCurve: 'continuous' }}>
+              <Text className="text-danger text-footnote">{error}</Text>
             </View>
           )}
         </ScrollView>
 
         {/* Footer */}
-        <View className="px-6 pb-8 pt-2" style={{ gap: 8 }}>
+        <View className="px-6 pb-8 pt-2 gap-2">
           <TouchableOpacity
             onPress={handleNext}
             disabled={loading || !canAdvance()}
-            className="bg-accent rounded-2xl py-4 items-center"
-            style={{ opacity: loading || !canAdvance() ? 0.4 : 1 }}
+            className="bg-accent rounded-md py-4 items-center"
+            style={{ borderCurve: 'continuous', opacity: loading || !canAdvance() ? 0.4 : 1 }}
           >
             {loading ? (
               <ActivityIndicator color={colors['on-accent']} />
             ) : (
-              <Text className="text-on-accent font-semibold text-base">
+              <Text className="text-on-accent font-semibold text-body">
                 {step === NOTIF_STEP ? 'Turn on notifications' : step === TARGETS_STEP ? 'Save and continue' : 'Continue'}
               </Text>
             )}
@@ -1018,13 +1024,13 @@ export default function OnboardingScreen() {
 
           {isPrefsStep && (
             <TouchableOpacity onPress={skipPrefsStep} disabled={loading} className="py-2 items-center">
-              <Text className="text-text-subtle text-sm">Skip for now</Text>
+              <Text className="text-text-subtle text-footnote">Skip for now</Text>
             </TouchableOpacity>
           )}
 
           {step === NOTIF_STEP && (
             <TouchableOpacity onPress={() => router.replace('/')} disabled={loading} className="py-2 items-center">
-              <Text className="text-text-subtle text-sm">Not now</Text>
+              <Text className="text-text-subtle text-footnote">Not now</Text>
             </TouchableOpacity>
           )}
 
@@ -1034,7 +1040,7 @@ export default function OnboardingScreen() {
               disabled={loading}
               className="py-2 items-center"
             >
-              <Text className="text-text-subtle text-sm">Skip — use defaults</Text>
+              <Text className="text-text-subtle text-footnote">Skip — use defaults</Text>
             </TouchableOpacity>
           )}
         </View>

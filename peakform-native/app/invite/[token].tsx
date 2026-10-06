@@ -79,38 +79,38 @@ export default function InviteScreen() {
 
         {state.kind === 'success' && (
           <View className="items-center">
-            <Text className="text-text text-2xl font-semibold mb-2 text-center">
+            <Text className="text-text text-title font-semibold mb-2 text-center">
               {state.res.status === 'created' && `Friend request from ${inviterLabel(state.res.inviter)}`}
               {state.res.status === 'already_pending' && `Pending with ${inviterLabel(state.res.inviter)}`}
               {state.res.status === 'already_friends' && `Already friends with ${inviterLabel(state.res.inviter)}`}
             </Text>
-            <Text className="text-text-subtle text-sm mb-8 text-center">
+            <Text className="text-text-subtle text-footnote mb-8 text-center">
               {state.res.status === 'created'
-                ? 'Open Friends to accept and start showing up on each other’s leaderboard.'
+                ? 'Open friends to accept and start showing up on each other’s leaderboard.'
                 : state.res.status === 'already_pending'
                   ? 'Already in your inbox.'
                   : 'You’re set.'}
             </Text>
             <TouchableOpacity
               onPress={() => router.replace('/friends')}
-              className="bg-accent rounded-2xl px-8 py-3"
+              className="bg-accent rounded-md px-8 py-3" style={{ borderCurve: 'continuous' }}
             >
-              <Text className="text-on-accent font-semibold text-sm">Open Friends</Text>
+              <Text className="text-on-accent font-semibold text-footnote">Open friends</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {state.kind === 'error' && (
           <View className="items-center">
-            <Text className="text-text text-xl font-semibold mb-2 text-center">
+            <Text className="text-text text-headline font-semibold mb-2 text-center">
               Invite unavailable
             </Text>
-            <Text className="text-text-subtle text-sm mb-8 text-center">{state.message}</Text>
+            <Text className="text-text-subtle text-footnote mb-8 text-center">{state.message}</Text>
             <TouchableOpacity
               onPress={() => router.replace('/')}
-              className="bg-accent rounded-2xl px-8 py-3"
+              className="bg-accent rounded-md px-8 py-3" style={{ borderCurve: 'continuous' }}
             >
-              <Text className="text-on-accent font-semibold text-sm">Continue</Text>
+              <Text className="text-on-accent font-semibold text-footnote">Continue</Text>
             </TouchableOpacity>
           </View>
         )}

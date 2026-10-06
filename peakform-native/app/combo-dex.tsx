@@ -20,11 +20,11 @@ export default function ComboDexScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <View className="flex-row items-center px-4 pt-2 pb-2">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center" style={{ gap: 2 }}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center gap-1">
           <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-base font-medium">Back</Text>
+          <Text className="text-text-muted text-body font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-text text-xl font-bold">Combo Dex</Text>
+        <Text className="text-text text-headline font-bold">Combo Dex</Text>
       </View>
 
       {isLoading || !data ? (
@@ -34,10 +34,10 @@ export default function ComboDexScreen() {
       ) : (
         <ScrollView
           className="flex-1 px-4"
-          contentContainerStyle={{ paddingTop: 8, paddingBottom: 48, gap: 10 }}
+          contentContainerClassName="pt-2 pb-12 gap-3"
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.text} />}
         >
-          <Text className="text-text-muted text-xs">
+          <Text className="text-text-muted text-caption">
             Hit a combo in one day to unlock its reward. Hit it on {GOLDEN_AFTER} days to go golden. Nothing here rewards
             overdoing caffeine or crash dieting.
           </Text>
@@ -49,7 +49,7 @@ export default function ComboDexScreen() {
 
           <SectionTitle title="Milestones" count={`${unlockedCount}/${milestones.length} unlocked`} />
           {!data.trusted && (
-            <Text className="text-text-subtle text-xs -mt-1">
+            <Text className="text-text-subtle text-caption -mt-1">
               Legendary milestones also need Trusted status: get 2 vouches from your crew in one week.
             </Text>
           )}
@@ -65,8 +65,8 @@ export default function ComboDexScreen() {
 function SectionTitle({ title, count }: { title: string; count: string }) {
   return (
     <View className="flex-row items-end justify-between mt-4 mb-1">
-      <Text className="text-text text-lg font-bold">{title}</Text>
-      <Text className="text-text-subtle text-xs">{count}</Text>
+      <Text className="text-text text-headline font-bold">{title}</Text>
+      <Text className="text-text-subtle text-caption">{count}</Text>
     </View>
   )
 }
@@ -74,7 +74,7 @@ function SectionTitle({ title, count }: { title: string; count: string }) {
 function RarityTag({ rarity, golden }: { rarity: DexCombo['rarity']; golden?: boolean }) {
   const color = golden ? RARITY_COLOR.legendary : RARITY_COLOR[rarity]
   return (
-    <Text className="text-[10px] font-bold uppercase" style={{ color }}>
+    <Text className="text-caption font-bold" style={{ color }}>
       {golden ? '✨ golden' : rarity}
     </Text>
   )
@@ -84,18 +84,18 @@ function ComboCard({ combo: c }: { combo: DexCombo }) {
   const locked = !c.found
   const border = c.golden ? RARITY_COLOR.legendary : c.found ? RARITY_COLOR[c.rarity] : colors.divider
   return (
-    <View className="rounded-2xl p-3.5 border" style={{ borderColor: border, backgroundColor: locked ? colors.bg : colors.surface }}>
+    <View className="rounded-xl p-4 border" style={{ borderCurve: 'continuous', borderColor: border, backgroundColor: locked ? colors.bg : colors.surface }}>
       <View className="flex-row items-center justify-between">
-        <Text className="text-base font-bold flex-1" style={{ color: locked ? colors['text-subtle'] : colors.text }}>
+        <Text className="text-body font-bold flex-1" style={{ color: locked ? colors['text-subtle'] : colors.text }}>
           {c.name}
           {c.active_today ? '  🔥 today' : ''}
         </Text>
         <RarityTag rarity={c.rarity} golden={c.golden} />
       </View>
-      <Text className="text-text-muted text-xs mt-1">{c.recipe}</Text>
+      <Text className="text-text-muted text-caption mt-1">{c.recipe}</Text>
       <EmoteLine emote={c.emote} golden={c.emote_golden} hidden={c.secret && !c.found} />
       <View className="flex-row items-center justify-between mt-2">
-        <Text className="text-text-subtle text-xs">
+        <Text className="text-text-subtle text-caption">
           {c.reward ? (
             <>
               Reward: <Text className="text-text-muted">{c.found || !c.secret ? itemName(c.reward) : '???'}</Text>
@@ -106,7 +106,7 @@ function ComboCard({ combo: c }: { combo: DexCombo }) {
           )}
         </Text>
         {c.reward && (
-          <Text className="text-text-muted text-xs">
+          <Text className="text-text-muted text-caption">
             {Math.min(c.days, GOLDEN_AFTER)}/{GOLDEN_AFTER}
           </Text>
         )}
@@ -120,27 +120,27 @@ function MilestoneCard({ milestone: m }: { milestone: DexMilestone }) {
   const color = RARITY_COLOR[m.rarity]
   return (
     <View
-      className="rounded-2xl p-3.5 border"
-      style={{ borderColor: m.unlocked ? color : colors.divider, backgroundColor: m.unlocked ? colors.surface : colors.bg }}
+      className="rounded-xl p-4 border"
+      style={{ borderCurve: 'continuous', borderColor: m.unlocked ? color : colors.divider, backgroundColor: m.unlocked ? colors.surface : colors.bg }}
     >
       <View className="flex-row items-center justify-between">
-        <Text className="text-base font-bold flex-1" style={{ color: m.unlocked ? colors.text : colors['text-muted'] }}>
+        <Text className="text-body font-bold flex-1" style={{ color: m.unlocked ? colors.text : colors['text-muted'] }}>
           {m.name}
         </Text>
         <RarityTag rarity={m.rarity} />
       </View>
-      <Text className="text-text-muted text-xs mt-1">{m.description}</Text>
+      <Text className="text-text-muted text-caption mt-1">{m.description}</Text>
       <EmoteLine emote={m.emote} golden={m.emote_golden} />
-      <Text className="text-text-subtle text-xs mt-1">
+      <Text className="text-text-subtle text-caption mt-1">
         Reward: <Text className="text-text-muted">{itemName(m.reward)}</Text>
         {!m.has_art ? ' · art coming soon' : ''}
       </Text>
       {m.evaluated ? (
         <>
-          <View className="h-1.5 rounded-full bg-surface-raised mt-2.5 overflow-hidden">
+          <View className="h-1.5 rounded-full bg-surface-raised mt-3 overflow-hidden" style={{ borderCurve: 'continuous' }}>
             <View style={{ width: `${pct * 100}%`, height: '100%', backgroundColor: color }} />
           </View>
-          <Text className="text-text-subtle text-[11px] mt-1">
+          <Text className="text-text-subtle text-caption mt-1">
             {m.unlocked
               ? 'Unlocked'
               : m.blocked_by_trust
@@ -149,7 +149,7 @@ function MilestoneCard({ milestone: m }: { milestone: DexMilestone }) {
           </Text>
         </>
       ) : (
-        <Text className="text-text-subtle text-[11px] mt-2">Tracking starts soon</Text>
+        <Text className="text-text-subtle text-caption mt-2">Tracking starts soon</Text>
       )}
     </View>
   )
@@ -162,7 +162,7 @@ function formatNum(n: number) {
 function EmoteLine({ emote, golden, hidden }: { emote: string | null; golden: string | null; hidden?: boolean }) {
   if (!emote && !golden) return null
   return (
-    <Text className="text-text-subtle text-xs mt-1">
+    <Text className="text-text-subtle text-caption mt-1">
       Emote:{' '}
       {emote && <Text className="text-text-muted">{hidden ? '???' : emoteName(emote)}</Text>}
       {emote && golden ? '  ·  ' : ''}

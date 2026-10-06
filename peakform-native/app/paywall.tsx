@@ -156,27 +156,27 @@ export default function PaywallScreen() {
         <TouchableOpacity
           onPress={() => router.back()}
           hitSlop={12}
-          className="w-10 h-10 rounded-full bg-surface items-center justify-center"
+          className="w-10 h-10 rounded-full bg-surface items-center justify-center" style={{ borderCurve: 'continuous' }}
           accessibilityLabel="Close"
         >
           <X size={20} color={colors.text} strokeWidth={2.25} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 24 }}>
-        <Text className="text-text text-3xl font-bold mt-4">{head.title}</Text>
-        <Text className="text-text-muted text-base mt-2">{head.sub}</Text>
+      <ScrollView className="flex-1 px-5" contentContainerClassName="pb-6">
+        <Text className="text-text text-title font-bold mt-4">{head.title}</Text>
+        <Text className="text-text-muted text-body mt-2">{head.sub}</Text>
 
         {/* Period toggle */}
-        <View className="flex-row bg-surface rounded-2xl p-1 mt-6">
+        <View className="flex-row bg-surface rounded-full p-1 mt-6" style={{ borderCurve: 'continuous' }}>
           {(['yearly', 'monthly'] as Period[]).map((p) => (
             <TouchableOpacity
               key={p}
               onPress={() => setPeriod(p)}
-              className="flex-1 rounded-xl py-2.5 items-center"
-              style={{ backgroundColor: period === p ? colors.text : 'transparent' }}
+              className="flex-1 rounded-full py-3 items-center"
+              style={{ borderCurve: 'continuous', backgroundColor: period === p ? colors.text : 'transparent' }}
             >
-              <Text className="text-sm font-semibold" style={{ color: period === p ? colors.bg : colors.text }}>
+              <Text className="text-footnote font-semibold" style={{ color: period === p ? colors.bg : colors.text }}>
                 {p === 'yearly' ? 'Yearly' : 'Monthly'}
                 {p === 'yearly' && yearlySaving ? (
                   <Text style={{ color: period === p ? colors.bg : colors.success }}> · save {yearlySaving}%</Text>
@@ -196,39 +196,40 @@ export default function PaywallScreen() {
               key={t}
               onPress={() => setTier(t)}
               activeOpacity={0.8}
-              className="rounded-2xl p-4 mt-4"
+              className="rounded-xl p-4 mt-4"
               style={{
+                borderCurve: 'continuous',
                 borderWidth: 2,
                 borderColor: selected ? colors.accent : colors.divider,
                 backgroundColor: colors.surface,
               }}
             >
               <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center" style={{ gap: 8 }}>
-                  <Text className="text-text text-xl font-bold">{PLAN_NAMES[t]}</Text>
+                <View className="flex-row items-center gap-2">
+                  <Text className="text-text text-headline font-bold">{PLAN_NAMES[t]}</Text>
                   {current === t && (
-                    <View className="bg-surface-raised rounded-full px-2 py-0.5">
-                      <Text className="text-text-muted text-xs">Current</Text>
+                    <View className="bg-surface-raised rounded-full px-2 py-1" style={{ borderCurve: 'continuous' }}>
+                      <Text className="text-text-muted text-caption">Current</Text>
                     </View>
                   )}
                   {t === 'pro' && current !== 'pro' && (
-                    <View className="bg-accent rounded-full px-2 py-0.5">
-                      <Text className="text-on-accent text-xs font-semibold">Best value</Text>
+                    <View className="bg-accent rounded-full px-2 py-1" style={{ borderCurve: 'continuous' }}>
+                      <Text className="text-on-accent text-caption font-semibold">Best value</Text>
                     </View>
                   )}
                 </View>
                 <View className="items-end">
-                  <Text className="text-text text-base font-semibold">
+                  <Text className="text-text text-body font-semibold">
                     {p ? `${p.product.priceString}/${perPeriod}` : '—'}
                   </Text>
-                  {monthlyEquivalent && <Text className="text-text-subtle text-xs">{monthlyEquivalent}/month</Text>}
+                  {monthlyEquivalent && <Text className="text-text-subtle text-caption">{monthlyEquivalent}/month</Text>}
                 </View>
               </View>
-              <View className="mt-3" style={{ gap: 6 }}>
+              <View className="mt-3 gap-2">
                 {FEATURES[t].map((f) => (
-                  <View key={f} className="flex-row items-center" style={{ gap: 8 }}>
+                  <View key={f} className="flex-row items-center gap-2">
                     <Check size={16} color={t === 'pro' ? colors.accent : colors['text-muted']} strokeWidth={2.5} />
-                    <Text className="text-text text-sm">{f}</Text>
+                    <Text className="text-text text-footnote">{f}</Text>
                   </View>
                 ))}
               </View>
@@ -236,21 +237,21 @@ export default function PaywallScreen() {
           )
         })}
 
-        <Text className="text-text-subtle text-xs mt-4">{FREE_LINE}</Text>
-        <Text className="text-text-subtle text-xs mt-1">
+        <Text className="text-text-subtle text-caption mt-4">{FREE_LINE}</Text>
+        <Text className="text-text-subtle text-caption mt-1">
           *Fair use: up to 12 food scans a day, to keep the service fast for everyone.
         </Text>
 
         {!purchasesEnabled && (
-          <Text className="text-warning text-sm mt-6">Purchases aren't available in this build.</Text>
+          <Text className="text-warning text-footnote mt-6">Purchases aren't available in this build.</Text>
         )}
         {loadError && (
           <TouchableOpacity
             onPress={() => loadErrorDetail && Alert.alert('Details', loadErrorDetail)}
             activeOpacity={0.7}
           >
-            <Text className="text-warning text-sm mt-6">{loadError}</Text>
-            <Text className="text-text-subtle text-xs mt-1">Tap for details</Text>
+            <Text className="text-warning text-footnote mt-6">{loadError}</Text>
+            <Text className="text-text-subtle text-caption mt-1">Tap for details</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -258,27 +259,27 @@ export default function PaywallScreen() {
       {/* Buy */}
       <View className="px-5 pt-2">
         {current !== 'free' && isCurrent ? (
-          <PressableScale haptic onPress={() => manageSubscription()} className="bg-surface-raised rounded-2xl py-4 items-center">
-            <Text className="text-text text-base font-semibold">Manage subscription</Text>
+          <PressableScale haptic onPress={() => manageSubscription()} className="bg-surface-raised rounded-md py-4 items-center" style={{ borderCurve: 'continuous' }}>
+            <Text className="text-text text-body font-semibold">Manage subscription</Text>
           </PressableScale>
         ) : (
           <PressableScale
             haptic
             onPress={buy}
             disabled={!pkg || !!busy}
-            className={`rounded-2xl py-4 items-center ${tier === 'pro' ? '' : 'border border-text'}`}
-            style={{ backgroundColor: !pkg ? colors.border : tier === 'pro' ? colors.accent : 'transparent' }}
+            className={`rounded-md py-4 items-center ${tier === 'pro' ? '' : 'border border-text'}`}
+            style={{ borderCurve: 'continuous', backgroundColor: !pkg ? colors.border : tier === 'pro' ? colors.accent : 'transparent' }}
           >
             {busy === 'buy' ? (
               <ActivityIndicator color={tier === 'pro' ? colors['on-accent'] : colors.text} />
             ) : (
-              <Text className={`${tier === 'pro' ? 'text-on-accent' : 'text-text'} text-base font-bold`}>
+              <Text className={`${tier === 'pro' ? 'text-on-accent' : 'text-text'} text-body font-bold`}>
                 {trial ? `Start ${trial}` : `Get ${PLAN_NAMES[tier]}`}
               </Text>
             )}
           </PressableScale>
         )}
-        <Text className="text-text-subtle text-xs text-center mt-2">
+        <Text className="text-text-subtle text-caption text-center mt-2">
           {pkg
             ? trial
               ? `Free for the trial, then ${pkg.product.priceString}/${perPeriod}. Cancel anytime.`
@@ -289,20 +290,20 @@ export default function PaywallScreen() {
         </Text>
 
         {/* Apple 3.1.2: auto-renew terms, restore, and legal links on the paywall */}
-        <Text className="text-text-subtle text-[10px] text-center mt-2 leading-4">
+        <Text className="text-text-subtle text-caption text-center mt-2">
           Payment is charged to your Apple ID. The subscription renews automatically at the same price unless you
           cancel at least 24 hours before the end of the current period, in your Apple ID settings. Any unused
           part of a free trial ends when you subscribe.
         </Text>
-        <View className="flex-row justify-center mt-2 mb-1" style={{ gap: 18 }}>
+        <View className="flex-row justify-center mt-2 mb-1 gap-4">
           <TouchableOpacity onPress={restore} hitSlop={8} disabled={!!busy}>
-            <Text className="text-text-muted text-xs">{busy === 'restore' ? 'Restoring…' : 'Restore purchases'}</Text>
+            <Text className="text-text-muted text-caption">{busy === 'restore' ? 'Restoring…' : 'Restore purchases'}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => WebBrowser.openBrowserAsync(TERMS_OF_SERVICE_URL)} hitSlop={8}>
-            <Text className="text-text-muted text-xs">Terms</Text>
+            <Text className="text-text-muted text-caption">Terms</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL)} hitSlop={8}>
-            <Text className="text-text-muted text-xs">Privacy</Text>
+            <Text className="text-text-muted text-caption">Privacy</Text>
           </TouchableOpacity>
         </View>
       </View>

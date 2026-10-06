@@ -33,10 +33,10 @@ interface PermissionGateProps {
 function PermissionGate({ onRequest, canAskAgain }: PermissionGateProps) {
   return (
     <View className="flex-1 bg-bg items-center justify-center px-8">
-      <Text className="text-text text-xl font-semibold text-center mb-2">
+      <Text className="text-text text-headline font-semibold text-center mb-2">
         Camera access needed
       </Text>
-      <Text className="text-text-muted text-sm text-center mb-8">
+      <Text className="text-text-muted text-footnote text-center mb-8">
         {canAskAgain
           ? 'GainRace uses the camera to identify your meal and estimate calories. The photo is not saved.'
           : 'Camera was denied. Open Settings to allow camera access for GainRace, then come back.'}
@@ -45,7 +45,7 @@ function PermissionGate({ onRequest, canAskAgain }: PermissionGateProps) {
         <PressableScale
           haptic
           onPress={onRequest}
-          className="bg-accent rounded-2xl px-6 py-3"
+          className="bg-accent rounded-md px-6 py-3" style={{ borderCurve: 'continuous' }}
         >
           <Text className="text-on-accent font-semibold">Allow camera</Text>
         </PressableScale>
@@ -53,13 +53,13 @@ function PermissionGate({ onRequest, canAskAgain }: PermissionGateProps) {
         <PressableScale
           haptic
           onPress={() => Linking.openSettings()}
-          className="bg-accent rounded-2xl px-6 py-3"
+          className="bg-accent rounded-md px-6 py-3" style={{ borderCurve: 'continuous' }}
         >
           <Text className="text-on-accent font-semibold">Open Settings</Text>
         </PressableScale>
       )}
-      <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="mt-4 px-4 py-2.5">
-        <Text className="text-text-muted text-base font-medium">Cancel</Text>
+      <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="mt-4 px-4 py-3">
+        <Text className="text-text-muted text-body font-medium">Cancel</Text>
       </TouchableOpacity>
     </View>
   )
@@ -94,27 +94,27 @@ function AnalyzingOverlay() {
 
   return (
     <View
-      className="absolute inset-0 bg-bg/85 items-center justify-center px-10"
+      className="absolute inset-0 bg-bg/85 items-center justify-center px-8"
       pointerEvents="auto"
     >
-      <Text className="text-text text-base font-medium mb-5">Analyzing your meal…</Text>
-      <View style={{ gap: 14 }}>
+      <Text className="text-text text-body font-medium mb-5">Analyzing your meal…</Text>
+      <View className="gap-4">
         {ANALYZE_STAGES.map((s, i) => {
           const done = i < current
           const active = i === current
           return (
-            <View key={s.label} className="flex-row items-center" style={{ gap: 12 }}>
+            <View key={s.label} className="flex-row items-center gap-3">
               <View className="w-5 h-5 items-center justify-center">
                 {done ? (
                   <Check size={16} color={colors.success} strokeWidth={2.5} />
                 ) : active ? (
                   <ActivityIndicator size="small" color={colors.text} />
                 ) : (
-                  <View className="w-1.5 h-1.5 rounded-full bg-text-subtle" />
+                  <View className="w-1.5 h-1.5 rounded-full bg-text-subtle" style={{ borderCurve: 'continuous' }} />
                 )}
               </View>
               <Text
-                className="text-sm"
+                className="text-footnote"
                 style={{ color: done ? colors['text-muted'] : active ? colors.text : colors['text-subtle'] }}
               >
                 {s.label}
@@ -124,7 +124,7 @@ function AnalyzingOverlay() {
         })}
       </View>
       {elapsed > SLOW_HINT_AFTER_MS && (
-        <Text className="text-text-subtle text-xs mt-6 text-center">
+        <Text className="text-text-subtle text-caption mt-6 text-center">
           Taking a little longer than usual…
         </Text>
       )}
@@ -220,13 +220,13 @@ export default function NutritionSnapScreen() {
         <View className="absolute top-0 left-0 right-0 px-4 pt-3 flex-row items-center justify-between">
           <TouchableOpacity
             onPress={() => router.back()}
-            className="w-11 h-11 rounded-full bg-bg/60 items-center justify-center"
+            className="w-11 h-11 rounded-full bg-bg/60 items-center justify-center" style={{ borderCurve: 'continuous' }}
             hitSlop={12}
           >
             <X size={22} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
-          <View className="bg-bg/60 rounded-full px-3 py-1.5">
-            <Text className="text-text text-xs">Center your plate in frame</Text>
+          <View className="bg-bg/60 rounded-full px-3 py-2" style={{ borderCurve: 'continuous' }}>
+            <Text className="text-text text-caption">Center your plate in frame</Text>
           </View>
           <View style={{ width: 40 }} />
         </View>
@@ -246,13 +246,13 @@ export default function NutritionSnapScreen() {
             <View className="mb-3">
               <ScanQuotaPill kind="food" usage={usage} />
             </View>
-            <Text className="text-text/80 text-xs mb-4">Tap to capture</Text>
+            <Text className="text-text/80 text-caption mb-4">Tap to capture</Text>
             <PressableScale haptic onPress={handleCapture} disabled={busy}>
               <View
                 className="w-20 h-20 rounded-full items-center justify-center"
-                style={{ backgroundColor: `${colors.text}33` }}
+                style={{ borderCurve: 'continuous', backgroundColor: `${colors.text}33` }}
               >
-                <View className="w-16 h-16 rounded-full bg-text" />
+                <View className="w-16 h-16 rounded-full bg-text" style={{ borderCurve: 'continuous' }} />
               </View>
             </PressableScale>
           </View>

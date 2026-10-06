@@ -57,61 +57,60 @@ export default function ShoppingListScreen() {
         <TouchableOpacity
           onPress={() => router.back()}
           hitSlop={12}
-          className="-ml-1 pr-4 py-2 flex-row items-center"
-          style={{ gap: 2 }}
+          className="-ml-1 pr-4 py-2 flex-row items-center gap-1"
         >
           <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-base font-medium">Back</Text>
+          <Text className="text-text-muted text-body font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-text text-xl font-bold">Shopping list</Text>
+        <Text className="text-text text-headline font-bold">Shopping list</Text>
       </View>
       {list.data && (
-        <Text className="text-text-subtle text-xs px-4 mb-3">
+        <Text className="text-text-subtle text-caption px-4 mb-3">
           {fmtRange(list.data.from, list.data.to)} · {ticked.size}/{total} ticked
         </Text>
       )}
 
       <ScrollView
         className="flex-1 px-4"
-        contentContainerStyle={{ paddingBottom: 40, gap: 16 }}
+        contentContainerClassName="pb-12 gap-4"
         refreshControl={<RefreshControl refreshing={list.isRefetching} onRefresh={() => list.refetch()} tintColor={colors['text-subtle']} />}
       >
         {list.isLoading ? (
-          <ActivityIndicator color={colors['text-subtle']} style={{ marginTop: 40 }} />
+          <ActivityIndicator color={colors['text-subtle']} className="mt-12" />
         ) : !list.data || list.data.aisles.length === 0 ? (
-          <Text className="text-text-subtle text-sm">Nothing to buy: your plan has no meals for the next 7 days.</Text>
+          <Text className="text-text-subtle text-footnote">Nothing to buy: your plan has no meals for the next 7 days.</Text>
         ) : (
           <>
             {list.data.aisles.map((a) => (
               <View key={a.name}>
-                <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">{a.name}</Text>
-                <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
+                <Text className="text-text-subtle text-caption mb-2">{a.name}</Text>
+                <View className="bg-surface border border-divider rounded-xl overflow-hidden" style={{ borderCurve: 'continuous' }}>
                   {a.items.map((i, idx) => {
                     const done = ticked.has(i.key)
                     return (
                       <TouchableOpacity
                         key={i.key}
                         onPress={() => toggle(i.key)}
-                        className="px-4 py-3 flex-row items-center"
-                        style={{ gap: 12, borderBottomWidth: idx === a.items.length - 1 ? 0 : 1, borderBottomColor: colors.divider }}
+                        className="px-4 py-3 flex-row items-center gap-3"
+                        style={{ borderBottomWidth: idx === a.items.length - 1 ? 0 : 1, borderBottomColor: colors.divider }}
                       >
                         <View
                           className="w-5 h-5 rounded-md items-center justify-center border"
-                          style={{ backgroundColor: done ? colors.success : 'transparent', borderColor: done ? colors.success : colors['text-subtle'] }}
+                          style={{ borderCurve: 'continuous', backgroundColor: done ? colors.success : 'transparent', borderColor: done ? colors.success : colors['text-subtle'] }}
                         >
                           {done && <Check size={14} color={colors.bg} strokeWidth={3} />}
                         </View>
                         <Text
-                          className="flex-1 text-sm"
+                          className="flex-1 text-footnote"
                           style={{ color: done ? colors['text-subtle'] : colors.text, textDecorationLine: done ? 'line-through' : 'none' }}
                         >
                           {i.name}
                         </Text>
                         <View className="items-end">
-                          <Text className="text-sm" style={{ color: done ? colors['text-subtle'] : colors.text }}>
+                          <Text className="text-footnote" style={{ color: done ? colors['text-subtle'] : colors.text }}>
                             {i.note ? 'about ' : ''}{fmtAmount(i)}
                           </Text>
-                          {i.note && <Text className="text-text-subtle text-[11px]">{i.note}</Text>}
+                          {i.note && <Text className="text-text-subtle text-caption">{i.note}</Text>}
                         </View>
                       </TouchableOpacity>
                     )
@@ -119,7 +118,7 @@ export default function ShoppingListScreen() {
                 </View>
               </View>
             ))}
-            <Text className="text-text-subtle text-[11px] leading-4 text-center px-2">
+            <Text className="text-text-subtle text-caption text-center px-2">
               Amounts cover the plan's meals for the next 7 days, minus what you've logged today. Cooked foods are
               converted to what you buy (dry rice and pasta, raw meat), so those are approximate.
             </Text>

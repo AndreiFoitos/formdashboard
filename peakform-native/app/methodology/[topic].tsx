@@ -22,14 +22,14 @@ export default function MethodologyTopicScreen() {
     return (
       <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
         <View className="flex-row items-center px-4 pt-2 pb-4">
-          <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center" style={{ gap: 2 }}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center gap-1">
             <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-            <Text className="text-text-muted text-base font-medium">Back</Text>
+            <Text className="text-text-muted text-body font-medium">Back</Text>
           </TouchableOpacity>
-          <Text className="text-text text-lg font-bold">Not found</Text>
+          <Text className="text-text text-headline font-bold">Not found</Text>
         </View>
         <View className="flex-1 items-center justify-center px-6">
-          <Text className="text-text-subtle text-sm text-center">
+          <Text className="text-text-subtle text-footnote text-center">
             That topic doesn't exist. It may have been renamed.
           </Text>
         </View>
@@ -40,38 +40,37 @@ export default function MethodologyTopicScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <View className="flex-row items-center px-4 pt-2 pb-4">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center" style={{ gap: 2 }}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center gap-1">
           <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-base font-medium">Back</Text>
+          <Text className="text-text-muted text-body font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-text text-lg font-bold" numberOfLines={1} style={{ flex: 1 }}>
+        <Text className="text-text text-headline font-bold" numberOfLines={1} style={{ flex: 1 }}>
           {data.title}
         </Text>
       </View>
 
       <ScrollView
         className="flex-1 px-4"
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 48 }}
+        contentContainerClassName="pt-1 pb-12"
       >
-        <Text className="text-text-muted text-sm leading-6 mb-6">{data.prose}</Text>
+        <Text className="text-text-muted text-footnote mb-6">{data.prose}</Text>
 
-        <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">Formula</Text>
-        <View className="bg-surface border border-divider rounded-2xl px-4 py-4 mb-6">
+        <Text className="text-text-subtle text-caption mb-2">Formula</Text>
+        <View className="bg-surface border border-divider rounded-xl px-4 py-4 mb-6" style={{ borderCurve: 'continuous' }}>
           <Text
-            className="text-text text-xs"
+            className="text-text text-caption"
             style={{
               // RN doesn't have a monospace utility in nativewind — set the
               // platform-default monospace family inline.
               fontFamily: 'Menlo',
-              lineHeight: 18,
             }}
           >
             {data.formula}
           </Text>
         </View>
 
-        <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">Sources</Text>
-        <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
+        <Text className="text-text-subtle text-caption mb-2">Sources</Text>
+        <View className="bg-surface border border-divider rounded-xl overflow-hidden" style={{ borderCurve: 'continuous' }}>
           {data.sources.map((s, i) => {
             const isLast = i === data.sources.length - 1
             const Row = s.url ? TouchableOpacity : View
@@ -85,16 +84,16 @@ export default function MethodologyTopicScreen() {
                   borderBottomColor: colors.divider,
                 }}
               >
-                <Text className="text-text-subtle text-xs mr-2 mt-0.5">•</Text>
+                <Text className="text-text-subtle text-caption mr-2 mt-1">•</Text>
                 <View className="flex-1">
                   <Text
-                    className="text-sm leading-5"
+                    className="text-footnote"
                     style={{ color: s.url ? colors.text : colors['text-muted'], textDecorationLine: s.url ? 'underline' : 'none' }}
                   >
                     {s.name}
                   </Text>
                   {s.url && (
-                    <Text className="text-text-subtle text-xs mt-0.5" numberOfLines={1}>
+                    <Text className="text-text-subtle text-caption mt-1" numberOfLines={1}>
                       {s.url}
                     </Text>
                   )}

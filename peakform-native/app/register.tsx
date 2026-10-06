@@ -73,10 +73,11 @@ export default function RegisterScreen() {
           {/* Logo */}
           <Image
             source={require('../assets/logo-dark.png')}
-            style={{ width: 320, height: 110, marginBottom: 12, alignSelf: 'center' }}
+            className="mb-3 self-center"
+            style={{ width: 320, height: 110 }}
             resizeMode="contain"
           />
-          <Text className="text-text-subtle text-sm mb-8 text-center">Set up your account</Text>
+          <Text className="text-text-subtle text-footnote mb-8 text-center">Set up your account</Text>
 
           {/* SSO */}
           {FEATURES.anySso && (
@@ -84,14 +85,14 @@ export default function RegisterScreen() {
               <SsoButtons onError={setError} />
               <View className="flex-row items-center my-6">
                 <View className="flex-1 h-px bg-surface-raised" />
-                <Text className="px-3 text-text-subtle text-xs uppercase tracking-widest">or</Text>
+                <Text className="px-3 text-text-subtle text-caption">or</Text>
                 <View className="flex-1 h-px bg-surface-raised" />
               </View>
             </>
           )}
 
           {/* Name */}
-          <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">
+          <Text className="text-text-muted text-caption mb-2">
             Name{' '}
             <Text className="text-text-subtle normal-case">(optional)</Text>
           </Text>
@@ -102,11 +103,11 @@ export default function RegisterScreen() {
             placeholderTextColor={colors['text-subtle']}
             autoCorrect={false}
             textContentType="name"
-            className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm mb-4"
+            className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote mb-4" style={{ borderCurve: 'continuous' }}
           />
 
           {/* Email */}
-          <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">
+          <Text className="text-text-muted text-caption mb-2">
             Email
           </Text>
           <TextInput
@@ -118,11 +119,11 @@ export default function RegisterScreen() {
             autoCorrect={false}
             keyboardType="email-address"
             textContentType="emailAddress"
-            className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm mb-4"
+            className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote mb-4" style={{ borderCurve: 'continuous' }}
           />
 
           {/* Password */}
-          <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">
+          <Text className="text-text-muted text-caption mb-2">
             Password
           </Text>
           <TextInput
@@ -132,13 +133,13 @@ export default function RegisterScreen() {
             placeholderTextColor={colors['text-subtle']}
             secureTextEntry
             textContentType="newPassword"
-            className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm mb-4"
+            className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote mb-4" style={{ borderCurve: 'continuous' }}
           />
 
           {/* Error */}
           {error && (
-            <View className="bg-danger/15 border border-danger/40 rounded-xl px-4 py-3 mb-4">
-              <Text className="text-danger text-sm">{error}</Text>
+            <View className="bg-danger/15 border border-danger/40 rounded-xl px-4 py-3 mb-4" style={{ borderCurve: 'continuous' }}>
+              <Text className="text-danger text-footnote">{error}</Text>
             </View>
           )}
 
@@ -146,13 +147,13 @@ export default function RegisterScreen() {
           <TouchableOpacity
             onPress={handleRegister}
             disabled={loading || !email || password.length < 8}
-            className="bg-accent rounded-2xl py-4 items-center mb-4"
-            style={{ opacity: loading || !email || password.length < 8 ? 0.4 : 1 }}
+            className="bg-accent rounded-md py-4 items-center mb-4"
+            style={{ borderCurve: 'continuous', opacity: loading || !email || password.length < 8 ? 0.4 : 1 }}
           >
             {loading ? (
               <ActivityIndicator color={colors['on-accent']} />
             ) : (
-              <Text className="text-on-accent font-semibold text-base">
+              <Text className="text-on-accent font-semibold text-body">
                 Create account
               </Text>
             )}
@@ -160,14 +161,14 @@ export default function RegisterScreen() {
 
           {/* Login link */}
           <TouchableOpacity onPress={() => router.push('/login')}>
-            <Text className="text-text-subtle text-sm text-center">
+            <Text className="text-text-subtle text-footnote text-center">
               Already have an account?{' '}
               <Text className="text-text">Sign in</Text>
             </Text>
           </TouchableOpacity>
 
           {/* Legal — Apple wants the link above-the-fold from the auth screens */}
-          <Text className="text-text-subtle text-xs text-center mt-6 px-2">
+          <Text className="text-text-subtle text-caption text-center mt-6 px-2">
             By creating an account you agree to our{' '}
             <Text
               className="text-text-muted underline"
@@ -180,7 +181,7 @@ export default function RegisterScreen() {
               className="text-text-muted underline"
               onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
             >
-              Privacy Policy
+              Privacy policy
             </Text>
             .
           </Text>

@@ -41,7 +41,7 @@ const CHART_H = 120
 
 function LineChart({ points, color }: { points: Point[]; color: string }) {
   if (points.length < 2) {
-    return <Text className="text-text-subtle text-xs py-8 text-center">Not enough data yet.</Text>
+    return <Text className="text-text-subtle text-caption py-8 text-center">Not enough data yet.</Text>
   }
   const values = points.map((p) => p.value)
   const min = Math.min(...values)
@@ -59,8 +59,8 @@ function LineChart({ points, color }: { points: Point[]; color: string }) {
         <Polyline points={coords} fill="none" stroke={color} strokeWidth={2} />
       </Svg>
       <View className="flex-row justify-between mt-1">
-        <Text className="text-text-subtle text-[10px]">{fmtDate(points[0].date)}</Text>
-        <Text className="text-text-subtle text-[10px]">{fmtDate(points[points.length - 1].date)}</Text>
+        <Text className="text-text-subtle text-caption">{fmtDate(points[0].date)}</Text>
+        <Text className="text-text-subtle text-caption">{fmtDate(points[points.length - 1].date)}</Text>
       </View>
     </View>
   )
@@ -68,7 +68,7 @@ function LineChart({ points, color }: { points: Point[]; color: string }) {
 
 function BarChart({ points }: { points: WeekPoint[] }) {
   if (points.length === 0) {
-    return <Text className="text-text-subtle text-xs py-8 text-center">No training logged yet.</Text>
+    return <Text className="text-text-subtle text-caption py-8 text-center">No training logged yet.</Text>
   }
   const max = Math.max(...points.map((p) => p.value)) || 1
   const gap = 3
@@ -92,8 +92,8 @@ function BarChart({ points }: { points: WeekPoint[] }) {
         })}
       </Svg>
       <View className="flex-row justify-between mt-1">
-        <Text className="text-text-subtle text-[10px]">{points[0].week}</Text>
-        <Text className="text-text-subtle text-[10px]">{points[points.length - 1].week}</Text>
+        <Text className="text-text-subtle text-caption">{points[0].week}</Text>
+        <Text className="text-text-subtle text-caption">{points[points.length - 1].week}</Text>
       </View>
     </View>
   )
@@ -120,9 +120,9 @@ function Card({
   children: React.ReactNode
 }) {
   return (
-    <View className="bg-surface rounded-2xl p-4">
-      <Text className="text-text text-base font-semibold">{title}</Text>
-      {subtitle && <Text className="text-text-subtle text-xs mt-0.5 mb-2">{subtitle}</Text>}
+    <View className="bg-surface rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
+      <Text className="text-text text-body font-semibold">{title}</Text>
+      {subtitle && <Text className="text-text-subtle text-caption mt-1 mb-2">{subtitle}</Text>}
       <View className="mt-2">{children}</View>
     </View>
   )
@@ -145,17 +145,16 @@ export default function TrendsScreen() {
         <TouchableOpacity
           onPress={() => router.back()}
           hitSlop={12}
-          className="-ml-1 pr-4 py-2 flex-row items-center"
-          style={{ gap: 2 }}
+          className="-ml-1 pr-4 py-2 flex-row items-center gap-1"
         >
           <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-base font-medium">Back</Text>
+          <Text className="text-text-muted text-body font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-text text-xl font-bold">Trends</Text>
+        <Text className="text-text text-headline font-bold">Trends</Text>
       </View>
 
       {/* Range picker — ranges beyond the plan open the paywall */}
-      <View className="flex-row px-4" style={{ gap: 8 }}>
+      <View className="flex-row px-4 gap-2">
         {RANGES.map((r) => {
           const locked = r.days > maxDays
           const active = days === r.days
@@ -163,11 +162,11 @@ export default function TrendsScreen() {
             <TouchableOpacity
               key={r.days}
               onPress={() => (locked ? openPaywall('history') : setDays(r.days))}
-              className="flex-1 rounded-xl py-2.5 items-center flex-row justify-center"
-              style={{ gap: 6, backgroundColor: active ? colors.text : colors.surface }}
+              className="flex-1 rounded-full py-3 items-center flex-row justify-center gap-2"
+              style={{ borderCurve: 'continuous', backgroundColor: active ? colors.text : colors.surface }}
             >
               {locked && <Lock size={12} color={colors['text-subtle']} />}
-              <Text className="text-sm font-medium" style={{ color: locked ? colors['text-subtle'] : active ? colors.bg : colors.text }}>
+              <Text className="text-footnote font-medium" style={{ color: locked ? colors['text-subtle'] : active ? colors.bg : colors.text }}>
                 {r.label}
               </Text>
             </TouchableOpacity>
@@ -175,12 +174,12 @@ export default function TrendsScreen() {
         })}
       </View>
 
-      <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingTop: 16, paddingBottom: 40, gap: 14 }}>
+      <ScrollView className="flex-1 px-4" contentContainerClassName="pt-4 pb-12 gap-4">
         {isLoading || !data ? (
-          <ActivityIndicator color={colors.text} className="mt-10" />
+          <ActivityIndicator color={colors.text} className="mt-12" />
         ) : (
           <>
-            <Card title="Form Score" subtitle={change(data.form_score)}>
+            <Card title="Form score" subtitle={change(data.form_score)}>
               <LineChart points={data.form_score} color={colors.data.form} />
             </Card>
             <Card title="Body weight (kg)" subtitle={change(data.weight_kg)}>
@@ -204,15 +203,15 @@ export default function TrendsScreen() {
             {maxDays < 365 && (
               <TouchableOpacity
                 onPress={() => openPaywall('history')}
-                className="bg-surface rounded-2xl p-4 flex-row items-center justify-between"
+                className="bg-surface rounded-xl p-4 flex-row items-center justify-between" style={{ borderCurve: 'continuous' }}
               >
-                <Text className="text-text-muted text-sm flex-1 pr-3">
+                <Text className="text-text-muted text-footnote flex-1 pr-3">
                   You can look back {maxDays} days. Plus sees 90, Pro sees a full year.
                 </Text>
-                <Text className="text-accent text-sm font-semibold">Upgrade ›</Text>
+                <Text className="text-accent text-footnote font-semibold">Upgrade ›</Text>
               </TouchableOpacity>
             )}
-            <Text className="text-text-subtle text-xs">
+            <Text className="text-text-subtle text-caption">
               Your logs themselves are never hidden — only these long-range charts depend on your plan.
             </Text>
           </>

@@ -66,10 +66,10 @@ function PermissionGate({
 }) {
   return (
     <View className="flex-1 bg-bg items-center justify-center px-8">
-      <Text className="text-text text-xl font-semibold text-center mb-2">
+      <Text className="text-text text-headline font-semibold text-center mb-2">
         Camera access needed
       </Text>
-      <Text className="text-text-muted text-sm text-center mb-8">
+      <Text className="text-text-muted text-footnote text-center mb-8">
         {canAskAgain
           ? 'GainRace uses the camera to read the barcode on packaged food.'
           : 'Camera was denied. Open Settings to allow camera access for GainRace, or type the barcode number instead.'}
@@ -77,17 +77,17 @@ function PermissionGate({
       <PressableScale
         haptic
         onPress={canAskAgain ? onRequest : () => Linking.openSettings()}
-        className="bg-accent rounded-2xl px-6 py-3"
+        className="bg-accent rounded-md px-6 py-3" style={{ borderCurve: 'continuous' }}
       >
         <Text className="text-on-accent font-semibold">
           {canAskAgain ? 'Allow camera' : 'Open Settings'}
         </Text>
       </PressableScale>
-      <TouchableOpacity onPress={onType} hitSlop={12} className="mt-4 px-4 py-2.5">
-        <Text className="text-text-muted text-base font-medium">Type the number</Text>
+      <TouchableOpacity onPress={onType} hitSlop={12} className="mt-4 px-4 py-3">
+        <Text className="text-text-muted text-body font-medium">Type the number</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="px-4 py-2.5">
-        <Text className="text-text-subtle text-base">Cancel</Text>
+      <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="px-4 py-3">
+        <Text className="text-text-subtle text-body">Cancel</Text>
       </TouchableOpacity>
     </View>
   )
@@ -110,10 +110,10 @@ function TypeCodePanel({
 
   return (
     <View className="bg-surface border-t border-divider px-4 pt-4 pb-6">
-      <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
+      <Text className="text-text-subtle text-caption mb-2">
         Barcode number
       </Text>
-      <View className="flex-row" style={{ gap: 8 }}>
+      <View className="flex-row gap-2">
         <TextInput
           value={code}
           onChangeText={setCode}
@@ -124,15 +124,15 @@ function TypeCodePanel({
           maxLength={17}
           returnKeyType="search"
           onSubmitEditing={() => canSubmit && onSubmit(digits)}
-          className="flex-1 bg-surface-raised border border-border rounded-2xl px-4 py-3 text-text text-base"
-          style={{ letterSpacing: 1 }}
+          className="flex-1 bg-surface-raised border border-border rounded-md px-4 py-3 text-text text-body"
+          style={{ borderCurve: 'continuous', letterSpacing: 1 }}
         />
         <PressableScale
           haptic
           onPress={() => onSubmit(digits)}
           disabled={!canSubmit}
-          className="bg-accent rounded-2xl px-5 items-center justify-center"
-          style={{ opacity: canSubmit ? 1 : 0.4 }}
+          className="bg-accent rounded-md px-5 items-center justify-center"
+          style={{ borderCurve: 'continuous', opacity: canSubmit ? 1 : 0.4 }}
         >
           {busy ? (
             <ActivityIndicator color={colors['on-accent']} />
@@ -142,7 +142,7 @@ function TypeCodePanel({
         </PressableScale>
       </View>
       <TouchableOpacity onPress={onCancel} hitSlop={12} className="mt-3 self-center px-4 py-2">
-        <Text className="text-text-muted text-sm">Back to scanning</Text>
+        <Text className="text-text-muted text-footnote">Back to scanning</Text>
       </TouchableOpacity>
     </View>
   )
@@ -162,8 +162,8 @@ function fmtQty(q: number) {
 function MacroCell({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <View className="flex-1 items-center">
-      <Text className="text-text-subtle text-xs mb-0.5">{label}</Text>
-      <Text className="text-base font-semibold" style={{ color }}>
+      <Text className="text-text-subtle text-caption mb-1">{label}</Text>
+      <Text className="text-body font-semibold" style={{ color }}>
         {Math.round(value)}g
       </Text>
     </View>
@@ -181,14 +181,14 @@ function LabelField({
 }) {
   return (
     <View className="flex-1">
-      <Text className="text-text-subtle text-[11px] mb-1">{label}</Text>
+      <Text className="text-text-subtle text-caption mb-1">{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChange}
         keyboardType="decimal-pad"
         placeholder="0"
         placeholderTextColor={colors['text-subtle']}
-        className="bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-text text-sm"
+        className="bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}
       />
     </View>
   )
@@ -271,11 +271,10 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
         <TouchableOpacity
           onPress={onRescan}
           hitSlop={12}
-          className="-ml-1 px-2 py-2 flex-row items-center"
-          style={{ gap: 2 }}
+          className="-ml-1 px-2 py-2 flex-row items-center gap-1"
         >
           <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-base font-medium">Rescan</Text>
+          <Text className="text-text-muted text-body font-medium">Rescan</Text>
         </TouchableOpacity>
         <Text className="text-text font-semibold">Review food</Text>
         <View style={{ width: 70 }} />
@@ -283,26 +282,27 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
 
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 20 }}
+        contentContainerClassName="p-4 pb-12 gap-5"
         keyboardShouldPersistTaps="handled"
       >
         {/* Product */}
         {known ? (
-          <View className="flex-row items-center" style={{ gap: 14 }}>
+          <View className="flex-row items-center gap-4">
             {product.image_url ? (
-              <Image
-                source={{ uri: product.image_url }}
-                className="bg-surface rounded-xl"
-                style={{ width: 64, height: 64 }}
-                resizeMode="contain"
-              />
+              <View className="bg-surface rounded-xl overflow-hidden" style={{ borderCurve: 'continuous' }}>
+                <Image
+                  source={{ uri: product.image_url }}
+                  style={{ width: 64, height: 64 }}
+                  resizeMode="contain"
+                />
+              </View>
             ) : null}
             <View className="flex-1">
-              <Text className="text-text text-lg font-semibold" numberOfLines={2}>
+              <Text className="text-text text-headline font-semibold" numberOfLines={2}>
                 {product.name}
               </Text>
               {product.brand ? (
-                <Text className="text-text-subtle text-sm" numberOfLines={1}>
+                <Text className="text-text-subtle text-footnote" numberOfLines={1}>
                   {product.brand}
                 </Text>
               ) : null}
@@ -310,10 +310,10 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
           </View>
         ) : (
           <View>
-            <Text className="text-text text-base font-semibold mb-1">
+            <Text className="text-text text-body font-semibold mb-1">
               Not in the food database yet
             </Text>
-            <Text className="text-text-subtle text-sm mb-3">
+            <Text className="text-text-subtle text-footnote mb-3">
               Barcode {product.barcode}. Name it and copy the values from the label.
             </Text>
             <TextInput
@@ -321,7 +321,7 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
               onChangeText={setName}
               placeholder="Product name"
               placeholderTextColor={colors['text-subtle']}
-              className="bg-surface-raised border border-border rounded-2xl px-4 py-3 text-text text-base"
+              className="bg-surface-raised border border-border rounded-md px-4 py-3 text-text text-body" style={{ borderCurve: 'continuous' }}
             />
           </View>
         )}
@@ -329,15 +329,15 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
         {/* Label values, when the database has none */}
         {!product.per_100g && (
           <View>
-            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
+            <Text className="text-text-subtle text-caption mb-2">
               Per 100{unit} on the label
             </Text>
             {known && (
-              <Text className="text-text-subtle text-xs mb-2">
+              <Text className="text-text-subtle text-caption mb-2">
                 The database has this product but no nutrition values for it.
               </Text>
             )}
-            <View className="flex-row" style={{ gap: 8 }}>
+            <View className="flex-row gap-2">
               <LabelField label="kcal" value={label.calories} onChange={(v) => setLabel({ ...label, calories: v })} />
               <LabelField label="Protein g" value={label.protein_g} onChange={(v) => setLabel({ ...label, protein_g: v })} />
               <LabelField label="Carbs g" value={label.carbs_g} onChange={(v) => setLabel({ ...label, carbs_g: v })} />
@@ -348,20 +348,20 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
 
         {/* Amount */}
         <View>
-          <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
+          <Text className="text-text-subtle text-caption mb-2">
             How much did you have?
           </Text>
-          <View className="flex-row items-center bg-surface-raised border border-border rounded-2xl px-4">
+          <View className="flex-row items-center bg-surface-raised border border-border rounded-md px-4" style={{ borderCurve: 'continuous' }}>
             <TextInput
               value={amount}
               onChangeText={setAmount}
               keyboardType="decimal-pad"
               selectTextOnFocus
-              className="flex-1 py-3 text-text text-2xl font-semibold"
+              className="flex-1 py-3 text-text text-title font-semibold"
             />
-            <Text className="text-text-muted text-base">{unit}</Text>
+            <Text className="text-text-muted text-body">{unit}</Text>
           </View>
-          <View className="flex-row flex-wrap mt-2" style={{ gap: 6 }}>
+          <View className="flex-row flex-wrap mt-2 gap-2">
             {presets.map((p) => {
               const active = qty === p.qty
               return (
@@ -370,11 +370,12 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
                   onPress={() => setAmount(fmtQty(p.qty))}
                   className="rounded-full px-3 py-2 border"
                   style={{
+                    borderCurve: 'continuous',
                     backgroundColor: active ? colors.text : colors.surface,
                     borderColor: active ? colors.text : colors.border,
                   }}
                 >
-                  <Text className="text-xs font-medium" style={{ color: active ? colors.bg : colors['text-muted'] }}>
+                  <Text className="text-caption font-medium" style={{ color: active ? colors.bg : colors['text-muted'] }}>
                     {p.label}
                   </Text>
                 </TouchableOpacity>
@@ -384,10 +385,10 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
         </View>
 
         {/* Totals */}
-        <View className="bg-surface border border-divider rounded-2xl p-4">
-          <View className="flex-row items-baseline" style={{ gap: 6 }}>
-            <Text className="text-text text-3xl font-bold">{Math.round(totals.calories)}</Text>
-            <Text className="text-text-subtle text-sm">kcal</Text>
+        <View className="bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
+          <View className="flex-row items-baseline gap-2">
+            <Text className="text-text text-display font-bold">{Math.round(totals.calories)}</Text>
+            <Text className="text-text-subtle text-footnote">kcal</Text>
           </View>
           <View className="flex-row mt-3">
             <MacroCell label="Protein" value={totals.protein_g} color={colors.data.protein} />
@@ -395,7 +396,7 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
             <MacroCell label="Fat" value={totals.fat_g} color={colors.data.fat} />
           </View>
           {product.per_100g && (
-            <Text className="text-text-subtle text-[11px] mt-3">
+            <Text className="text-text-subtle text-caption mt-3">
               {product.per_100g.calories} kcal per 100{unit} · Open Food Facts
             </Text>
           )}
@@ -405,13 +406,13 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
           haptic
           onPress={handleLog}
           disabled={!canLog}
-          className="bg-accent rounded-2xl py-4 items-center"
-          style={{ opacity: canLog ? 1 : 0.4 }}
+          className="bg-accent rounded-md py-4 items-center"
+          style={{ borderCurve: 'continuous', opacity: canLog ? 1 : 0.4 }}
         >
           {isPending ? (
             <ActivityIndicator color={colors['on-accent']} />
           ) : (
-            <Text className="text-on-accent font-semibold text-base">Log food</Text>
+            <Text className="text-on-accent font-semibold text-body">Log food</Text>
           )}
         </PressableScale>
       </ScrollView>
@@ -530,8 +531,8 @@ export default function NutritionBarcodeScreen() {
           {/* Aim box */}
           <View className="absolute inset-0 items-center justify-center" pointerEvents="none">
             <View
-              className="rounded-2xl"
-              style={{ width: '78%', height: 150, borderWidth: 2, borderColor: `${colors.text}d9` }}
+              className="rounded-xl"
+              style={{ borderCurve: 'continuous', width: '78%', height: 150, borderWidth: 2, borderColor: `${colors.text}d9` }}
             />
           </View>
 
@@ -539,13 +540,13 @@ export default function NutritionBarcodeScreen() {
           <View className="absolute top-0 left-0 right-0 px-4 pt-3 flex-row items-center justify-between">
             <TouchableOpacity
               onPress={() => router.back()}
-              className="w-11 h-11 rounded-full bg-bg/60 items-center justify-center"
+              className="w-11 h-11 rounded-full bg-bg/60 items-center justify-center" style={{ borderCurve: 'continuous' }}
               hitSlop={12}
             >
               <X size={22} color={colors.text} strokeWidth={2.25} />
             </TouchableOpacity>
-            <View className="bg-bg/60 rounded-full px-3 py-1.5">
-              <Text className="text-text text-xs">Point at the barcode</Text>
+            <View className="bg-bg/60 rounded-full px-3 py-2" style={{ borderCurve: 'continuous' }}>
+              <Text className="text-text text-caption">Point at the barcode</Text>
             </View>
             <View style={{ width: 44 }} />
           </View>
@@ -553,7 +554,7 @@ export default function NutritionBarcodeScreen() {
           {busy && (
             <View className="absolute inset-0 bg-bg/70 items-center justify-center">
               <ActivityIndicator color={colors.text} />
-              <Text className="text-text text-sm mt-3">Looking up product…</Text>
+              <Text className="text-text text-footnote mt-3">Looking up product…</Text>
             </View>
           )}
         </View>
@@ -564,11 +565,10 @@ export default function NutritionBarcodeScreen() {
           <View className="items-center pt-4 pb-6">
             <TouchableOpacity
               onPress={() => setTyping(true)}
-              className="flex-row items-center bg-surface border border-divider rounded-full px-4 py-2.5"
-              style={{ gap: 8 }}
+              className="flex-row items-center bg-surface border border-divider rounded-full px-4 py-3 gap-2" style={{ borderCurve: 'continuous' }}
             >
               <Keyboard size={16} color={colors.text} strokeWidth={2} />
-              <Text className="text-text text-sm font-medium">Type the number</Text>
+              <Text className="text-text text-footnote font-medium">Type the number</Text>
             </TouchableOpacity>
           </View>
         )}

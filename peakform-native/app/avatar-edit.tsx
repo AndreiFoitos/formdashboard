@@ -108,51 +108,51 @@ export default function AvatarEditScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <View className="flex-row items-center px-4 pt-2 pb-2">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center" style={{ gap: 2 }}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center gap-1">
           <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-base font-medium">Back</Text>
+          <Text className="text-text-muted text-body font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-text text-xl font-bold flex-1">Your avatar</Text>
+        <Text className="text-text text-headline font-bold flex-1">Your avatar</Text>
         <TouchableOpacity
           onPress={() => save.mutate(buildConfig(false))}
           disabled={!dirty || save.isPending}
-          className="px-4 py-2 rounded-xl"
-          style={{ backgroundColor: dirty ? colors.accent : colors['surface-raised'] }}
+          className="px-4 py-2 rounded-md"
+          style={{ borderCurve: 'continuous', backgroundColor: dirty ? colors.accent : colors['surface-raised'] }}
         >
           {save.isPending ? (
             <ActivityIndicator color={colors['on-accent']} size="small" />
           ) : (
-            <Text className="text-sm font-semibold" style={{ color: dirty ? colors['on-accent'] : colors['text-subtle'] }}>
+            <Text className="text-footnote font-semibold" style={{ color: dirty ? colors['on-accent'] : colors['text-subtle'] }}>
               {savedFlash ? 'Saved' : 'Save'}
             </Text>
           )}
         </TouchableOpacity>
       </View>
 
-      <View style={{ height: 360 }} className="mx-4 rounded-3xl bg-surface overflow-hidden">
+      <View style={{ borderCurve: 'continuous', height: 360 }} className="mx-4 rounded-xl bg-surface overflow-hidden">
         <AvatarCanvas base={base} state={state} emote={previewEmote ?? equipped.emote ?? null} style={{ flex: 1 }} />
-        <Text pointerEvents="none" className="absolute bottom-3 self-center text-text-subtle text-[11px]">
+        <Text pointerEvents="none" className="absolute bottom-3 self-center text-text-subtle text-caption">
           Drag to turn
         </Text>
       </View>
 
-      <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingTop: 16, paddingBottom: 48, gap: 20 }}>
+      <ScrollView className="flex-1 px-4" contentContainerClassName="pt-4 pb-12 gap-5">
         {body.levelUpAvailable && (
-          <View className="rounded-2xl p-4 border bg-success/15 border-success/40">
-            <Text className="text-success text-base font-bold">Your avatar leveled up ↑</Text>
-            <Text className="text-text-muted text-xs mt-1">
+          <View className="rounded-xl p-4 border bg-success/15 border-success/40" style={{ borderCurve: 'continuous' }}>
+            <Text className="text-success text-body font-bold">Your avatar leveled up ↑</Text>
+            <Text className="text-text-muted text-caption mt-1">
               Your latest body metrics changed your shape. Preview it, then apply it if you like it.
             </Text>
-            <View className="flex-row mt-3" style={{ gap: 8 }}>
-              <TouchableOpacity onPress={playLevelUp} className="flex-1 py-2.5 rounded-xl items-center border border-success/40">
-                <Text className="text-success text-sm font-semibold">{morph == null ? 'Preview' : 'Replay'}</Text>
+            <View className="flex-row mt-3 gap-2">
+              <TouchableOpacity onPress={playLevelUp} className="flex-1 py-3 rounded-md items-center border border-success/40" style={{ borderCurve: 'continuous' }}>
+                <Text className="text-success text-footnote font-semibold">{morph == null ? 'Preview' : 'Replay'}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={applyLevelUp}
                 disabled={save.isPending}
-                className="flex-1 py-2.5 rounded-xl items-center bg-success"
+                className="flex-1 py-3 rounded-md items-center bg-success" style={{ borderCurve: 'continuous' }}
               >
-                <Text className="text-bg text-sm font-bold">Apply</Text>
+                <Text className="text-bg text-footnote font-bold">Apply</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -160,8 +160,8 @@ export default function AvatarEditScreen() {
 
         {SECTIONS.map((section) => (
           <View key={section.key}>
-            <Text className="text-text-muted text-xs uppercase tracking-widest mb-2">{section.label}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+            <Text className="text-text-muted text-caption mb-2">{section.label}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3">
               {[...PALETTE[section.key], ...exclusiveFor(section.key, owned)].map((color) => {
                 const selected = look[section.key] === color
                 return (
@@ -169,10 +169,11 @@ export default function AvatarEditScreen() {
                     key={color}
                     onPress={() => setLook((l) => ({ ...l, [section.key]: color }))}
                     accessibilityLabel={`${section.label} ${color}`}
+                    className="rounded-full"
                     style={{
+                      borderCurve: 'continuous',
                       width: 38,
                       height: 38,
-                      borderRadius: 19,
                       backgroundColor: color,
                       borderWidth: selected ? 3 : 1,
                       borderColor: selected ? colors.text : colors.border,
@@ -184,7 +185,7 @@ export default function AvatarEditScreen() {
           </View>
         ))}
 
-        <View className="bg-surface rounded-2xl">
+        <View className="bg-surface rounded-xl" style={{ borderCurve: 'continuous' }}>
           <ToggleRow
             label="Freeze body shape"
             detail="Keep your avatar's body as it is, even when your weight or body fat changes."
@@ -201,8 +202,8 @@ export default function AvatarEditScreen() {
         </View>
 
         <View>
-          <Text className="text-text-muted text-xs uppercase tracking-widest mb-2">Unlockables</Text>
-          <View className="bg-surface rounded-2xl p-4" style={{ gap: 14 }}>
+          <Text className="text-text-muted text-caption mb-2">Unlockables</Text>
+          <View className="bg-surface rounded-xl p-4 gap-4" style={{ borderCurve: 'continuous' }}>
             {SLOTS.map((slot) => {
               const mine = owned.filter((id) => ITEMS[id]?.slot === slot.key)
               const locked = Object.keys(ITEMS).filter(
@@ -210,8 +211,8 @@ export default function AvatarEditScreen() {
               )
               return (
                 <View key={slot.key}>
-                  <Text className="text-text-muted text-sm font-medium mb-2">{slot.label}</Text>
-                  <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                  <Text className="text-text-muted text-footnote font-medium mb-2">{slot.label}</Text>
+                  <View className="flex-row flex-wrap gap-2">
                     <Chip label="None" selected={!equipped[slot.key]} onPress={() => setEquipped((e) => ({ ...e, [slot.key]: null }))} />
                     {mine.map((id) => (
                       <Chip
@@ -233,12 +234,12 @@ export default function AvatarEditScreen() {
         </View>
 
         <View>
-          <Text className="text-text-muted text-xs uppercase tracking-widest mb-2">Podium emote</Text>
-          <View className="bg-surface rounded-2xl p-4">
-            <Text className="text-text-subtle text-xs mb-3">
+          <Text className="text-text-muted text-caption mb-2">Podium emote</Text>
+          <View className="bg-surface rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
+            <Text className="text-text-subtle text-caption mb-3">
               What you do when you place top 3 in the weekly race. Tap one to preview it above.
             </Text>
-            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+            <View className="flex-row flex-wrap gap-2">
               <Chip
                 label="Random free"
                 selected={!equipped.emote && !previewEmote}
@@ -272,12 +273,11 @@ export default function AvatarEditScreen() {
 
         <TouchableOpacity
           onPress={() => router.push('/combo-dex')}
-          className="bg-surface rounded-2xl p-4 flex-row items-center"
-          style={{ gap: 12 }}
+          className="bg-surface rounded-xl p-4 flex-row items-center gap-3" style={{ borderCurve: 'continuous' }}
         >
           <View className="flex-1">
-            <Text className="text-text text-sm font-medium">Combo Dex</Text>
-            <Text className="text-text-subtle text-xs mt-0.5">
+            <Text className="text-text text-footnote font-medium">Combo Dex</Text>
+            <Text className="text-text-subtle text-caption mt-1">
               Every combo and milestone, your progress, and what's still secret.
             </Text>
           </View>
@@ -285,7 +285,7 @@ export default function AvatarEditScreen() {
         </TouchableOpacity>
 
         {save.isError && (
-          <Text className="text-danger text-xs text-center">Couldn't save your avatar. Check your connection and try again.</Text>
+          <Text className="text-danger text-caption text-center">Couldn't save your avatar. Check your connection and try again.</Text>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -304,10 +304,10 @@ function ToggleRow({
   onChange: (v: boolean) => void
 }) {
   return (
-    <View className="flex-row items-center px-4 py-3.5" style={{ gap: 12 }}>
+    <View className="flex-row items-center px-4 py-4 gap-3">
       <View className="flex-1">
-        <Text className="text-text text-sm font-medium">{label}</Text>
-        <Text className="text-text-subtle text-xs mt-0.5">{detail}</Text>
+        <Text className="text-text text-footnote font-medium">{label}</Text>
+        <Text className="text-text-subtle text-caption mt-1">{detail}</Text>
       </View>
       <Switch value={value} onValueChange={onChange} trackColor={{ true: colors.success }} />
     </View>
@@ -336,9 +336,9 @@ function Chip({
   return (
     <TouchableOpacity
       onPress={onPress}
-      className="flex-row items-center px-3 py-2 rounded-xl border"
+      className="flex-row items-center px-3 py-2 rounded-full border gap-2"
       style={{
-        gap: 6,
+        borderCurve: 'continuous',
         backgroundColor: selected ? colors.text : colors.surface,
         borderColor: selected ? colors.text : colors.border,
         opacity: locked ? 0.5 : 1,
@@ -347,9 +347,9 @@ function Chip({
       {locked ? (
         <Lock size={12} color={colors['text-muted']} />
       ) : color ? (
-        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color }} />
+        <View className="rounded-full" style={{ borderCurve: 'continuous', width: 10, height: 10, backgroundColor: color }} />
       ) : null}
-      <Text className="text-xs font-semibold" style={{ color: selected ? colors.bg : colors['text-muted'] }}>
+      <Text className="text-caption font-semibold" style={{ color: selected ? colors.bg : colors['text-muted'] }}>
         {label}
       </Text>
     </TouchableOpacity>

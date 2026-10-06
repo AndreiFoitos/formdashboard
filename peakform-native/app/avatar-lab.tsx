@@ -63,19 +63,19 @@ export default function AvatarLab() {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <View className="flex-row items-center px-4 pt-2 pb-2">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center" style={{ gap: 2 }}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center gap-1">
           <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-base font-medium">Back</Text>
+          <Text className="text-text-muted text-body font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-text text-xl font-bold">Avatar lab</Text>
+        <Text className="text-text text-headline font-bold">Avatar lab</Text>
       </View>
 
-      <View style={{ height: 340 }} className="mx-4 rounded-3xl bg-surface overflow-hidden">
+      <View style={{ borderCurve: 'continuous', height: 340 }} className="mx-4 rounded-xl bg-surface overflow-hidden">
         {started ? (
           <AvatarCanvas key={source} ref={canvas} base={base} source={source} state={state} onFps={setFps} style={{ flex: 1 }} />
         ) : (
-          <View className="flex-1 items-center justify-center px-6" style={{ gap: 10 }}>
-            <Text className="text-text-muted text-xs text-center">3D is off. Start it with one of the models:</Text>
+          <View className="flex-1 items-center justify-center px-6 gap-3">
+            <Text className="text-text-muted text-caption text-center">3D is off. Start it with one of the models:</Text>
             {(['placeholder', 'glb'] as const).map((s) => (
               <TouchableOpacity
                 key={s}
@@ -83,27 +83,29 @@ export default function AvatarLab() {
                   setSource(s)
                   setStarted(true)
                 }}
-                className="bg-accent rounded-xl px-4 py-2.5"
+                className="bg-accent rounded-md px-4 py-3" style={{ borderCurve: 'continuous' }}
               >
-                <Text className="text-on-accent text-sm font-semibold">
+                <Text className="text-on-accent text-footnote font-semibold">
                   {s === 'glb' ? 'Start MakeHuman model' : 'Start placeholder model'}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
-        <View pointerEvents="none" className="absolute top-3 left-3 bg-bg/60 rounded-lg px-2 py-1">
-          <Text className="text-success text-xs font-mono">{fps ?? '–'} fps</Text>
+        <View pointerEvents="none" className="absolute top-3 left-3 bg-bg/60 rounded-md px-2 py-1" style={{ borderCurve: 'continuous' }}>
+          <Text className="text-success text-caption font-mono">{fps ?? '–'} fps</Text>
         </View>
         {snap && (
           <View pointerEvents="none" className="absolute top-3 right-3 items-center">
-            <Image source={{ uri: snap.uri }} style={{ width: 56, height: 90, borderRadius: 8, backgroundColor: colors['surface-raised'] }} />
-            <Text className="text-text-muted text-[10px] mt-1">{snap.ms} ms</Text>
+            <View className="rounded-md overflow-hidden" style={{ borderCurve: 'continuous' }}>
+              <Image source={{ uri: snap.uri }} style={{ width: 56, height: 90, backgroundColor: colors['surface-raised'] }} />
+            </View>
+            <Text className="text-text-muted text-caption mt-1">{snap.ms} ms</Text>
           </View>
         )}
       </View>
 
-      <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingTop: 16, paddingBottom: 48, gap: 18 }}>
+      <ScrollView className="flex-1 px-4" contentContainerClassName="pt-4 pb-12 gap-4">
         <Chips label="Model" options={['glb', 'placeholder'] as const} value={source} onChange={setSource} />
         <Chips label="Base" options={['male', 'female'] as const} value={base} onChange={setBase} />
 
@@ -121,23 +123,23 @@ export default function AvatarLab() {
         />
         {bfOverride != null && (
           <TouchableOpacity onPress={() => setBfOverride(null)}>
-            <Text className="text-text text-xs -mt-3">Use estimate from BMI instead</Text>
+            <Text className="text-text text-caption -mt-3">Use estimate from BMI instead</Text>
           </TouchableOpacity>
         )}
 
-        <View className="bg-surface rounded-2xl px-4 py-3">
-          <Text className="text-text-muted text-xs font-mono">
+        <View className="bg-surface rounded-xl px-4 py-3" style={{ borderCurve: 'continuous' }}>
+          <Text className="text-text-muted text-caption font-mono">
             BMI {body.bmi.toFixed(1)} · BF {body.bodyFatPct.toFixed(1)}%{body.bodyFatEstimated ? ' (est)' : ''} · FFMI{' '}
             {body.ffmi.toFixed(1)}
           </Text>
-          <Text className="text-text text-sm font-mono mt-1">
+          <Text className="text-text text-footnote font-mono mt-1">
             fat {body.fat.toFixed(2)} · muscle {body.muscle.toFixed(2)} · height ×{body.heightScale.toFixed(2)}
           </Text>
         </View>
 
         <View>
           <SectionLabel>Today (stacking effects)</SectionLabel>
-          <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+          <View className="flex-row flex-wrap gap-2">
             <Toggle label="Trained → pump" on={trained} onPress={() => setTrained((v) => !v)} />
             <Toggle label="Water hit → glow" on={waterHit} onPress={() => setWaterHit((v) => !v)} />
             <Toggle label="High caffeine → jitter" on={highCaffeine} onPress={() => setHighCaffeine((v) => !v)} />
@@ -151,7 +153,7 @@ export default function AvatarLab() {
         <Swatches label="Hair" colors={HAIRS} value={look.hair} onChange={(hair) => setLook((l) => ({ ...l, hair }))} />
         <Swatches label="Top" colors={TOPS} value={look.top} onChange={(top) => setLook((l) => ({ ...l, top }))} />
 
-        <TouchableOpacity onPress={takeSnapshot} className="bg-accent rounded-2xl py-3.5 items-center">
+        <TouchableOpacity onPress={takeSnapshot} className="bg-accent rounded-md py-4 items-center" style={{ borderCurve: 'continuous' }}>
           <Text className="text-on-accent font-semibold">Take snapshot (race marker image)</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -162,7 +164,7 @@ export default function AvatarLab() {
 // ─── Small controls ─────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <Text className="text-text-muted text-xs uppercase tracking-widest mb-2">{children}</Text>
+  return <Text className="text-text-muted text-caption mb-2">{children}</Text>
 }
 
 function Chips<T extends string>({
@@ -179,15 +181,15 @@ function Chips<T extends string>({
   return (
     <View>
       <SectionLabel>{label}</SectionLabel>
-      <View className="flex-row" style={{ gap: 8 }}>
+      <View className="flex-row gap-2">
         {options.map((o) => (
           <TouchableOpacity
             key={o}
             onPress={() => onChange(o)}
-            className="flex-1 py-2.5 rounded-xl border items-center"
-            style={{ backgroundColor: value === o ? colors.text : colors.surface, borderColor: value === o ? colors.text : colors.border }}
+            className="flex-1 py-3 rounded-full border items-center"
+            style={{ borderCurve: 'continuous', backgroundColor: value === o ? colors.text : colors.surface, borderColor: value === o ? colors.text : colors.border }}
           >
-            <Text className="text-sm font-semibold capitalize" style={{ color: value === o ? colors.bg : colors['text-muted'] }}>
+            <Text className="text-footnote font-semibold capitalize" style={{ color: value === o ? colors.bg : colors['text-muted'] }}>
               {o}
             </Text>
           </TouchableOpacity>
@@ -201,9 +203,9 @@ function Toggle({ label, on, onPress }: { label: string; on: boolean; onPress: (
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`px-3 py-2 rounded-xl border ${on ? 'bg-success/15 border-success' : 'bg-surface border-border'}`}
+      className={`px-3 py-2 rounded-full border ${on ? 'bg-success/15 border-success' : 'bg-surface border-border'}`} style={{ borderCurve: 'continuous' }}
     >
-      <Text className="text-xs font-medium" style={{ color: on ? colors.success : colors['text-muted'] }}>
+      <Text className="text-caption font-medium" style={{ color: on ? colors.success : colors['text-muted'] }}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -224,15 +226,16 @@ function Swatches({
   return (
     <View>
       <SectionLabel>{label}</SectionLabel>
-      <View className="flex-row" style={{ gap: 10 }}>
+      <View className="flex-row gap-3">
         {swatches.map((c) => (
           <TouchableOpacity
             key={c}
             onPress={() => onChange(c)}
+            className="rounded-full"
             style={{
+              borderCurve: 'continuous',
               width: 34,
               height: 34,
-              borderRadius: 17,
               backgroundColor: c,
               borderWidth: 2,
               borderColor: value === c ? colors.text : 'transparent',
@@ -284,8 +287,8 @@ function LabSlider({
   return (
     <View>
       <View className="flex-row justify-between mb-2">
-        <Text className="text-text-muted text-xs uppercase tracking-widest">{label}</Text>
-        <Text className="text-text text-xs font-mono">
+        <Text className="text-text-muted text-caption">{label}</Text>
+        <Text className="text-text text-caption font-mono">
           {Number.isInteger(value) ? value : value.toFixed(1)} {unit}
         </Text>
       </View>
@@ -294,18 +297,19 @@ function LabSlider({
         style={{ height: 28, justifyContent: 'center' }}
         {...pan.panHandlers}
       >
-        <View pointerEvents="none" style={{ height: 6, borderRadius: 3, backgroundColor: colors['surface-raised'] }}>
-          <View style={{ width: `${pct}%`, height: 6, borderRadius: 3, backgroundColor: colors.text }} />
+        <View pointerEvents="none" className="rounded-full" style={{ borderCurve: 'continuous', height: 6, backgroundColor: colors['surface-raised'] }}>
+          <View className="rounded-full" style={{ borderCurve: 'continuous', width: `${pct}%`, height: 6, backgroundColor: colors.text }} />
         </View>
         <View
           pointerEvents="none"
+          className="rounded-full"
           style={{
+            borderCurve: 'continuous',
             position: 'absolute',
             left: `${pct}%`,
             marginLeft: -11,
             width: 22,
             height: 22,
-            borderRadius: 11,
             backgroundColor: colors.text,
           }}
         />

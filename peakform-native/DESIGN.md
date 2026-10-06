@@ -96,7 +96,7 @@ System font (SF Pro on iOS). Seven sizes, no others.
 | `text-display` | 32 / 38 | 700 | Key numbers (calories left, score) |
 | `text-hero` | 48 / 52 | 800 | One hero number per screen, max |
 
-Existing inline sizes 9, 10, 11 → `text-caption`. 13 → `text-footnote`. 22 → `text-title`. The one-off 160 must be justified or removed.
+Existing inline sizes 9, 10, 11 → `text-caption`. 13 → `text-footnote`. 22 → `text-title`. The one exception is the 160pt self-timer countdown in `body-comp-snap.tsx`: it overlays the camera and is read from 2–3 m away.
 
 ---
 
@@ -112,6 +112,10 @@ Off-scale values (1, 3, 5, 7, 18, -11, …) get rounded to the nearest step.
 Radius: `rounded-md` 8 (buttons, inputs), `rounded-xl` 16 (cards, list groups, sheets), `rounded-full` (avatars, pills). Nothing else, except chart marks below.
 Anything picked one-of-several (segmented controls, choice and filter chips) is rounded-full. Buttons and inputs are rounded-md. Chart marks (bars, segments) may use radius 2-4 and 1px gaps.
 All rounded surfaces use `borderCurve: 'continuous'` via style prop.
+Selectable cards (multi-line options) stay rounded-xl.
+Controls overlaid on full-screen camera/media are rounded-full.
+Clearances for fixed/floating elements use constants from `theme/layout.ts`, never raw numbers.
+`letterSpacing` is allowed only on codes (invite codes, barcode input).
 
 Elevation: no shadows on black. Separate layers with `surface` vs `bg`, and hairline `border` where needed.
 

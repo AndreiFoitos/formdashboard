@@ -12,53 +12,53 @@ export default function MethodologyHubScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <View className="flex-row items-center px-4 pt-2 pb-4">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center" style={{ gap: 2 }}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center gap-1">
           <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-base font-medium">Back</Text>
+          <Text className="text-text-muted text-body font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-text text-xl font-bold flex-1">How is this calculated?</Text>
+        <Text className="text-text text-headline font-bold flex-1">How is this calculated?</Text>
       </View>
 
       <ScrollView
         className="flex-1 px-4"
-        contentContainerStyle={{ paddingTop: 4, paddingBottom: 40 }}
+        contentContainerClassName="pt-1 pb-12"
       >
-        <Text className="text-text-subtle text-sm leading-5 mb-6">
+        <Text className="text-text-subtle text-footnote mb-6">
           The numbers in GainRace are derived from data you log — not from wearable APIs or
           black-box scores. Here's exactly how each one is computed, with the published
           guidance we leaned on.
         </Text>
 
-        <View className="bg-surface border border-divider rounded-2xl overflow-hidden mb-3">
+        <View className="bg-surface border border-divider rounded-xl overflow-hidden mb-3" style={{ borderCurve: 'continuous' }}>
           {TOPICS.map((t, i) => (
             <TouchableOpacity
               key={t.slug}
               onPress={() => router.push(`/methodology/${t.slug}`)}
-              className="px-4 py-3.5"
+              className="px-4 py-4"
               style={{
                 borderBottomWidth: i === TOPICS.length - 1 ? 0 : 1,
                 borderBottomColor: colors.divider,
               }}
             >
               <View className="flex-row items-center justify-between">
-                <Text className="text-text text-sm font-medium">{t.title}</Text>
-                <Text className="text-text-subtle text-base">›</Text>
+                <Text className="text-text text-footnote font-medium">{t.title}</Text>
+                <Text className="text-text-subtle text-body">›</Text>
               </View>
-              <Text className="text-text-subtle text-xs mt-1">{t.summary}</Text>
+              <Text className="text-text-subtle text-caption mt-1">{t.summary}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
+        <View className="bg-surface border border-divider rounded-xl overflow-hidden" style={{ borderCurve: 'continuous' }}>
           <TouchableOpacity
             onPress={() => router.push('/methodology/sources')}
-            className="px-4 py-3.5"
+            className="px-4 py-4"
           >
             <View className="flex-row items-center justify-between">
-              <Text className="text-text text-sm font-medium">Sources &amp; references</Text>
-              <Text className="text-text-subtle text-base">›</Text>
+              <Text className="text-text text-footnote font-medium">Sources &amp; references</Text>
+              <Text className="text-text-subtle text-body">›</Text>
             </View>
-            <Text className="text-text-subtle text-xs mt-1">
+            <Text className="text-text-subtle text-caption mt-1">
               Every paper and guideline cited above, in one place.
             </Text>
           </TouchableOpacity>

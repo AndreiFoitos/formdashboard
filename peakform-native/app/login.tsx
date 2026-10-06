@@ -124,21 +124,22 @@ export default function LoginScreen() {
           {/* Logo */}
           <Image
             source={require('../assets/logo-dark.png')}
-            style={{ width: 320, height: 110, marginBottom: 12, alignSelf: 'center' }}
+            className="mb-3 self-center"
+            style={{ width: 320, height: 110 }}
             resizeMode="contain"
           />
-          <Text className="text-text-subtle text-sm mb-8 text-center">
+          <Text className="text-text-subtle text-footnote mb-8 text-center">
             Your performance operating system
           </Text>
 
           {/* Pending invite banner — shown if user tapped gainrace://invite/<token>
               while logged out. After successful login we auto-redeem. */}
           {inviterPreview && (
-            <View className="bg-surface border border-divider rounded-2xl px-4 py-3 mb-6">
-              <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1">
+            <View className="bg-surface border border-divider rounded-xl px-4 py-3 mb-6" style={{ borderCurve: 'continuous' }}>
+              <Text className="text-text-subtle text-caption mb-1">
                 Pending invite
               </Text>
-              <Text className="text-text text-sm">
+              <Text className="text-text text-footnote">
                 Log in to accept{' '}
                 <Text className="font-semibold">
                   {inviterPreview.username ? `@${inviterPreview.username}` : inviterPreview.name}
@@ -154,14 +155,14 @@ export default function LoginScreen() {
               <SsoButtons onError={setError} />
               <View className="flex-row items-center my-6">
                 <View className="flex-1 h-px bg-surface-raised" />
-                <Text className="px-3 text-text-subtle text-xs uppercase tracking-widest">or</Text>
+                <Text className="px-3 text-text-subtle text-caption">or</Text>
                 <View className="flex-1 h-px bg-surface-raised" />
               </View>
             </>
           )}
 
           {/* Email */}
-          <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">
+          <Text className="text-text-muted text-caption mb-2">
             Email
           </Text>
           <TextInput
@@ -173,11 +174,11 @@ export default function LoginScreen() {
             autoCorrect={false}
             keyboardType="email-address"
             textContentType="emailAddress"
-            className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm mb-4"
+            className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote mb-4" style={{ borderCurve: 'continuous' }}
           />
 
           {/* Password */}
-          <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">
+          <Text className="text-text-muted text-caption mb-2">
             Password
           </Text>
           <TextInput
@@ -187,13 +188,13 @@ export default function LoginScreen() {
             placeholderTextColor={colors['text-subtle']}
             secureTextEntry
             textContentType="password"
-            className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm mb-4"
+            className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote mb-4" style={{ borderCurve: 'continuous' }}
           />
 
           {/* Error */}
           {error && (
-            <View className="bg-danger/15 border border-danger/40 rounded-xl px-4 py-3 mb-4">
-              <Text className="text-danger text-sm">{error}</Text>
+            <View className="bg-danger/15 border border-danger/40 rounded-xl px-4 py-3 mb-4" style={{ borderCurve: 'continuous' }}>
+              <Text className="text-danger text-footnote">{error}</Text>
             </View>
           )}
 
@@ -201,26 +202,26 @@ export default function LoginScreen() {
           <TouchableOpacity
             onPress={handleLogin}
             disabled={loading}
-            className="bg-accent rounded-2xl py-4 items-center mb-4"
-            style={{ opacity: loading ? 0.5 : 1 }}
+            className="bg-accent rounded-md py-4 items-center mb-4"
+            style={{ borderCurve: 'continuous', opacity: loading ? 0.5 : 1 }}
           >
             {loading ? (
               <ActivityIndicator color={colors['on-accent']} />
             ) : (
-              <Text className="text-on-accent font-semibold text-base">Sign in</Text>
+              <Text className="text-on-accent font-semibold text-body">Sign in</Text>
             )}
           </TouchableOpacity>
 
           {/* Register link */}
           <TouchableOpacity onPress={() => router.push('/register')}>
-            <Text className="text-text-subtle text-sm text-center">
+            <Text className="text-text-subtle text-footnote text-center">
               No account?{' '}
               <Text className="text-text">Create one</Text>
             </Text>
           </TouchableOpacity>
 
           {/* Legal — Apple wants the link above-the-fold from the auth screens */}
-          <Text className="text-text-subtle text-xs text-center mt-6 px-2">
+          <Text className="text-text-subtle text-caption text-center mt-6 px-2">
             By signing in you agree to our{' '}
             <Text
               className="text-text-muted underline"
@@ -233,7 +234,7 @@ export default function LoginScreen() {
               className="text-text-muted underline"
               onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
             >
-              Privacy Policy
+              Privacy policy
             </Text>
             .
           </Text>

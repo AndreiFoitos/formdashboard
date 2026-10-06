@@ -164,7 +164,7 @@ function BootScreen() {
     <View className="flex-1 bg-bg items-center justify-center px-8">
       <ActivityIndicator color={colors.text} />
       {slow && (
-        <Text className="text-text-subtle text-sm text-center mt-4">
+        <Text className="text-text-subtle text-footnote text-center mt-4">
           Waking the server up — this can take up to a minute the first time.
         </Text>
       )}

@@ -25,7 +25,7 @@ const GOALS: { key: Goal; label: string; desc: string }[] = [
 ]
 
 function Heading({ children }: { children: string }) {
-  return <Text className="text-text text-lg font-bold mb-4">{children}</Text>
+  return <Text className="text-text text-headline font-bold mb-4">{children}</Text>
 }
 
 export default function PreferencesScreen() {
@@ -64,53 +64,53 @@ export default function PreferencesScreen() {
         <TouchableOpacity
           onPress={() => router.back()}
           hitSlop={12}
-          className="-ml-1 pr-4 py-2 flex-row items-center"
-          style={{ gap: 2 }}
+          className="-ml-1 pr-4 py-2 flex-row items-center gap-1"
         >
           <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-base font-medium">Back</Text>
+          <Text className="text-text-muted text-body font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-text text-xl font-bold">Training & food</Text>
+        <Text className="text-text text-headline font-bold">Training & food</Text>
       </View>
 
       {isLoading ? (
-        <ActivityIndicator color={colors['text-subtle']} className="mt-10" />
+        <ActivityIndicator color={colors['text-subtle']} className="mt-12" />
       ) : (
         <ScrollView
           className="flex-1 px-4"
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerClassName="pb-12"
           keyboardShouldPersistTaps="handled"
         >
-          <Text className="text-text-subtle text-sm mb-6">
+          <Text className="text-text-subtle text-footnote mb-6">
             Pit Crew builds your training and meal plans from these answers and your logs.
           </Text>
 
           <Heading>Goal</Heading>
-          <View className="flex-row mb-2" style={{ gap: 8 }}>
+          <View className="flex-row mb-2 gap-2">
             {GOALS.map((g) => {
               const active = prefs.goal === g.key
               return (
                 <TouchableOpacity
                   key={g.key}
                   onPress={() => onChange({ goal: active ? null : g.key })}
-                  className="flex-1 py-3 rounded-2xl border items-center"
+                  className="flex-1 py-3 rounded-full border items-center"
                   style={{
+                    borderCurve: 'continuous',
                     backgroundColor: active ? colors.text : colors.surface,
                     borderColor: active ? colors.text : colors.border,
                   }}
                 >
-                  <Text className="text-sm font-semibold" style={{ color: active ? colors.bg : colors.text }}>
+                  <Text className="text-footnote font-semibold" style={{ color: active ? colors.bg : colors.text }}>
                     {g.label}
                   </Text>
-                  <Text className="text-xs mt-0.5" style={{ color: colors['text-subtle'] }}>
+                  <Text className="text-caption mt-1" style={{ color: colors['text-subtle'] }}>
                     {g.desc}
                   </Text>
                 </TouchableOpacity>
               )
             })}
           </View>
-          <Text className="text-text-subtle text-xs mb-8">
-            Your calorie target stays as set under Profile & Targets.
+          <Text className="text-text-subtle text-caption mb-8">
+            Your calorie target stays as set under Profile & targets.
           </Text>
 
           <Heading>Training</Heading>
@@ -121,8 +121,8 @@ export default function PreferencesScreen() {
           <FoodPrefsFields value={prefs} onChange={onChange} />
 
           {error && (
-            <View className="bg-danger/15 border border-danger/40 rounded-2xl px-4 py-3 mt-6">
-              <Text className="text-danger text-sm">{error}</Text>
+            <View className="bg-danger/15 border border-danger/40 rounded-xl px-4 py-3 mt-6" style={{ borderCurve: 'continuous' }}>
+              <Text className="text-danger text-footnote">{error}</Text>
             </View>
           )}
         </ScrollView>
@@ -132,13 +132,13 @@ export default function PreferencesScreen() {
         <TouchableOpacity
           onPress={onSave}
           disabled={!dirty || save.isPending}
-          className="bg-accent rounded-2xl py-4 items-center"
-          style={{ opacity: !dirty || save.isPending ? 0.4 : 1 }}
+          className="bg-accent rounded-md py-4 items-center"
+          style={{ borderCurve: 'continuous', opacity: !dirty || save.isPending ? 0.4 : 1 }}
         >
           {save.isPending ? (
             <ActivityIndicator color={colors['on-accent']} />
           ) : (
-            <Text className="text-on-accent font-semibold text-base">Save</Text>
+            <Text className="text-on-accent font-semibold text-body">Save</Text>
           )}
         </TouchableOpacity>
       </View>
