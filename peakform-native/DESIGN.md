@@ -1,0 +1,260 @@
+# GainRace — Design System & App Structure
+
+This file is binding. Every UI change in `peakform-native/` must follow it.
+If a change needs something this file doesn't define, stop and propose an
+addition to this file first — do not invent one-off values.
+
+---
+
+## 1. Hard rules
+
+1. No hex, rgb or rgba literals in `app/` or `components/`. Colors come from tokens only.
+2. No inline `fontSize`, `padding`, `margin`, `gap` or `borderRadius` numbers. Use the scales below via NativeWind classes.
+3. Only the type sizes in §3 exist. Only the spacing steps in §4 exist.
+4. Every tappable element is at least 44×44 pt.
+5. One accent color. It marks the primary action and the active state, nothing else.
+6. Dark only. `app.json` → `"userInterfaceStyle": "dark"` so system UI (alerts, keyboard, pickers, share sheet) matches.
+7. Labels describe what a thing does in plain words. No internal or brand jargon in settings ("Pit Crew", "Labs").
+8. Sentence case everywhere. No ALL-CAPS labels.
+9. Accent (#2c66fb) on bg is 4.40:1: use it only for icons, text >= 18pt, or semibold text >= 14pt. Small links/labels on black use text, not accent.
+10. Button text on accent is white, >= 16pt or semibold.
+11. Project is on Expo SDK 54 / expo-router 6. Skills may describe SDK 56 APIs; always use the SDK 54 equivalent. Do not upgrade the SDK during the redesign.
+
+---
+
+## 2. Color tokens
+
+`accent` is sampled from the app icon (`assets/icon.png`).
+
+Defined once in `theme/tokens.ts`, wired into `tailwind.config.js` (see §7).
+
+| Token | Hex | Use |
+|---|---|---|
+| `bg` | `#000000` | App background |
+| `surface` | `#18181b` | Cards, sheets, list groups |
+| `surface-raised` | `#27272a` | Inputs, pressed rows, chips |
+| `border` | `#3f3f46` | Dividers, input outlines (hairline) |
+| `text` | `#fafafa` | Primary text |
+| `text-muted` | `#a1a1aa` | Secondary text, row values |
+| `text-subtle` | `#71717a` | Captions, placeholders, disabled |
+| `accent` | `#2c66fb` | Brand blue from the app icon. Primary buttons, active tab, progress |
+| `on-accent` | `#ffffff` | Text/icons on accent (4.77:1; black would be 4.40:1) |
+| `success` | `#22c55e` | Goals hit, positive deltas |
+| `warning` | `#f59e0b` | Approaching limits |
+| `danger` | `#ef4444` | Destructive actions, errors |
+
+Migration map for existing literals:
+- `#000`, `#000000` → `bg`
+- `#18181b` → `surface`; `#27272a` → `surface-raised`
+- `#fff`, `#ffffff`, `#fafafa` → `text`
+- `#71717a` → `text-subtle`; `#a1a1aa` → `text-muted`
+- Existing blues that are the brand color → `accent`
+- `#0b62e8` (expo-notifications color in `app.json`) → `accent`
+- `#facc15`, `#fbbf24` and other yellows → `warning` if they signal caution; otherwise remove (yellow is no longer the accent)
+- `lime`, `emerald`, `green` → `success` unless it is a data-viz series
+- Data-viz series colors (charts, caffeine curve, macros) get their own small
+  `chart-1…chart-5` palette in tokens.ts — propose it, don't scatter it.
+
+---
+
+## 3. Type scale
+
+System font (SF Pro on iOS). Seven sizes, no others.
+
+| Class | Size / line height | Weight | Use |
+|---|---|---|---|
+| `text-caption` | 12 / 16 | 500 | Captions, timestamps, tab labels |
+| `text-footnote` | 14 / 20 | 400 | Secondary row text, helper text |
+| `text-body` | 16 / 22 | 400 | Default body, list row titles |
+| `text-headline` | 18 / 24 | 600 | Card titles, section headers |
+| `text-title` | 24 / 30 | 700 | Screen titles |
+| `text-display` | 32 / 38 | 700 | Key numbers (calories left, score) |
+| `text-hero` | 48 / 52 | 800 | One hero number per screen, max |
+
+Existing inline sizes 9, 10, 11 → `text-caption`. 13 → `text-footnote`. 22 → `text-title`. The one-off 160 must be justified or removed.
+
+---
+
+## 4. Spacing, radius, elevation
+
+Spacing (4-pt grid): `1`=4, `2`=8, `3`=12, `4`=16, `5`=20, `6`=24, `8`=32, `12`=48.
+Off-scale values (1, 3, 5, 7, 18, -11, …) get rounded to the nearest step.
+
+- Screen horizontal padding: `px-4` (16).
+- Gap between cards: `gap-3` (12). Gap inside a card: `gap-2` (8).
+- Section spacing on a screen: `mt-6` (24).
+
+Radius: `rounded-md` 8 (chips, inputs), `rounded-xl` 16 (cards, list groups, sheets), `rounded-full` (avatars, pills). Nothing else.
+All rounded surfaces use `borderCurve: 'continuous'` via style prop.
+
+Elevation: no shadows on black. Separate layers with `surface` vs `bg`, and hairline `border` where needed.
+
+---
+
+## 5. Navigation
+
+### Tab bar
+Five tabs (Apple's maximum). Use **native tabs** (expo-router native tabs) so iOS renders the real system tab bar. **Remove swipe-between-tabs** and the material-top-tabs + custom `BottomNav` setup.
+
+| # | Label | Icon idea | Content |
+|---|---|---|---|
+| 1 | Today | house / sun | Daily overview |
+| 2 | Training | dumbbell | Workouts, logging |
+| 3 | Nutrition | fork-knife | Food logging, snap, barcode |
+| 4 | Body | figure | Body comp, measurements |
+| 5 | Pit | chat bubble / sparkles | Plan + Chat |
+
+"Pit" is core to the brand and stays as the tab name. Its icon must make the meaning obvious (AI coach / chat), and the Pit screen's empty state should say in one line what it does.
+
+### Presentation rules
+- Drill-down (settings, detail, trends, friends) → stack push with a native header and back button. No headerless screens except the tab roots and full-screen media (camera).
+- Task that is completed or cancelled (logging, snap, barcode, paywall) → modal sheet with a Cancel/Done in the header.
+- Short choice or confirmation → bottom sheet or native Alert.
+- Every pushed screen has a title in the header.
+
+### Implementation (SDK 54)
+- Wrap the app in React Navigation's `ThemeProvider` pinned to `DarkTheme`, with colors from `theme/tokens.ts`, so native headers and sheets render dark.
+- Pushed screens use standard header titles via `options={{ title }}`, not large titles. Tab roots stay headerless with a `text-title` heading.
+- Root stack stays above the tabs (pushed screens cover the tab bar).
+- Native tabs on SDK 54: `expo-router/unstable-native-tabs` with `Icon`/`Label` children, SF Symbols + Android `md` fallback. Move `OfflineBanner` and `PolicyUpdateNotice` out of the tabs layout.
+- Tasks: presentation `'modal'`. Short choices: presentation `'formSheet'` with detents and background color = `surface` (no transparent/glass).
+- Do not use `@expo/ui` on SDK 54; build settings with our own components and the RN `Switch` colored from tokens.
+
+### Cleanup
+- Delete `App.tsx` (unused starter template).
+- Remove or wire up `programs` (currently unreachable).
+- Hide `avatar-lab` and the Labs row entirely in production builds (`__DEV__` or EAS profile check), not only behind a flag.
+
+---
+
+## 6. Settings
+
+Entry point: avatar + gear in the Today header top-right (keep current placement). Settings is the single hub — every user-configurable option lives here or one level below.
+
+Settings uses the iOS inset grouped list pattern: rounded `surface` groups on `bg`, `text-body` row titles, `text-muted` current value on the right, chevron for drill-down, native `Switch` for toggles. Section headers in `text-footnote` / `text-subtle`, sentence case.
+
+```
+[ Avatar   Username                    > ]   → Profile
+   Free plan · Upgrade
+
+Goals & targets
+  Goal                       Cut         >
+  Calories                   2,200 kcal  >
+  Protein                    160 g       >
+  Water                      3,000 ml    >
+  Bedtime                    23:00       >
+
+Preferences
+  Training preferences                   >   (equipment, experience, session length, injuries)
+  Nutrition preferences                  >   (diet, allergies, avoided foods, cooking effort, health flags)
+  Units                      Metric      >   NEW
+
+Avatar
+  Customize avatar                       >   (opens avatar-edit)
+
+Notifications
+  Notifications              On/Off      >   (permission status; deep-links to iOS Settings if denied)
+  Smart nudges               [switch]
+
+Subscription
+  Plan                       Free        >   (paywall / manage)
+  Restore purchases
+
+Privacy & data
+  Show body shape to friends [switch]        (moved from avatar-edit; keep a mirror there)
+  Export data (CSV)          Pro         >
+
+Help
+  How GainRace works                     >   (methodology)
+  Contact support
+  Privacy policy
+  Terms of service
+
+Account
+  Sign out
+
+  Delete account                              (separate group, danger color)
+
+Version 1.x.x (build n)                       (text-subtle, centered)
+```
+
+### Profile screen (from the top row)
+Username, age, sex, height — **age, sex, height are new here** (currently onboarding-only). Saving any of these must recompute dependent values (BMI, targets) or ask whether to.
+
+### What moves where
+| Option | From | To |
+|---|---|---|
+| Goal cut/maintain/bulk | Preferences | Goals & targets |
+| Equipment, experience, session, injuries | Preferences ("Pit Crew") | Training preferences |
+| Diet, allergies, foods, effort, health flags | Preferences ("Pit Crew") | Nutrition preferences |
+| Body shape privacy | Avatar edit | Privacy & data (mirrored in avatar edit) |
+| Send test notification | Settings | Dev builds only |
+| Trends link | Settings | Remove (Trends is content, reached from Today) |
+| Trends range 30d/90d/1y | Trends | Stays on Trends (view control, not a setting) |
+| Avatar lab | Settings → Labs | Dev builds only |
+
+### Save behaviour
+No global "Save" button. Each value edits on its own screen or sheet and saves when confirmed (Done) or on toggle. Show inline errors if the server rejects a change.
+
+---
+
+## 7. Implementation
+
+`theme/tokens.ts`
+```ts
+export const colors = {
+  bg: '#000000',
+  surface: '#18181b',
+  'surface-raised': '#27272a',
+  border: '#3f3f46',
+  text: '#fafafa',
+  'text-muted': '#a1a1aa',
+  'text-subtle': '#71717a',
+  accent: '#2c66fb',
+  'on-accent': '#ffffff',
+  success: '#22c55e',
+  warning: '#f59e0b',
+  danger: '#ef4444',
+} as const;
+
+export const fontSize = {
+  caption: ['12px', { lineHeight: '16px', fontWeight: '500' }],
+  footnote: ['14px', { lineHeight: '20px' }],
+  body: ['16px', { lineHeight: '22px' }],
+  headline: ['18px', { lineHeight: '24px', fontWeight: '600' }],
+  title: ['24px', { lineHeight: '30px', fontWeight: '700' }],
+  display: ['32px', { lineHeight: '38px', fontWeight: '700' }],
+  hero: ['48px', { lineHeight: '52px', fontWeight: '800' }],
+} as const;
+```
+
+`tailwind.config.js`
+```js
+const { colors, fontSize } = require('./theme/tokens');
+module.exports = {
+  // ...existing content/presets
+  theme: {
+    extend: {
+      colors,
+      fontSize,
+      borderRadius: { md: '8px', xl: '16px' },
+    },
+  },
+};
+```
+For the few places that need raw values (react-three-fiber, SVG charts, `Switch` trackColor), import from `theme/tokens.ts` — never retype the hex.
+
+---
+
+## 8. Work order
+
+Do these as separate commits/PRs, verify on device/simulator after each.
+
+1. `app.json` → `userInterfaceStyle: "dark"`. Delete `App.tsx`. Remove/wire `programs`.
+2. Add `theme/tokens.ts` + Tailwind config. No visual changes yet.
+3. Sweep colors file-by-file to tokens (screens first, then components). Screenshot before/after.
+4. Sweep type sizes and spacing to the scales. Add the borderRadius override (md 8px, xl 16px) here; it changes existing rounded-md/rounded-xl usages, so review corners on device.
+5. Build reusable `SettingsGroup`, `SettingsRow` (chevron / value / switch / destructive variants). Rebuild Settings per §6. Add Profile and Units screens.
+6. Switch to native tabs; remove swipe tabs and custom BottomNav. Add native headers to pushed screens.
+7. Rename user-facing jargon in settings ("Pit Crew" → Training / Nutrition preferences, remove Labs). The Pit tab keeps its name.
+8. Final pass: every screen against §1 rules; run a grep for `#[0-9a-fA-F]{3,6}` and `fontSize:` in app/ and components/ — target zero.
