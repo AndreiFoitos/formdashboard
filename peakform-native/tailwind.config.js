@@ -1,3 +1,5 @@
+const { colors, fontSize } = require('./theme/tokens')
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -7,7 +9,10 @@ module.exports = {
   ],
   presets: [require('nativewind/preset')],
   theme: {
-    extend: {},
+    extend: {
+      colors,
+      fontSize,
+    },
   },
   plugins: [],
 }
