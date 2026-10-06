@@ -19,6 +19,7 @@ import SsoButtons from '../components/SsoButtons'
 import { FEATURES } from '../lib/featureFlags'
 import { extractErrorMessage } from '../lib/apiError'
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL } from '../lib/legal'
+import { colors } from '../theme/tokens'
 
 export default function RegisterScreen() {
   const { setAuth } = useAuthStore()
@@ -61,7 +62,7 @@ export default function RegisterScreen() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-black"
+      className="flex-1 bg-bg"
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
@@ -75,69 +76,69 @@ export default function RegisterScreen() {
             style={{ width: 320, height: 110, marginBottom: 12, alignSelf: 'center' }}
             resizeMode="contain"
           />
-          <Text className="text-zinc-500 text-sm mb-8 text-center">Set up your account</Text>
+          <Text className="text-text-subtle text-sm mb-8 text-center">Set up your account</Text>
 
           {/* SSO */}
           {FEATURES.anySso && (
             <>
               <SsoButtons onError={setError} />
               <View className="flex-row items-center my-6">
-                <View className="flex-1 h-px bg-zinc-800" />
-                <Text className="px-3 text-zinc-600 text-xs uppercase tracking-widest">or</Text>
-                <View className="flex-1 h-px bg-zinc-800" />
+                <View className="flex-1 h-px bg-surface-raised" />
+                <Text className="px-3 text-text-subtle text-xs uppercase tracking-widest">or</Text>
+                <View className="flex-1 h-px bg-surface-raised" />
               </View>
             </>
           )}
 
           {/* Name */}
-          <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-1.5">
+          <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">
             Name{' '}
-            <Text className="text-zinc-600 normal-case">(optional)</Text>
+            <Text className="text-text-subtle normal-case">(optional)</Text>
           </Text>
           <TextInput
             value={name}
             onChangeText={setName}
             placeholder="Alex"
-            placeholderTextColor="#52525b"
+            placeholderTextColor={colors['text-subtle']}
             autoCorrect={false}
             textContentType="name"
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm mb-4"
+            className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm mb-4"
           />
 
           {/* Email */}
-          <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-1.5">
+          <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">
             Email
           </Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
-            placeholderTextColor="#52525b"
+            placeholderTextColor={colors['text-subtle']}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
             textContentType="emailAddress"
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm mb-4"
+            className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm mb-4"
           />
 
           {/* Password */}
-          <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-1.5">
+          <Text className="text-text-muted text-xs uppercase tracking-widest mb-1.5">
             Password
           </Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
             placeholder="Min. 8 characters"
-            placeholderTextColor="#52525b"
+            placeholderTextColor={colors['text-subtle']}
             secureTextEntry
             textContentType="newPassword"
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm mb-4"
+            className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm mb-4"
           />
 
           {/* Error */}
           {error && (
-            <View className="bg-red-950 border border-red-900 rounded-xl px-4 py-3 mb-4">
-              <Text className="text-red-400 text-sm">{error}</Text>
+            <View className="bg-danger/15 border border-danger/40 rounded-xl px-4 py-3 mb-4">
+              <Text className="text-danger text-sm">{error}</Text>
             </View>
           )}
 
@@ -145,13 +146,13 @@ export default function RegisterScreen() {
           <TouchableOpacity
             onPress={handleRegister}
             disabled={loading || !email || password.length < 8}
-            className="bg-white rounded-2xl py-4 items-center mb-4"
+            className="bg-accent rounded-2xl py-4 items-center mb-4"
             style={{ opacity: loading || !email || password.length < 8 ? 0.4 : 1 }}
           >
             {loading ? (
-              <ActivityIndicator color="black" />
+              <ActivityIndicator color={colors['on-accent']} />
             ) : (
-              <Text className="text-black font-semibold text-base">
+              <Text className="text-on-accent font-semibold text-base">
                 Create account
               </Text>
             )}
@@ -159,24 +160,24 @@ export default function RegisterScreen() {
 
           {/* Login link */}
           <TouchableOpacity onPress={() => router.push('/login')}>
-            <Text className="text-zinc-500 text-sm text-center">
+            <Text className="text-text-subtle text-sm text-center">
               Already have an account?{' '}
-              <Text className="text-white">Sign in</Text>
+              <Text className="text-text">Sign in</Text>
             </Text>
           </TouchableOpacity>
 
           {/* Legal — Apple wants the link above-the-fold from the auth screens */}
-          <Text className="text-zinc-600 text-xs text-center mt-6 px-2">
+          <Text className="text-text-subtle text-xs text-center mt-6 px-2">
             By creating an account you agree to our{' '}
             <Text
-              className="text-zinc-400 underline"
+              className="text-text-muted underline"
               onPress={() => Linking.openURL(TERMS_OF_SERVICE_URL)}
             >
               Terms
             </Text>{' '}
             and{' '}
             <Text
-              className="text-zinc-400 underline"
+              className="text-text-muted underline"
               onPress={() => Linking.openURL(PRIVACY_POLICY_URL)}
             >
               Privacy Policy

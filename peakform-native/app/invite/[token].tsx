@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useAuthStore } from '../../store/auth'
 import { usePendingInviteStore } from '../../store/pendingInvite'
+import { colors } from '../../theme/tokens'
 
 interface RedeemResponse {
   status: 'created' | 'already_friends' | 'already_pending'
@@ -72,18 +73,18 @@ export default function InviteScreen() {
   }, [hydrated, user?.id, token])
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top', 'bottom']}>
       <View className="flex-1 justify-center items-center px-6">
-        {state.kind === 'loading' && <ActivityIndicator color="#ffffff" />}
+        {state.kind === 'loading' && <ActivityIndicator color={colors.text} />}
 
         {state.kind === 'success' && (
           <View className="items-center">
-            <Text className="text-white text-2xl font-semibold mb-2 text-center">
+            <Text className="text-text text-2xl font-semibold mb-2 text-center">
               {state.res.status === 'created' && `Friend request from ${inviterLabel(state.res.inviter)}`}
               {state.res.status === 'already_pending' && `Pending with ${inviterLabel(state.res.inviter)}`}
               {state.res.status === 'already_friends' && `Already friends with ${inviterLabel(state.res.inviter)}`}
             </Text>
-            <Text className="text-zinc-500 text-sm mb-8 text-center">
+            <Text className="text-text-subtle text-sm mb-8 text-center">
               {state.res.status === 'created'
                 ? 'Open Friends to accept and start showing up on each other’s leaderboard.'
                 : state.res.status === 'already_pending'
@@ -92,24 +93,24 @@ export default function InviteScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => router.replace('/friends')}
-              className="bg-white rounded-2xl px-8 py-3"
+              className="bg-accent rounded-2xl px-8 py-3"
             >
-              <Text className="text-black font-semibold text-sm">Open Friends</Text>
+              <Text className="text-on-accent font-semibold text-sm">Open Friends</Text>
             </TouchableOpacity>
           </View>
         )}
 
         {state.kind === 'error' && (
           <View className="items-center">
-            <Text className="text-white text-xl font-semibold mb-2 text-center">
+            <Text className="text-text text-xl font-semibold mb-2 text-center">
               Invite unavailable
             </Text>
-            <Text className="text-zinc-500 text-sm mb-8 text-center">{state.message}</Text>
+            <Text className="text-text-subtle text-sm mb-8 text-center">{state.message}</Text>
             <TouchableOpacity
               onPress={() => router.replace('/')}
-              className="bg-white rounded-2xl px-8 py-3"
+              className="bg-accent rounded-2xl px-8 py-3"
             >
-              <Text className="text-black font-semibold text-sm">Continue</Text>
+              <Text className="text-on-accent font-semibold text-sm">Continue</Text>
             </TouchableOpacity>
           </View>
         )}

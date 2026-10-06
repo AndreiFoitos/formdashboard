@@ -23,6 +23,7 @@ import { hapticLight, hapticMedium, hapticSuccess } from '../lib/haptics'
 import { extractErrorMessage } from '../lib/apiError'
 import { handleLimitError, usePlan, useSetPlan, type ScanUsage } from '../hooks/usePlan'
 import { ScanLimitCard, ScanQuotaPill } from '../components/ScanQuota'
+import { colors } from '../theme/tokens'
 
 // BF% estimator, three-angle version. The user props the phone up, steps
 // back, and a spoken countdown walks them through front → side → back while
@@ -66,19 +67,19 @@ class Cancelled extends Error {}
 
 function PermissionGate({ onRequest }: { onRequest: () => void }) {
   return (
-    <View className="flex-1 bg-black items-center justify-center px-8">
-      <Text className="text-white text-xl font-semibold text-center mb-2">
+    <View className="flex-1 bg-bg items-center justify-center px-8">
+      <Text className="text-text text-xl font-semibold text-center mb-2">
         Camera access needed
       </Text>
-      <Text className="text-zinc-400 text-sm text-center mb-8">
+      <Text className="text-text-muted text-sm text-center mb-8">
         We use the camera to estimate body-fat % from three quick photos. The images are
         sent to Claude for analysis and not saved on your account.
       </Text>
-      <PressableScale haptic onPress={onRequest} className="bg-white rounded-2xl px-6 py-3">
-        <Text className="text-black font-semibold">Allow camera</Text>
+      <PressableScale haptic onPress={onRequest} className="bg-accent rounded-2xl px-6 py-3">
+        <Text className="text-on-accent font-semibold">Allow camera</Text>
       </PressableScale>
       <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="mt-4 px-4 py-2.5">
-        <Text className="text-zinc-300 text-base font-medium">Cancel</Text>
+        <Text className="text-text-muted text-base font-medium">Cancel</Text>
       </TouchableOpacity>
     </View>
   )
@@ -86,10 +87,10 @@ function PermissionGate({ onRequest }: { onRequest: () => void }) {
 
 function AnalyzingOverlay({ count }: { count: number }) {
   return (
-    <View className="absolute inset-0 bg-black/85 items-center justify-center" pointerEvents="auto">
-      <ActivityIndicator size="large" color="#ffffff" />
-      <Text className="text-white text-base font-medium mt-4">Analyzing…</Text>
-      <Text className="text-zinc-400 text-xs mt-1">
+    <View className="absolute inset-0 bg-bg/85 items-center justify-center" pointerEvents="auto">
+      <ActivityIndicator size="large" color={colors.text} />
+      <Text className="text-text text-base font-medium mt-4">Analyzing…</Text>
+      <Text className="text-text-muted text-xs mt-1">
         Reviewing {count === 1 ? 'the photo' : `${count} angles`}
       </Text>
     </View>
@@ -107,12 +108,12 @@ function StepPills({ current, done }: { current: View3 | null; done: Partial<Rec
             key={v.key}
             className="rounded-full px-3 py-1.5"
             style={{
-              backgroundColor: active ? '#ffffff' : finished ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.6)',
+              backgroundColor: active ? colors.text : finished ? `${colors.text}59` : `${colors.bg}99`,
             }}
           >
             <Text
               className="text-xs font-semibold"
-              style={{ color: active ? '#000000' : '#ffffff' }}
+              style={{ color: active ? colors.bg : colors.text }}
             >
               {finished && !active ? '✓ ' : ''}
               {v.label}
@@ -139,25 +140,25 @@ function IntroCard({ onStart, usage }: { onStart: () => void; usage?: ScanUsage 
   ]
   return (
     <View className="absolute left-0 right-0 bottom-0 px-4 pb-8">
-      <View className="bg-black/80 border border-zinc-800 rounded-3xl p-5">
+      <View className="bg-bg/80 border border-divider rounded-3xl p-5">
         <View className="flex-row items-center justify-between mb-1">
-          <Text className="text-white text-lg font-semibold">3-angle scan</Text>
+          <Text className="text-text text-lg font-semibold">3-angle scan</Text>
           <ScanQuotaPill kind="bf" usage={usage} />
         </View>
-        <Text className="text-zinc-400 text-xs mb-4">
+        <Text className="text-text-muted text-xs mb-4">
           Three angles give a more reliable estimate than one. Takes about 20 seconds.
         </Text>
         {tips.map((t, i) => (
           <View key={i} className="flex-row mb-2.5">
-            <Text className="text-zinc-500 text-sm w-5">{i + 1}.</Text>
-            <Text className="text-zinc-200 text-sm flex-1">{t}</Text>
+            <Text className="text-text-subtle text-sm w-5">{i + 1}.</Text>
+            <Text className="text-text text-sm flex-1">{t}</Text>
           </View>
         ))}
-        <Text className="text-zinc-500 text-xs mt-1 mb-4">
+        <Text className="text-text-subtle text-xs mt-1 mb-4">
           Fitted clothing or shirtless, even lighting, plain background. Turn your volume up.
         </Text>
-        <PressableScale haptic onPress={onStart} className="bg-white rounded-2xl py-4 items-center">
-          <Text className="text-black font-semibold text-base">Start scan</Text>
+        <PressableScale haptic onPress={onStart} className="bg-accent rounded-2xl py-4 items-center">
+          <Text className="text-on-accent font-semibold text-base">Start scan</Text>
         </PressableScale>
       </View>
     </View>
@@ -178,17 +179,17 @@ function ReviewView({
   busy: boolean
 }) {
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top', 'bottom']}>
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
+    <SafeAreaView className="flex-1 bg-bg" edges={['top', 'bottom']}>
+      <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
         <TouchableOpacity onPress={onRestart} hitSlop={8} disabled={busy}>
-          <Text className="text-zinc-400 text-base">‹ Start over</Text>
+          <Text className="text-text-muted text-base">‹ Start over</Text>
         </TouchableOpacity>
-        <Text className="text-white font-semibold">Check your photos</Text>
+        <Text className="text-text font-semibold">Check your photos</Text>
         <View style={{ width: 80 }} />
       </View>
 
       <View className="flex-1 px-4 pt-6">
-        <Text className="text-zinc-400 text-sm mb-5">
+        <Text className="text-text-muted text-sm mb-5">
           Your whole body should be visible in each shot. Tap a photo to retake just that one.
         </Text>
         <View className="flex-row" style={{ gap: 10 }}>
@@ -201,30 +202,30 @@ function ReviewView({
               activeOpacity={0.8}
             >
               <View
-                className="rounded-2xl overflow-hidden bg-zinc-900 border border-zinc-800"
+                className="rounded-2xl overflow-hidden bg-surface border border-divider"
                 style={{ aspectRatio: 3 / 4 }}
               >
                 {shots[v.key] && (
                   <Image source={{ uri: shots[v.key] }} style={{ flex: 1 }} resizeMode="cover" />
                 )}
-                <View className="absolute bottom-1.5 right-1.5 w-7 h-7 rounded-full bg-black/60 items-center justify-center">
-                  <RotateCcw size={14} color="#ffffff" />
+                <View className="absolute bottom-1.5 right-1.5 w-7 h-7 rounded-full bg-bg/60 items-center justify-center">
+                  <RotateCcw size={14} color={colors.text} />
                 </View>
               </View>
-              <Text className="text-zinc-300 text-xs text-center mt-2 font-medium">{v.label}</Text>
+              <Text className="text-text-muted text-xs text-center mt-2 font-medium">{v.label}</Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
-      <View className="px-4 pt-3 pb-8 border-t border-zinc-800">
+      <View className="px-4 pt-3 pb-8 border-t border-divider">
         <PressableScale
           haptic
           onPress={onAnalyze}
           disabled={busy}
-          className="bg-white rounded-2xl py-4 items-center"
+          className="bg-accent rounded-2xl py-4 items-center"
         >
-          <Text className="text-black font-semibold text-base">Analyze</Text>
+          <Text className="text-on-accent font-semibold text-base">Analyze</Text>
         </PressableScale>
       </View>
 
@@ -248,36 +249,36 @@ function EstimateView({
     estimate.bf_percent_low != null && estimate.bf_percent_high != null
   const angles = estimate.views_used && estimate.views_used > 1 ? ` · ${estimate.views_used} angles` : ''
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top', 'bottom']}>
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
+    <SafeAreaView className="flex-1 bg-bg" edges={['top', 'bottom']}>
+      <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
         <TouchableOpacity onPress={onRetake} hitSlop={8}>
-          <Text className="text-zinc-400 text-base">‹ Retake</Text>
+          <Text className="text-text-muted text-base">‹ Retake</Text>
         </TouchableOpacity>
-        <Text className="text-white font-semibold">BF% estimate</Text>
+        <Text className="text-text font-semibold">BF% estimate</Text>
         <View style={{ width: 60 }} />
       </View>
 
       <ScrollView className="flex-1 px-4 pt-5" contentContainerStyle={{ paddingBottom: 160 }}>
         {hasNumber ? (
           <View className="items-center pb-3">
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1">
               Estimated range
             </Text>
-            <Text className="text-white text-5xl font-bold">
+            <Text className="text-text text-5xl font-bold">
               {estimate.bf_percent_low}–{estimate.bf_percent_high}
-              <Text className="text-zinc-500 text-2xl font-normal"> %</Text>
+              <Text className="text-text-subtle text-2xl font-normal"> %</Text>
             </Text>
-            <Text className="text-zinc-500 text-xs mt-1">
+            <Text className="text-text-subtle text-xs mt-1">
               midpoint ~{estimate.bf_percent_midpoint}% · confidence {estimate.confidence}
               {angles}
             </Text>
           </View>
         ) : (
           <View className="items-center pb-3">
-            <Text className="text-zinc-300 text-lg font-semibold mb-1">
+            <Text className="text-text-muted text-lg font-semibold mb-1">
               Couldn't estimate
             </Text>
-            <Text className="text-zinc-500 text-xs text-center">
+            <Text className="text-text-subtle text-xs text-center">
               The photos weren't usable. Try again with a clearer pose and lighting.
             </Text>
           </View>
@@ -285,21 +286,21 @@ function EstimateView({
 
         {estimate.visible_cues.length > 0 && (
           <View className="mt-6">
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
               What the model saw
             </Text>
-            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+            <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
               {estimate.visible_cues.map((c, i) => (
                 <View
                   key={i}
                   className="px-4 py-3 flex-row"
                   style={{
                     borderBottomWidth: i === estimate.visible_cues.length - 1 ? 0 : 1,
-                    borderBottomColor: '#27272a',
+                    borderBottomColor: colors.divider,
                   }}
                 >
-                  <Text className="text-zinc-500 text-xs mr-2 mt-0.5">•</Text>
-                  <Text className="text-zinc-300 text-sm flex-1">{c}</Text>
+                  <Text className="text-text-subtle text-xs mr-2 mt-0.5">•</Text>
+                  <Text className="text-text-muted text-sm flex-1">{c}</Text>
                 </View>
               ))}
             </View>
@@ -308,41 +309,41 @@ function EstimateView({
 
         {estimate.limitations.length > 0 && (
           <View className="mt-6">
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
               Limitations
             </Text>
-            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+            <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
               {estimate.limitations.map((c, i) => (
                 <View
                   key={i}
                   className="px-4 py-3 flex-row"
                   style={{
                     borderBottomWidth: i === estimate.limitations.length - 1 ? 0 : 1,
-                    borderBottomColor: '#27272a',
+                    borderBottomColor: colors.divider,
                   }}
                 >
-                  <Text className="text-zinc-500 text-xs mr-2 mt-0.5">•</Text>
-                  <Text className="text-zinc-500 text-sm flex-1">{c}</Text>
+                  <Text className="text-text-subtle text-xs mr-2 mt-0.5">•</Text>
+                  <Text className="text-text-subtle text-sm flex-1">{c}</Text>
                 </View>
               ))}
             </View>
           </View>
         )}
 
-        <Text className="text-zinc-600 text-xs mt-5 leading-5">{estimate.disclaimer}</Text>
+        <Text className="text-text-subtle text-xs mt-5 leading-5">{estimate.disclaimer}</Text>
       </ScrollView>
 
-      <View className="absolute bottom-0 left-0 right-0 bg-black border-t border-zinc-800 px-4 pt-3 pb-8">
+      <View className="absolute bottom-0 left-0 right-0 bg-bg border-t border-divider px-4 pt-3 pb-8">
         <TouchableOpacity
           onPress={onSave}
           disabled={!hasNumber || saving}
-          className="bg-white rounded-2xl py-4 items-center"
+          className="bg-accent rounded-2xl py-4 items-center"
           style={{ opacity: !hasNumber || saving ? 0.4 : 1 }}
         >
           {saving ? (
-            <ActivityIndicator color="black" />
+            <ActivityIndicator color={colors['on-accent']} />
           ) : (
-            <Text className="text-black font-semibold text-base">
+            <Text className="text-on-accent font-semibold text-base">
               {hasNumber ? `Save ${estimate.bf_percent_midpoint}% to Body` : 'Retake'}
             </Text>
           )}
@@ -427,8 +428,8 @@ export default function BodyCompSnapScreen() {
 
   if (!permission) {
     return (
-      <View className="flex-1 bg-black items-center justify-center">
-        <ActivityIndicator color="#ffffff" />
+      <View className="flex-1 bg-bg items-center justify-center">
+        <ActivityIndicator color={colors.text} />
       </View>
     )
   }
@@ -587,7 +588,7 @@ export default function BodyCompSnapScreen() {
   const capturing = phase === 'capturing'
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top', 'bottom']}>
       <View className="flex-1">
         <CameraView
           ref={cameraRef}
@@ -605,16 +606,16 @@ export default function BodyCompSnapScreen() {
         <View className="absolute top-0 left-0 right-0 px-4 pt-3 flex-row items-center justify-between">
           <TouchableOpacity
             onPress={capturing ? abort : () => router.back()}
-            className="w-11 h-11 rounded-full bg-black/60 items-center justify-center"
+            className="w-11 h-11 rounded-full bg-bg/60 items-center justify-center"
             hitSlop={12}
           >
-            <X size={22} color="#ffffff" strokeWidth={2.25} />
+            <X size={22} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
           {capturing ? (
             <StepPills current={currentView} done={shots} />
           ) : (
-            <View className="bg-black/60 rounded-full px-3 py-1.5">
-              <Text className="text-white text-xs">Full body · even lighting</Text>
+            <View className="bg-bg/60 rounded-full px-3 py-1.5">
+              <Text className="text-text text-xs">Full body · even lighting</Text>
             </View>
           )}
           {capturing ? (
@@ -625,10 +626,10 @@ export default function BodyCompSnapScreen() {
                 cameraReady.current = false
                 setFacing((f) => (f === 'front' ? 'back' : 'front'))
               }}
-              className="w-11 h-11 rounded-full bg-black/60 items-center justify-center"
+              className="w-11 h-11 rounded-full bg-bg/60 items-center justify-center"
               hitSlop={12}
             >
-              <SwitchCamera size={20} color="#ffffff" strokeWidth={2.25} />
+              <SwitchCamera size={20} color={colors.text} strokeWidth={2.25} />
             </TouchableOpacity>
           )}
         </View>
@@ -638,11 +639,11 @@ export default function BodyCompSnapScreen() {
             {count != null && (
               // Sized to be readable from 2–3 m away.
               <Text
-                className="text-white font-bold"
+                className="text-text font-bold"
                 style={{
                   fontSize: 160,
                   lineHeight: 176,
-                  textShadowColor: 'rgba(0,0,0,0.6)',
+                  textShadowColor: `${colors.bg}99`,
                   textShadowRadius: 16,
                 }}
               >
@@ -654,8 +655,8 @@ export default function BodyCompSnapScreen() {
 
         {capturing && instruction !== '' && (
           <View className="absolute left-0 right-0 bottom-0 px-6 pb-12 items-center" pointerEvents="none">
-            <View className="bg-black/70 rounded-3xl px-5 py-4">
-              <Text className="text-white text-2xl font-semibold text-center">{instruction}</Text>
+            <View className="bg-bg/70 rounded-3xl px-5 py-4">
+              <Text className="text-text text-2xl font-semibold text-center">{instruction}</Text>
             </View>
           </View>
         )}

@@ -16,6 +16,7 @@ import {
   setupNotificationHandlers,
 } from '../lib/notifications'
 import { syncPurchasesUser } from '../lib/purchases'
+import { colors } from '../theme/tokens'
 
 // ── Sentry — fire-and-forget crash + JS error reporting ──────────────────────
 // DSN comes from EXPO_PUBLIC_SENTRY_DSN set per-profile in eas.json. When the
@@ -160,10 +161,10 @@ function BootScreen() {
   }, [])
 
   return (
-    <View className="flex-1 bg-black items-center justify-center px-8">
-      <ActivityIndicator color="#ffffff" />
+    <View className="flex-1 bg-bg items-center justify-center px-8">
+      <ActivityIndicator color={colors.text} />
       {slow && (
-        <Text className="text-zinc-500 text-sm text-center mt-4">
+        <Text className="text-text-subtle text-sm text-center mt-4">
           Waking the server up — this can take up to a minute the first time.
         </Text>
       )}
@@ -180,7 +181,7 @@ function RootLayout() {
             <Stack
               screenOptions={{
                 headerShown: false,
-                contentStyle: { backgroundColor: 'black' },
+                contentStyle: { backgroundColor: colors.bg },
                 // Smooth slide animation on iOS, native on Android
                 animation: 'slide_from_right',
               }}
@@ -230,7 +231,7 @@ function RootLayout() {
                 options={{
                   presentation: 'fullScreenModal',
                   animation: 'fade',
-                  contentStyle: { backgroundColor: '#000' },
+                  contentStyle: { backgroundColor: colors.bg },
                 }}
               />
             </Stack>

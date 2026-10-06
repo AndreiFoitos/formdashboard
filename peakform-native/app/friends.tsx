@@ -26,6 +26,7 @@ import { TrustedShield } from '../components/icons/TrustedShield'
 import { SusFace } from '../components/icons/SusFace'
 import { extractErrorMessage } from '../lib/apiError'
 import { PLAN_KEY, handleLimitError } from '../hooks/usePlan'
+import { colors } from '../theme/tokens'
 
 // ─── Exercise catalogue (mirror of training.tsx for the picker) ──────────────
 
@@ -195,23 +196,23 @@ function SusVouchSheet({
 
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <View className="flex-1 bg-zinc-950">
+      <View className="flex-1 bg-surface">
         <View className="items-center pt-3 pb-2">
-          <View className="w-10 h-1 bg-zinc-700 rounded-full" />
+          <View className="w-10 h-1 bg-border rounded-full" />
         </View>
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
+        <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
           <View>
-            <Text className="text-white font-semibold">{target.user.name}</Text>
-            <Text className="text-zinc-500 text-xs mt-0.5">
+            <Text className="text-text font-semibold">{target.user.name}</Text>
+            <Text className="text-text-subtle text-xs mt-0.5">
               {target.total_volume_kg.toLocaleString()} kg this week
             </Text>
           </View>
           <TouchableOpacity
             onPress={onClose}
             hitSlop={12}
-            className="w-10 h-10 -mr-1 rounded-full bg-zinc-900 border border-zinc-800 items-center justify-center"
+            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center"
           >
-            <X size={20} color="#e4e4e7" strokeWidth={2.25} />
+            <X size={20} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
 
@@ -221,7 +222,7 @@ function SusVouchSheet({
           keyboardShouldPersistTaps="handled"
         >
           {/* Scope toggle */}
-          <View className="flex-row bg-zinc-900 border border-zinc-800 rounded-2xl p-1 mb-4">
+          <View className="flex-row bg-surface-raised border border-border rounded-2xl p-1 mb-4">
             {(['weekly', 'per_lift'] as const).map((m) => {
               const active = mode === m
               return (
@@ -232,11 +233,11 @@ function SusVouchSheet({
                     setMode(m)
                   }}
                   className="flex-1 py-2 items-center rounded-xl"
-                  style={{ backgroundColor: active ? '#27272a' : 'transparent' }}
+                  style={{ backgroundColor: active ? colors.text : 'transparent' }}
                 >
                   <Text
                     className="text-xs font-medium"
-                    style={{ color: active ? 'white' : '#71717a' }}
+                    style={{ color: active ? colors.bg : colors['text-muted'] }}
                   >
                     {m === 'weekly' ? 'Whole week' : 'A specific lift'}
                   </Text>
@@ -270,14 +271,14 @@ function SusVouchSheet({
           {/* Per-lift scope — list with both actions per lift. */}
           {mode === 'per_lift' && (
             <View>
-              <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+              <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
                 Last 7 days
               </Text>
               {liftsQuery.isLoading ? (
-                <ActivityIndicator color="#71717a" />
+                <ActivityIndicator color={colors['text-subtle']} />
               ) : (liftsQuery.data?.lifts.length ?? 0) === 0 ? (
-                <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 items-center">
-                  <Text className="text-zinc-500 text-xs">No lifts in the last 7 days</Text>
+                <View className="bg-surface-raised border border-border rounded-2xl p-4 items-center">
+                  <Text className="text-text-subtle text-xs">No lifts in the last 7 days</Text>
                 </View>
               ) : (
                 <View style={{ gap: 8 }}>
@@ -318,9 +319,9 @@ function ActionButton({
 }) {
   const isApprove = kind === 'approve'
   // Active = the viewer has already cast this action in this scope.
-  const bg = active ? (isApprove ? '#052e16' : 'rgba(120,53,15,0.4)') : '#18181b'
-  const border = active ? (isApprove ? '#14532d' : 'rgba(180,83,9,0.4)') : '#3f3f46'
-  const fg = active ? (isApprove ? '#86efac' : '#fbbf24') : 'white'
+  const bg = active ? `${isApprove ? colors.success : colors.warning}26` : colors['surface-raised']
+  const border = active ? `${isApprove ? colors.success : colors.warning}66` : colors.border
+  const fg = active ? (isApprove ? colors.success : colors.warning) : colors.text
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -335,9 +336,9 @@ function ActionButton({
             {label}
           </Text>
         </View>
-        <Text className="text-zinc-500 text-xs mt-0.5">{sub}</Text>
+        <Text className="text-text-subtle text-xs mt-0.5">{sub}</Text>
       </View>
-      {busy && <ActivityIndicator color="#a1a1aa" />}
+      {busy && <ActivityIndicator color={colors['text-muted']} />}
     </TouchableOpacity>
   )
 }
@@ -355,12 +356,12 @@ function LiftRowSusVouch({
 }) {
   const displayName = useExerciseName(EXERCISE_NAME)
   return (
-    <View className="rounded-2xl bg-zinc-900 border border-zinc-800 px-4 py-3 flex-row items-center">
+    <View className="rounded-2xl bg-surface-raised border border-border px-4 py-3 flex-row items-center">
       <View className="flex-1 pr-2">
-        <Text className="text-white text-sm font-semibold">
+        <Text className="text-text text-sm font-semibold">
           {displayName(lift.type)}
         </Text>
-        <Text className="text-zinc-500 text-xs mt-0.5">
+        <Text className="text-text-subtle text-xs mt-0.5">
           {new Date(lift.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
           {' · '}
           {lift.weight_kg ?? '–'}kg × {lift.reps ?? '–'}
@@ -370,16 +371,16 @@ function LiftRowSusVouch({
         <PillButton
           active={lift.already_vouched}
           kind="trusted"
-          tintActive="#14532d"
-          fgActive="#86efac"
+          tintActive={`${colors.success}26`}
+          fgActive={colors.success}
           onPress={onApprove}
           disabled={busy}
         />
         <PillButton
           active={lift.already_sus}
           kind="sus"
-          tintActive="rgba(180,83,9,0.5)"
-          fgActive="#fbbf24"
+          tintActive={`${colors.warning}26`}
+          fgActive={colors.warning}
           onPress={onSus}
         />
       </View>
@@ -408,9 +409,9 @@ function PillButton({
       disabled={disabled}
       className="px-3 py-1.5 rounded-full"
       style={{
-        backgroundColor: active ? tintActive : '#27272a',
+        backgroundColor: active ? tintActive : colors['surface-raised'],
         borderWidth: 1,
-        borderColor: active ? fgActive : '#3f3f46',
+        borderColor: active ? fgActive : colors.border,
         opacity: disabled ? 0.5 : 1,
       }}
     >
@@ -442,22 +443,22 @@ function LeaderboardTab() {
     <ScrollView
       className="flex-1"
       contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#ffffff" />}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.text} />}
     >
       {/* Exercise filter */}
       <View className="mb-4 flex-row items-center gap-2">
-        <Text className="text-zinc-400 text-xs uppercase tracking-widest flex-1 font-semibold">
+        <Text className="text-text-muted text-xs uppercase tracking-widest flex-1 font-semibold">
           {exercise ? `By Exercise` : `Total Weekly Volume`}
         </Text>
         <TouchableOpacity
           onPress={() => setPickerOpen(true)}
           hitSlop={8}
-          className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-full border border-zinc-700"
+          className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-full border border-border"
         >
-          <Text className="text-white text-sm font-medium">
+          <Text className="text-text text-sm font-medium">
             {exercise ? EXERCISE_NAME[exercise] : 'All exercises'}
           </Text>
-          <Text className="text-zinc-400 text-sm">▾</Text>
+          <Text className="text-text-muted text-sm">▾</Text>
         </TouchableOpacity>
       </View>
 
@@ -469,9 +470,9 @@ function LeaderboardTab() {
           <SkeletonCard height={88} />
         </View>
       ) : rows.length === 0 ? (
-        <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-8 items-center">
-          <Text className="text-zinc-300 text-base font-medium">No data yet</Text>
-          <Text className="text-zinc-500 text-sm mt-1 text-center">
+        <View className="bg-surface border border-divider rounded-2xl p-8 items-center">
+          <Text className="text-text-muted text-base font-medium">No data yet</Text>
+          <Text className="text-text-subtle text-sm mt-1 text-center">
             Add friends and log workouts to see the leaderboard
           </Text>
         </View>
@@ -479,39 +480,39 @@ function LeaderboardTab() {
         <View style={{ gap: 10 }}>
           {rows.map(row => {
             const pct = (row.total_volume_kg / maxVol) * 100
-            const medal = row.rank === 1 ? { Icon: Trophy, color: '#FCD34D' }
-                        : row.rank === 2 ? { Icon: Award,  color: '#D1D5DB' }
-                        : row.rank === 3 ? { Icon: Award,  color: '#B45309' }
+            const medal = row.rank === 1 ? { Icon: Trophy, color: colors.medal.gold }
+                        : row.rank === 2 ? { Icon: Award,  color: colors.medal.silver }
+                        : row.rank === 3 ? { Icon: Award,  color: colors.medal.bronze }
                         : null
             return (
               <View
                 key={row.user.id}
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4"
-                style={row.is_me ? { borderColor: '#71717a', borderWidth: 1.5 } : undefined}
+                className="bg-surface border border-divider rounded-2xl p-4"
+                style={row.is_me ? { borderColor: colors['text-subtle'], borderWidth: 1.5 } : undefined}
               >
                 <View className="flex-row items-center" style={{ gap: 14 }}>
                   <View className="w-9 items-center">
                     {medal
                       ? <medal.Icon size={26} color={medal.color} strokeWidth={2} />
-                      : <Text className="text-zinc-400 text-lg font-semibold">{row.rank}</Text>}
+                      : <Text className="text-text-muted text-lg font-semibold">{row.rank}</Text>}
                   </View>
                   <View className="flex-1">
                     <View className="flex-row items-center gap-2 flex-wrap">
-                      <Text className="text-white text-base font-semibold">
+                      <Text className="text-text text-base font-semibold">
                         {row.user.name}{row.is_me ? ' (you)' : ''}
                       </Text>
                       {row.is_trusted && (
                         <View
                           className="px-2 py-0.5 rounded-full flex-row items-center"
                           style={{
-                            backgroundColor: 'rgba(20,83,45,0.4)',
+                            backgroundColor: `${colors.success}26`,
                             borderWidth: 1,
-                            borderColor: 'rgba(34,197,94,0.4)',
+                            borderColor: `${colors.success}66`,
                             gap: 4,
                           }}
                         >
                           <TrustedShield size={14} />
-                          <Text className="text-xs font-semibold" style={{ color: '#86efac' }}>
+                          <Text className="text-xs font-semibold" style={{ color: colors.success }}>
                             {row.vouches}
                           </Text>
                         </View>
@@ -520,35 +521,35 @@ function LeaderboardTab() {
                         <View
                           className="px-2 py-0.5 rounded-full flex-row items-center"
                           style={{
-                            backgroundColor: row.is_sus ? 'rgba(120,53,15,0.4)' : '#27272a',
+                            backgroundColor: row.is_sus ? `${colors.warning}26` : colors['surface-raised'],
                             borderWidth: 1,
-                            borderColor: row.is_sus ? 'rgba(180,83,9,0.4)' : '#3f3f46',
+                            borderColor: row.is_sus ? `${colors.warning}66` : colors.border,
                             gap: 4,
                           }}
                         >
                           <SusFace size={14} />
                           <Text
                             className="text-xs font-semibold"
-                            style={{ color: row.is_sus ? '#fbbf24' : '#a1a1aa' }}
+                            style={{ color: row.is_sus ? colors.warning : colors['text-muted'] }}
                           >
                             {row.sus_score} / {row.sus_threshold}
                           </Text>
                         </View>
                       )}
                     </View>
-                    <Text className="text-zinc-500 text-sm mt-1">
+                    <Text className="text-text-subtle text-sm mt-1">
                       {row.days_trained} day{row.days_trained === 1 ? '' : 's'} this week
                       {row.sus_per_lift_votes > 0 && ` · ${row.sus_per_lift_votes} lift${row.sus_per_lift_votes === 1 ? '' : 's'} sus'd`}
                     </Text>
                   </View>
                   <View className="items-end" style={{ minWidth: 88 }}>
-                    <Text className="text-white text-lg font-bold">
+                    <Text className="text-text text-lg font-bold">
                       {row.total_volume_kg.toLocaleString()}
-                      <Text className="text-zinc-500 text-xs font-normal"> kg</Text>
+                      <Text className="text-text-subtle text-xs font-normal"> kg</Text>
                     </Text>
-                    <Text className="text-zinc-400 text-sm font-semibold mt-0.5">
+                    <Text className="text-text-muted text-sm font-semibold mt-0.5">
                       {row.dots_volume != null ? row.dots_volume.toLocaleString() : '—'}
-                      <Text className="text-zinc-600 text-xs font-normal"> DOTS</Text>
+                      <Text className="text-text-subtle text-xs font-normal"> DOTS</Text>
                     </Text>
                   </View>
                   {!row.is_me && (
@@ -556,25 +557,25 @@ function LeaderboardTab() {
                       onPress={() => { hapticLight(); setSheetFor(row) }}
                       hitSlop={12}
                       className="ml-1 w-10 h-10 rounded-full items-center justify-center"
-                      style={{ backgroundColor: '#18181b', borderWidth: 1, borderColor: '#3f3f46' }}
+                      style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
                     >
                       {row.i_vouched
                         ? <TrustedShield size={22} />
                         : row.i_sus_weekly
                           ? <SusFace size={22} />
-                          : <HelpCircle size={22} color="#a1a1aa" strokeWidth={2} />}
+                          : <HelpCircle size={22} color={colors['text-muted']} strokeWidth={2} />}
                     </TouchableOpacity>
                   )}
                 </View>
                 <View
                   className="mt-3 rounded-full overflow-hidden"
-                  style={{ height: 6, backgroundColor: '#27272a' }}
+                  style={{ height: 6, backgroundColor: colors['surface-raised'] }}
                 >
                   <View
                     style={{
                       width: `${pct}%`,
                       height: '100%',
-                      backgroundColor: row.is_me ? '#ffffff' : '#a1a1aa',
+                      backgroundColor: row.is_me ? colors.accent : colors['text-muted'],
                       borderRadius: 3,
                     }}
                   />
@@ -718,52 +719,52 @@ function FriendsTab() {
     <ScrollView
       className="flex-1"
       contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#ffffff" />}
+      refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.text} />}
       keyboardShouldPersistTaps="handled"
     >
       {/* Invite link — primary CTA. Generates a token server-side and pops
           the native Share sheet immediately, so the common flow is one tap. */}
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Invite link</Text>
+      <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">Invite link</Text>
       <PressableScale
         haptic
         onPress={() => createInviteMutation.mutate()}
         disabled={atCap || createInviteMutation.isPending}
-        className="bg-white rounded-2xl py-3 mb-2 items-center"
+        className="bg-accent rounded-2xl py-3 mb-2 items-center"
         style={{ opacity: atCap || createInviteMutation.isPending ? 0.4 : 1 }}
       >
         {createInviteMutation.isPending
-          ? <ActivityIndicator color="black" />
-          : <Text className="text-black text-sm font-semibold">Share invite link</Text>}
+          ? <ActivityIndicator color={colors['on-accent']} />
+          : <Text className="text-on-accent text-sm font-semibold">Share invite link</Text>}
       </PressableScale>
       {atCap && (
-        <Text className="text-zinc-600 text-xs mb-2">
+        <Text className="text-text-subtle text-xs mb-2">
           You have {cap} active links — revoke one to share a new one.
         </Text>
       )}
       {invites.length > 0 && (
-        <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-5">
+        <View className="bg-surface border border-divider rounded-2xl overflow-hidden mb-5">
           {invites.map((link, i) => (
             <View
               key={link.id}
               className="flex-row items-center justify-between px-4 py-3"
               style={{
                 borderBottomWidth: i === invites.length - 1 ? 0 : 1,
-                borderBottomColor: '#27272a',
+                borderBottomColor: colors.divider,
               }}
             >
               <View className="flex-1">
-                <Text className="text-white text-sm font-semibold" style={{ letterSpacing: 1.5 }}>
+                <Text className="text-text text-sm font-semibold" style={{ letterSpacing: 1.5 }}>
                   {link.token}
                 </Text>
-                <Text className="text-zinc-500 text-xs mt-0.5">
+                <Text className="text-text-subtle text-xs mt-0.5">
                   {link.joined_count} joined · expires in {daysUntil(link.expires_at)}d
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => reshareInvite(link)} hitSlop={12} className="px-4 py-2 mr-1 rounded-full bg-zinc-800">
-                <Text className="text-zinc-100 text-sm font-medium">Share</Text>
+              <TouchableOpacity onPress={() => reshareInvite(link)} hitSlop={12} className="px-4 py-2 mr-1 rounded-full bg-surface-raised">
+                <Text className="text-text text-sm font-medium">Share</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => confirmRevoke(link)} hitSlop={12} className="w-9 h-9 rounded-full items-center justify-center">
-                <MoreHorizontal size={20} color="#d4d4d8" strokeWidth={2.25} />
+                <MoreHorizontal size={20} color={colors.text} strokeWidth={2.25} />
               </TouchableOpacity>
             </View>
           ))}
@@ -774,18 +775,18 @@ function FriendsTab() {
       )}
 
       {/* Invite */}
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Invite by username</Text>
+      <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">Invite by username</Text>
       <View className="flex-row gap-2 mb-2">
-        <View className="flex-1 flex-row items-center bg-zinc-900 border border-zinc-800 rounded-2xl px-4">
-          <Text className="text-zinc-500 text-sm">@</Text>
+        <View className="flex-1 flex-row items-center bg-surface-raised border border-border rounded-2xl px-4">
+          <Text className="text-text-subtle text-sm">@</Text>
           <TextInput
             value={inviteUsername}
             onChangeText={(v) => setInviteUsername(v.replace(/^@/, '').toLowerCase())}
             placeholder="friend_handle"
-            placeholderTextColor="#52525b"
+            placeholderTextColor={colors['text-subtle']}
             autoCapitalize="none"
             autoCorrect={false}
-            className="flex-1 py-3 text-white text-sm ml-1"
+            className="flex-1 py-3 text-text text-sm ml-1"
           />
         </View>
         <PressableScale
@@ -795,16 +796,16 @@ function FriendsTab() {
             if (!handle) return
             inviteMutation.mutate(handle)
           }}
-          className="bg-white rounded-2xl px-4 justify-center"
+          className="bg-accent rounded-2xl px-4 justify-center"
           style={{ opacity: inviteUsername.trim() && !inviteMutation.isPending ? 1 : 0.4 }}
         >
           {inviteMutation.isPending
-            ? <ActivityIndicator color="black" />
-            : <Text className="text-black text-sm font-semibold">Send</Text>}
+            ? <ActivityIndicator color={colors['on-accent']} />
+            : <Text className="text-on-accent text-sm font-semibold">Send</Text>}
         </PressableScale>
       </View>
-      <Text className="text-zinc-600 text-xs mb-5">
-        Your handle: <Text className="text-zinc-400">@{myUsername ?? '—'}</Text>
+      <Text className="text-text-subtle text-xs mb-5">
+        Your handle: <Text className="text-text-muted">@{myUsername ?? '—'}</Text>
       </Text>
 
       {isLoading ? (
@@ -817,35 +818,35 @@ function FriendsTab() {
           {/* Pending in */}
           {(data?.pending_in?.length ?? 0) > 0 && (
             <>
-              <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Requests</Text>
-              <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-5">
+              <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">Requests</Text>
+              <View className="bg-surface border border-divider rounded-2xl overflow-hidden mb-5">
                 {data!.pending_in.map((r, i) => (
                   <View
                     key={r.id}
                     className="flex-row items-center justify-between px-4 py-3"
                     style={{
                       borderBottomWidth: i === data!.pending_in.length - 1 ? 0 : 1,
-                      borderBottomColor: '#27272a',
+                      borderBottomColor: colors.divider,
                     }}
                   >
                     <View className="flex-1">
-                      <Text className="text-white text-sm font-medium">{r.user.name}</Text>
-                      <Text className="text-zinc-500 text-xs">
+                      <Text className="text-text text-sm font-medium">{r.user.name}</Text>
+                      <Text className="text-text-subtle text-xs">
                         {r.user.username ? `@${r.user.username}` : r.user.name}
                       </Text>
                     </View>
                     <TouchableOpacity
                       onPress={() => acceptMutation.mutate(r.id)}
-                      className="bg-white rounded-full px-4 py-2 mr-2"
+                      className="bg-accent rounded-full px-4 py-2 mr-2"
                     >
-                      <Text className="text-black text-sm font-semibold">Accept</Text>
+                      <Text className="text-on-accent text-sm font-semibold">Accept</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => rejectMutation.mutate(r.id)}
                       hitSlop={12}
-                      className="w-9 h-9 rounded-full bg-zinc-800 items-center justify-center"
+                      className="w-9 h-9 rounded-full bg-surface-raised items-center justify-center"
                     >
-                      <X size={18} color="#d4d4d8" strokeWidth={2.25} />
+                      <X size={18} color={colors.text} strokeWidth={2.25} />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -854,30 +855,30 @@ function FriendsTab() {
           )}
 
           {/* Friends */}
-          <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+          <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
             Friends ({data?.friends.length ?? 0})
           </Text>
           {data?.friends.length === 0 ? (
-            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 items-center mb-5">
-              <Text className="text-zinc-400 text-sm font-medium">No friends yet</Text>
-              <Text className="text-zinc-600 text-xs mt-1 text-center">
+            <View className="bg-surface border border-divider rounded-2xl p-6 items-center mb-5">
+              <Text className="text-text-muted text-sm font-medium">No friends yet</Text>
+              <Text className="text-text-subtle text-xs mt-1 text-center">
                 Send an invite above. They need to have a GainRace account.
               </Text>
             </View>
           ) : (
-            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden mb-5">
+            <View className="bg-surface border border-divider rounded-2xl overflow-hidden mb-5">
               {data!.friends.map((r, i) => (
                 <View
                   key={r.id}
                   className="flex-row items-center justify-between px-4 py-3"
                   style={{
                     borderBottomWidth: i === data!.friends.length - 1 ? 0 : 1,
-                    borderBottomColor: '#27272a',
+                    borderBottomColor: colors.divider,
                   }}
                 >
                   <View className="flex-1">
-                    <Text className="text-white text-sm font-medium">{r.user.name}</Text>
-                    <Text className="text-zinc-500 text-xs">
+                    <Text className="text-text text-sm font-medium">{r.user.name}</Text>
+                    <Text className="text-text-subtle text-xs">
                       {r.user.username ? `@${r.user.username}` : r.user.name}
                     </Text>
                   </View>
@@ -893,7 +894,7 @@ function FriendsTab() {
                     hitSlop={12}
                     className="w-9 h-9 rounded-full items-center justify-center"
                   >
-                    <MoreHorizontal size={20} color="#d4d4d8" strokeWidth={2.25} />
+                    <MoreHorizontal size={20} color={colors.text} strokeWidth={2.25} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -903,29 +904,29 @@ function FriendsTab() {
           {/* Pending out */}
           {(data?.pending_out?.length ?? 0) > 0 && (
             <>
-              <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Sent</Text>
-              <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+              <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">Sent</Text>
+              <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
                 {data!.pending_out.map((r, i) => (
                   <View
                     key={r.id}
                     className="flex-row items-center justify-between px-4 py-3"
                     style={{
                       borderBottomWidth: i === data!.pending_out.length - 1 ? 0 : 1,
-                      borderBottomColor: '#27272a',
+                      borderBottomColor: colors.divider,
                     }}
                   >
                     <View className="flex-1">
-                      <Text className="text-white text-sm font-medium">{r.user.name}</Text>
-                      <Text className="text-zinc-500 text-xs">
+                      <Text className="text-text text-sm font-medium">{r.user.name}</Text>
+                      <Text className="text-text-subtle text-xs">
                         {r.user.username ? `@${r.user.username}` : r.user.name}
                       </Text>
                     </View>
                     <TouchableOpacity
                       onPress={() => deleteMutation.mutate(r.id)}
                       hitSlop={12}
-                      className="px-3 py-2 rounded-full bg-zinc-800"
+                      className="px-3 py-2 rounded-full bg-surface-raised"
                     >
-                      <Text className="text-zinc-200 text-sm font-medium">Cancel</Text>
+                      <Text className="text-text text-sm font-medium">Cancel</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -951,20 +952,20 @@ function ExercisePickerSheet({
 }) {
   return (
     <View
-      className="absolute inset-0 bg-black/60 justify-end"
+      className="absolute inset-0 bg-bg/60 justify-end"
       onTouchEnd={onClose}
     >
       <View
-        className="bg-zinc-950 rounded-t-3xl pt-2 pb-6 max-h-[80%]"
+        className="bg-surface rounded-t-3xl pt-2 pb-6 max-h-[80%]"
         onStartShouldSetResponder={() => true}
       >
         <View className="items-center pt-2 pb-2">
-          <View className="w-10 h-1 bg-zinc-700 rounded-full" />
+          <View className="w-10 h-1 bg-border rounded-full" />
         </View>
-        <View className="flex-row items-center justify-between px-4 py-2 border-b border-zinc-800">
-          <Text className="text-white font-semibold">Filter by exercise</Text>
+        <View className="flex-row items-center justify-between px-4 py-2 border-b border-divider">
+          <Text className="text-text font-semibold">Filter by exercise</Text>
           <TouchableOpacity onPress={onClear}>
-            <Text className="text-zinc-400 text-sm">All</Text>
+            <Text className="text-text-muted text-sm">All</Text>
           </TouchableOpacity>
         </View>
         <ScrollView className="px-4 pt-3" contentContainerStyle={{ paddingBottom: 16 }}>
@@ -973,9 +974,9 @@ function ExercisePickerSheet({
               <TouchableOpacity
                 key={e.key}
                 onPress={() => { hapticSelection(); onPick(e.key) }}
-                className="px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-800"
+                className="px-4 py-3 rounded-xl bg-surface-raised border border-border"
               >
-                <Text className="text-white text-sm">{e.name}</Text>
+                <Text className="text-text text-sm">{e.name}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -996,29 +997,29 @@ export default function FriendsScreen() {
   if (!user) return null
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 pt-2 pb-3">
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 px-2 py-2 flex-row items-center" style={{ gap: 2 }}>
-          <ChevronLeft size={22} color="#d4d4d8" strokeWidth={2.25} />
-          <Text className="text-zinc-300 text-base font-medium">Back</Text>
+          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
+          <Text className="text-text-muted text-base font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-white text-lg font-semibold">Friends</Text>
+        <Text className="text-text text-lg font-semibold">Friends</Text>
         <View style={{ width: 70 }} />
       </View>
 
       {/* Tabs */}
-      <View className="flex-row mx-4 mt-1 p-1 bg-zinc-900 border border-zinc-800 rounded-2xl">
+      <View className="flex-row mx-4 mt-1 p-1 bg-surface border border-divider rounded-2xl">
         {(['leaderboard', 'friends'] as Tab[]).map(t => (
           <TouchableOpacity
             key={t}
             onPress={() => { hapticLight(); setTab(t) }}
             className="flex-1 py-3 rounded-xl items-center"
-            style={{ backgroundColor: tab === t ? '#27272a' : 'transparent' }}
+            style={{ backgroundColor: tab === t ? colors.text : 'transparent' }}
           >
             <Text
               className="text-sm font-semibold capitalize"
-              style={{ color: tab === t ? 'white' : '#a1a1aa' }}
+              style={{ color: tab === t ? colors.bg : colors['text-muted'] }}
             >
               {t}
             </Text>

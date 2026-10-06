@@ -24,6 +24,8 @@ export const colors = {
     water: '#38bdf8',
     weight: '#fafafa',
     bodyfat: '#a78bfa',
+    form: '#2c66fb',
+    volume: '#fafafa',
   },
   muscle: {
     chest: '#f87171',

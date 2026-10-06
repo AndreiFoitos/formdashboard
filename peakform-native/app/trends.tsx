@@ -8,6 +8,7 @@ import Svg, { Line, Polyline, Rect } from 'react-native-svg'
 import { api } from '../api/client'
 import { useRequireAuth } from '../hooks/useRequireAuth'
 import { openPaywall, usePlan } from '../hooks/usePlan'
+import { colors } from '../theme/tokens'
 
 interface Point {
   date: string
@@ -40,7 +41,7 @@ const CHART_H = 120
 
 function LineChart({ points, color }: { points: Point[]; color: string }) {
   if (points.length < 2) {
-    return <Text className="text-zinc-600 text-xs py-8 text-center">Not enough data yet.</Text>
+    return <Text className="text-text-subtle text-xs py-8 text-center">Not enough data yet.</Text>
   }
   const values = points.map((p) => p.value)
   const min = Math.min(...values)
@@ -54,12 +55,12 @@ function LineChart({ points, color }: { points: Point[]; color: string }) {
   return (
     <View>
       <Svg width={CHART_W} height={CHART_H}>
-        <Line x1={0} y1={CHART_H} x2={CHART_W} y2={CHART_H} stroke="#27272a" strokeWidth={1} />
+        <Line x1={0} y1={CHART_H} x2={CHART_W} y2={CHART_H} stroke={colors.divider} strokeWidth={1} />
         <Polyline points={coords} fill="none" stroke={color} strokeWidth={2} />
       </Svg>
       <View className="flex-row justify-between mt-1">
-        <Text className="text-zinc-600 text-[10px]">{fmtDate(points[0].date)}</Text>
-        <Text className="text-zinc-600 text-[10px]">{fmtDate(points[points.length - 1].date)}</Text>
+        <Text className="text-text-subtle text-[10px]">{fmtDate(points[0].date)}</Text>
+        <Text className="text-text-subtle text-[10px]">{fmtDate(points[points.length - 1].date)}</Text>
       </View>
     </View>
   )
@@ -67,7 +68,7 @@ function LineChart({ points, color }: { points: Point[]; color: string }) {
 
 function BarChart({ points }: { points: WeekPoint[] }) {
   if (points.length === 0) {
-    return <Text className="text-zinc-600 text-xs py-8 text-center">No training logged yet.</Text>
+    return <Text className="text-text-subtle text-xs py-8 text-center">No training logged yet.</Text>
   }
   const max = Math.max(...points.map((p) => p.value)) || 1
   const gap = 3
@@ -85,14 +86,14 @@ function BarChart({ points }: { points: WeekPoint[] }) {
               width={barW}
               height={h}
               rx={2}
-              fill="#facc15"
+              fill={colors.data.volume}
             />
           )
         })}
       </Svg>
       <View className="flex-row justify-between mt-1">
-        <Text className="text-zinc-600 text-[10px]">{points[0].week}</Text>
-        <Text className="text-zinc-600 text-[10px]">{points[points.length - 1].week}</Text>
+        <Text className="text-text-subtle text-[10px]">{points[0].week}</Text>
+        <Text className="text-text-subtle text-[10px]">{points[points.length - 1].week}</Text>
       </View>
     </View>
   )
@@ -119,9 +120,9 @@ function Card({
   children: React.ReactNode
 }) {
   return (
-    <View className="bg-zinc-900 rounded-2xl p-4">
-      <Text className="text-white text-base font-semibold">{title}</Text>
-      {subtitle && <Text className="text-zinc-500 text-xs mt-0.5 mb-2">{subtitle}</Text>}
+    <View className="bg-surface rounded-2xl p-4">
+      <Text className="text-text text-base font-semibold">{title}</Text>
+      {subtitle && <Text className="text-text-subtle text-xs mt-0.5 mb-2">{subtitle}</Text>}
       <View className="mt-2">{children}</View>
     </View>
   )
@@ -139,7 +140,7 @@ export default function TrendsScreen() {
   })
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <View className="flex-row items-center px-4 pt-2 pb-4">
         <TouchableOpacity
           onPress={() => router.back()}
@@ -147,10 +148,10 @@ export default function TrendsScreen() {
           className="-ml-1 pr-4 py-2 flex-row items-center"
           style={{ gap: 2 }}
         >
-          <ChevronLeft size={22} color="#d4d4d8" strokeWidth={2.25} />
-          <Text className="text-zinc-300 text-base font-medium">Back</Text>
+          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
+          <Text className="text-text-muted text-base font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-white text-xl font-bold">Trends</Text>
+        <Text className="text-text text-xl font-bold">Trends</Text>
       </View>
 
       {/* Range picker — ranges beyond the plan open the paywall */}
@@ -163,10 +164,10 @@ export default function TrendsScreen() {
               key={r.days}
               onPress={() => (locked ? openPaywall('history') : setDays(r.days))}
               className="flex-1 rounded-xl py-2.5 items-center flex-row justify-center"
-              style={{ gap: 6, backgroundColor: active ? '#27272a' : '#0f0f11' }}
+              style={{ gap: 6, backgroundColor: active ? colors.text : colors.surface }}
             >
-              {locked && <Lock size={12} color="#71717a" />}
-              <Text className="text-sm font-medium" style={{ color: locked ? '#71717a' : '#ffffff' }}>
+              {locked && <Lock size={12} color={colors['text-subtle']} />}
+              <Text className="text-sm font-medium" style={{ color: locked ? colors['text-subtle'] : active ? colors.bg : colors.text }}>
                 {r.label}
               </Text>
             </TouchableOpacity>
@@ -176,18 +177,18 @@ export default function TrendsScreen() {
 
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingTop: 16, paddingBottom: 40, gap: 14 }}>
         {isLoading || !data ? (
-          <ActivityIndicator color="#ffffff" className="mt-10" />
+          <ActivityIndicator color={colors.text} className="mt-10" />
         ) : (
           <>
             <Card title="Form Score" subtitle={change(data.form_score)}>
-              <LineChart points={data.form_score} color="#4ade80" />
+              <LineChart points={data.form_score} color={colors.data.form} />
             </Card>
             <Card title="Body weight (kg)" subtitle={change(data.weight_kg)}>
-              <LineChart points={data.weight_kg} color="#60a5fa" />
+              <LineChart points={data.weight_kg} color={colors.data.weight} />
             </Card>
             {data.body_fat_pct.length > 1 && (
               <Card title="Body fat (%)" subtitle={change(data.body_fat_pct)}>
-                <LineChart points={data.body_fat_pct} color="#f472b6" />
+                <LineChart points={data.body_fat_pct} color={colors.data.bodyfat} />
               </Card>
             )}
             <Card
@@ -197,21 +198,21 @@ export default function TrendsScreen() {
               <BarChart points={data.volume_weekly} />
             </Card>
             <Card title="Protein (g/day)" subtitle={change(data.protein_g)}>
-              <LineChart points={data.protein_g} color="#fbbf24" />
+              <LineChart points={data.protein_g} color={colors.data.protein} />
             </Card>
 
             {maxDays < 365 && (
               <TouchableOpacity
                 onPress={() => openPaywall('history')}
-                className="bg-zinc-900 rounded-2xl p-4 flex-row items-center justify-between"
+                className="bg-surface rounded-2xl p-4 flex-row items-center justify-between"
               >
-                <Text className="text-zinc-300 text-sm flex-1 pr-3">
+                <Text className="text-text-muted text-sm flex-1 pr-3">
                   You can look back {maxDays} days. Plus sees 90, Pro sees a full year.
                 </Text>
-                <Text className="text-yellow-400 text-sm font-semibold">Upgrade ›</Text>
+                <Text className="text-accent text-sm font-semibold">Upgrade ›</Text>
               </TouchableOpacity>
             )}
-            <Text className="text-zinc-600 text-xs">
+            <Text className="text-text-subtle text-xs">
               Your logs themselves are never hidden — only these long-range charts depend on your plan.
             </Text>
           </>

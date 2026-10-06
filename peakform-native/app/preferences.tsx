@@ -13,6 +13,7 @@ import {
   useSavePreferences,
 } from '../hooks/usePreferences'
 import { extractErrorMessage } from '../lib/apiError'
+import { colors } from '../theme/tokens'
 
 // Settings → Training & food. The same answers onboarding asks for, plus the
 // goal. Pit Crew builds plans from these (docs/ai-plans-design.md §3).
@@ -24,7 +25,7 @@ const GOALS: { key: Goal; label: string; desc: string }[] = [
 ]
 
 function Heading({ children }: { children: string }) {
-  return <Text className="text-white text-lg font-bold mb-4">{children}</Text>
+  return <Text className="text-text text-lg font-bold mb-4">{children}</Text>
 }
 
 export default function PreferencesScreen() {
@@ -58,7 +59,7 @@ export default function PreferencesScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top', 'bottom']}>
       <View className="flex-row items-center px-4 pt-2 pb-4">
         <TouchableOpacity
           onPress={() => router.back()}
@@ -66,21 +67,21 @@ export default function PreferencesScreen() {
           className="-ml-1 pr-4 py-2 flex-row items-center"
           style={{ gap: 2 }}
         >
-          <ChevronLeft size={22} color="#d4d4d8" strokeWidth={2.25} />
-          <Text className="text-zinc-300 text-base font-medium">Back</Text>
+          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
+          <Text className="text-text-muted text-base font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-white text-xl font-bold">Training & food</Text>
+        <Text className="text-text text-xl font-bold">Training & food</Text>
       </View>
 
       {isLoading ? (
-        <ActivityIndicator color="#71717a" className="mt-10" />
+        <ActivityIndicator color={colors['text-subtle']} className="mt-10" />
       ) : (
         <ScrollView
           className="flex-1 px-4"
           contentContainerStyle={{ paddingBottom: 40 }}
           keyboardShouldPersistTaps="handled"
         >
-          <Text className="text-zinc-500 text-sm mb-6">
+          <Text className="text-text-subtle text-sm mb-6">
             Pit Crew builds your training and meal plans from these answers and your logs.
           </Text>
 
@@ -94,21 +95,21 @@ export default function PreferencesScreen() {
                   onPress={() => onChange({ goal: active ? null : g.key })}
                   className="flex-1 py-3 rounded-2xl border items-center"
                   style={{
-                    backgroundColor: active ? 'white' : '#18181b',
-                    borderColor: active ? 'white' : '#3f3f46',
+                    backgroundColor: active ? colors.text : colors.surface,
+                    borderColor: active ? colors.text : colors.border,
                   }}
                 >
-                  <Text className="text-sm font-semibold" style={{ color: active ? 'black' : 'white' }}>
+                  <Text className="text-sm font-semibold" style={{ color: active ? colors.bg : colors.text }}>
                     {g.label}
                   </Text>
-                  <Text className="text-xs mt-0.5" style={{ color: active ? '#52525b' : '#71717a' }}>
+                  <Text className="text-xs mt-0.5" style={{ color: colors['text-subtle'] }}>
                     {g.desc}
                   </Text>
                 </TouchableOpacity>
               )
             })}
           </View>
-          <Text className="text-zinc-600 text-xs mb-8">
+          <Text className="text-text-subtle text-xs mb-8">
             Your calorie target stays as set under Profile & Targets.
           </Text>
 
@@ -120,8 +121,8 @@ export default function PreferencesScreen() {
           <FoodPrefsFields value={prefs} onChange={onChange} />
 
           {error && (
-            <View className="bg-red-950 border border-red-900 rounded-2xl px-4 py-3 mt-6">
-              <Text className="text-red-400 text-sm">{error}</Text>
+            <View className="bg-danger/15 border border-danger/40 rounded-2xl px-4 py-3 mt-6">
+              <Text className="text-danger text-sm">{error}</Text>
             </View>
           )}
         </ScrollView>
@@ -131,13 +132,13 @@ export default function PreferencesScreen() {
         <TouchableOpacity
           onPress={onSave}
           disabled={!dirty || save.isPending}
-          className="bg-white rounded-2xl py-4 items-center"
+          className="bg-accent rounded-2xl py-4 items-center"
           style={{ opacity: !dirty || save.isPending ? 0.4 : 1 }}
         >
           {save.isPending ? (
-            <ActivityIndicator color="black" />
+            <ActivityIndicator color={colors['on-accent']} />
           ) : (
-            <Text className="text-black font-semibold text-base">Save</Text>
+            <Text className="text-on-accent font-semibold text-base">Save</Text>
           )}
         </TouchableOpacity>
       </View>

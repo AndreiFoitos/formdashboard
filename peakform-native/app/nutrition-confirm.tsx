@@ -17,6 +17,7 @@ import { SwipeableRow } from '../components/SwipeableRow'
 import { PressableScale } from '../components/PressableScale'
 import { hapticSuccess } from '../lib/haptics'
 import { extractErrorMessage } from '../lib/apiError'
+import { colors } from '../theme/tokens'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,39 +73,39 @@ function IngredientRow({
 
   return (
     <View
-      className="px-4 py-3 bg-zinc-900"
-      style={{ borderBottomWidth: isLast ? 0 : 1, borderBottomColor: '#27272a' }}
+      className="px-4 py-3 bg-surface"
+      style={{ borderBottomWidth: isLast ? 0 : 1, borderBottomColor: colors.divider }}
     >
       <View className="flex-row items-baseline justify-between">
-        <Text className="text-white text-sm flex-1" numberOfLines={1}>
+        <Text className="text-text text-sm flex-1" numberOfLines={1}>
           {item.name}
         </Text>
-        <Text className="text-zinc-400 text-xs ml-2">{grams}g</Text>
+        <Text className="text-text-muted text-xs ml-2">{grams}g</Text>
       </View>
       <View className="flex-row items-center gap-2 mt-1">
-        <Text className="text-zinc-500 text-xs">{calories} kcal</Text>
+        <Text className="text-text-subtle text-xs">{calories} kcal</Text>
         <View
           className="rounded-full px-1.5 py-0.5"
           style={{
-            backgroundColor: fromUSDA ? '#052e16' : '#1c1917',
+            backgroundColor: fromUSDA ? `${colors.success}26` : colors['surface-raised'],
             borderWidth: 1,
-            borderColor: fromUSDA ? '#166534' : '#3f3f46',
+            borderColor: fromUSDA ? `${colors.success}66` : colors.border,
           }}
         >
-          <Text className="text-[10px]" style={{ color: fromUSDA ? '#86efac' : '#a8a29e' }}>
+          <Text className="text-[10px]" style={{ color: fromUSDA ? colors.success : colors['text-muted'] }}>
             {fromUSDA ? 'USDA' : 'AI'}
           </Text>
         </View>
       </View>
       {item.usda_name && (
-        <Text className="text-zinc-600 text-xs mt-0.5" numberOfLines={1}>
+        <Text className="text-text-subtle text-xs mt-0.5" numberOfLines={1}>
           matched: {item.usda_name}
         </Text>
       )}
       {/* The portion describes the unscaled amount, so hide it once the user
           changes the multiplier rather than show a label that no longer fits. */}
       {item.portion && multiplier === 1 && (
-        <Text className="text-zinc-600 text-xs mt-0.5" numberOfLines={1}>
+        <Text className="text-text-subtle text-xs mt-0.5" numberOfLines={1}>
           portion: {item.portion}
         </Text>
       )}
@@ -115,7 +116,7 @@ function IngredientRow({
 function MacroChip({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <View className="flex-row items-baseline gap-1">
-      <Text className="text-zinc-500 text-xs">{label}</Text>
+      <Text className="text-text-subtle text-xs">{label}</Text>
       <Text className="text-sm font-semibold" style={{ color }}>
         {Math.round(value)}g
       </Text>
@@ -133,10 +134,10 @@ export default function NutritionConfirmScreen() {
   if (typeof raw !== 'string') {
     return (
       <SafeAreaView
-        className="flex-1 bg-black items-center justify-center"
+        className="flex-1 bg-bg items-center justify-center"
         edges={['top']}
       >
-        <ActivityIndicator color="#ffffff" />
+        <ActivityIndicator color={colors.text} />
       </SafeAreaView>
     )
   }
@@ -217,14 +218,14 @@ function ConfirmContent({ raw }: { raw: string }) {
   const hasItems = items.length > 0
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
+      <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 px-2 py-2 flex-row items-center" style={{ gap: 2 }}>
-          <ChevronLeft size={22} color="#d4d4d8" strokeWidth={2.25} />
-          <Text className="text-zinc-300 text-base font-medium">Retake</Text>
+          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
+          <Text className="text-text-muted text-base font-medium">Retake</Text>
         </TouchableOpacity>
-        <Text className="text-white font-semibold">Review meal</Text>
+        <Text className="text-text font-semibold">Review meal</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -236,14 +237,14 @@ function ConfirmContent({ raw }: { raw: string }) {
         {/* Recognised-as label. Read-only; each ingredient is logged
             separately so there's no composed-meal name to edit. */}
         <View className="px-4 pt-4">
-          <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+          <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
             Recognised as
           </Text>
-          <View className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3">
-            <Text className="text-white text-base" numberOfLines={2}>
+          <View className="bg-surface border border-divider rounded-2xl px-4 py-3">
+            <Text className="text-text text-base" numberOfLines={2}>
               {dishName || 'Unknown dish'}
             </Text>
-            <Text className="text-zinc-600 text-[11px] mt-1.5">
+            <Text className="text-text-subtle text-[11px] mt-1.5">
               Each ingredient below is logged as its own entry — edit portions or
               swipe to remove.
             </Text>
@@ -251,31 +252,31 @@ function ConfirmContent({ raw }: { raw: string }) {
 
           {/* Confidence chip + USDA chip */}
           <View className="flex-row items-center mt-3 gap-2 flex-wrap">
-            <View className="bg-zinc-900 border border-zinc-800 rounded-full px-2.5 py-1">
-              <Text className="text-zinc-400 text-xs">
+            <View className="bg-surface border border-divider rounded-full px-2.5 py-1">
+              <Text className="text-text-muted text-xs">
                 {Math.round(initial.confidence * 100)}% confident
               </Text>
             </View>
             {items.length > 0 && (
-              <View className="bg-zinc-900 border border-zinc-800 rounded-full px-2.5 py-1">
-                <Text className="text-zinc-400 text-xs">
+              <View className="bg-surface border border-divider rounded-full px-2.5 py-1">
+                <Text className="text-text-muted text-xs">
                   {usdaCount}/{items.length} from USDA
                 </Text>
               </View>
             )}
           </View>
           {initial.disclaimer ? (
-            <Text className="text-zinc-600 text-xs mt-2">{initial.disclaimer}</Text>
+            <Text className="text-text-subtle text-xs mt-2">{initial.disclaimer}</Text>
           ) : null}
         </View>
 
         {/* Portion multiplier */}
         <View className="px-4 pt-5">
           <View className="flex-row items-baseline justify-between mb-2">
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest">
               Portion size
             </Text>
-            <Text className="text-zinc-500 text-xs">
+            <Text className="text-text-subtle text-xs">
               {multiplier === 1 ? 'as detected' : `${multiplier}× detected`}
             </Text>
           </View>
@@ -288,13 +289,13 @@ function ConfirmContent({ raw }: { raw: string }) {
                   onPress={() => setMultiplier(step)}
                   className="flex-1 rounded-xl py-2.5 border"
                   style={{
-                    backgroundColor: active ? 'white' : '#18181b',
-                    borderColor: active ? 'white' : '#3f3f46',
+                    backgroundColor: active ? colors.text : colors.surface,
+                    borderColor: active ? colors.text : colors.border,
                   }}
                 >
                   <Text
                     className="text-xs text-center font-medium"
-                    style={{ color: active ? 'black' : '#a1a1aa' }}
+                    style={{ color: active ? colors.bg : colors['text-muted'] }}
                   >
                     {PORTION_LABELS[i]}
                   </Text>
@@ -307,18 +308,18 @@ function ConfirmContent({ raw }: { raw: string }) {
         {/* Ingredients */}
         <View className="px-4 pt-5">
           <View className="flex-row items-baseline justify-between mb-2">
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest">
               Ingredients ({items.length})
             </Text>
-            <Text className="text-zinc-600 text-xs">swipe to remove</Text>
+            <Text className="text-text-subtle text-xs">swipe to remove</Text>
           </View>
           {items.length === 0 ? (
-            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 items-center">
-              <Text className="text-zinc-400 text-sm">No ingredients identified</Text>
-              <Text className="text-zinc-600 text-xs mt-1">Go back and retake the photo</Text>
+            <View className="bg-surface border border-divider rounded-2xl p-6 items-center">
+              <Text className="text-text-muted text-sm">No ingredients identified</Text>
+              <Text className="text-text-subtle text-xs mt-1">Go back and retake the photo</Text>
             </View>
           ) : (
-            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+            <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
               {items.map((item, i) => (
                 <SwipeableRow
                   key={`${item.name}-${i}`}
@@ -337,38 +338,38 @@ function ConfirmContent({ raw }: { raw: string }) {
       </ScrollView>
 
       {/* Bottom totals + log button */}
-      <View className="absolute bottom-0 left-0 right-0 bg-black border-t border-zinc-800 px-4 pt-3 pb-8">
+      <View className="absolute bottom-0 left-0 right-0 bg-bg border-t border-divider px-4 pt-3 pb-8">
         <View className="flex-row items-center justify-between mb-3">
           <View>
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-0.5">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-0.5">
               Total
             </Text>
             <View className="flex-row items-baseline gap-1.5">
               <CountUp
                 value={Math.round(totals.calories)}
                 separator
-                className="text-white text-2xl font-bold"
+                className="text-text text-2xl font-bold"
               />
-              <Text className="text-zinc-500 text-sm">kcal</Text>
+              <Text className="text-text-subtle text-sm">kcal</Text>
             </View>
           </View>
           <View className="flex-row gap-3">
-            <MacroChip label="P" value={totals.protein_g} color="#818cf8" />
-            <MacroChip label="C" value={totals.carbs_g} color="#34d399" />
-            <MacroChip label="F" value={totals.fat_g} color="#fbbf24" />
+            <MacroChip label="P" value={totals.protein_g} color={colors.data.protein} />
+            <MacroChip label="C" value={totals.carbs_g} color={colors.data.carbs} />
+            <MacroChip label="F" value={totals.fat_g} color={colors.data.fat} />
           </View>
         </View>
         <PressableScale
           haptic
           onPress={hasItems ? handleLog : () => router.back()}
           disabled={isPending}
-          className="bg-white rounded-2xl py-4 items-center"
+          className="bg-accent rounded-2xl py-4 items-center"
           style={{ opacity: isPending ? 0.5 : 1 }}
         >
           {isPending ? (
-            <ActivityIndicator color="black" />
+            <ActivityIndicator color={colors['on-accent']} />
           ) : (
-            <Text className="text-black font-semibold text-base">
+            <Text className="text-on-accent font-semibold text-base">
               {hasItems ? 'Log meal' : 'Retake photo'}
             </Text>
           )}

@@ -156,7 +156,7 @@ function VolumeChart({ data }: { data: VolumeWeek | undefined }) {
                   width: '100%',
                   height: h,
                   borderRadius: 4,
-                  backgroundColor: hasVol ? colors.text : colors['surface-raised'],
+                  backgroundColor: hasVol ? colors.data.volume : colors['surface-raised'],
                   opacity: hasVol ? (isToday ? 1 : 0.7) : 1,
                 }}
               />

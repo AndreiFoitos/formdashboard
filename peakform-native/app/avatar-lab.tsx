@@ -11,10 +11,8 @@ import { useAuthStore } from '../store/auth'
 import { AvatarCanvas, type AvatarCanvasHandle, type AvatarSource } from '../components/avatar/AvatarCanvas'
 import { computeBodyParams, computeDailyEffects, type AvatarBase } from '../lib/avatar/bodyParams'
 import type { AvatarLook, AvatarState, HeadStyle } from '../lib/avatar/model'
-
-const SKINS = ['#f2d0b1', '#e0ac85', '#c68a5e', '#8d5a3b', '#5a3825']
-const HAIRS = ['#1a1410', '#4a3121', '#a8733f', '#d9c27a']
-const TOPS = ['#2563eb', '#1f2937', '#dc2626', '#16a34a']
+import { BOTTOMS, HAIRS, SHOES, SKINS, TOPS } from '../lib/avatar/palette'
+import { colors } from '../theme/tokens'
 
 export default function AvatarLab() {
   const user = useAuthStore((s) => s.user)
@@ -34,8 +32,8 @@ export default function AvatarLab() {
     skin: SKINS[2],
     hair: HAIRS[1],
     top: TOPS[0],
-    bottom: '#111827',
-    shoes: '#f4f4f5',
+    bottom: BOTTOMS[0],
+    shoes: SHOES[0],
   })
   const [fps, setFps] = useState<number | null>(null)
   const [snap, setSnap] = useState<{ uri: string; ms: number } | null>(null)
@@ -63,21 +61,21 @@ export default function AvatarLab() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <View className="flex-row items-center px-4 pt-2 pb-2">
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center" style={{ gap: 2 }}>
-          <ChevronLeft size={22} color="#d4d4d8" strokeWidth={2.25} />
-          <Text className="text-zinc-300 text-base font-medium">Back</Text>
+          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
+          <Text className="text-text-muted text-base font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-white text-xl font-bold">Avatar lab</Text>
+        <Text className="text-text text-xl font-bold">Avatar lab</Text>
       </View>
 
-      <View style={{ height: 340 }} className="mx-4 rounded-3xl bg-zinc-900 overflow-hidden">
+      <View style={{ height: 340 }} className="mx-4 rounded-3xl bg-surface overflow-hidden">
         {started ? (
           <AvatarCanvas key={source} ref={canvas} base={base} source={source} state={state} onFps={setFps} style={{ flex: 1 }} />
         ) : (
           <View className="flex-1 items-center justify-center px-6" style={{ gap: 10 }}>
-            <Text className="text-zinc-400 text-xs text-center">3D is off. Start it with one of the models:</Text>
+            <Text className="text-text-muted text-xs text-center">3D is off. Start it with one of the models:</Text>
             {(['placeholder', 'glb'] as const).map((s) => (
               <TouchableOpacity
                 key={s}
@@ -85,22 +83,22 @@ export default function AvatarLab() {
                   setSource(s)
                   setStarted(true)
                 }}
-                className="bg-white rounded-xl px-4 py-2.5"
+                className="bg-accent rounded-xl px-4 py-2.5"
               >
-                <Text className="text-black text-sm font-semibold">
+                <Text className="text-on-accent text-sm font-semibold">
                   {s === 'glb' ? 'Start MakeHuman model' : 'Start placeholder model'}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
-        <View pointerEvents="none" className="absolute top-3 left-3 bg-black/60 rounded-lg px-2 py-1">
-          <Text className="text-emerald-400 text-xs font-mono">{fps ?? '–'} fps</Text>
+        <View pointerEvents="none" className="absolute top-3 left-3 bg-bg/60 rounded-lg px-2 py-1">
+          <Text className="text-success text-xs font-mono">{fps ?? '–'} fps</Text>
         </View>
         {snap && (
           <View pointerEvents="none" className="absolute top-3 right-3 items-center">
-            <Image source={{ uri: snap.uri }} style={{ width: 56, height: 90, borderRadius: 8, backgroundColor: '#27272a' }} />
-            <Text className="text-zinc-400 text-[10px] mt-1">{snap.ms} ms</Text>
+            <Image source={{ uri: snap.uri }} style={{ width: 56, height: 90, borderRadius: 8, backgroundColor: colors['surface-raised'] }} />
+            <Text className="text-text-muted text-[10px] mt-1">{snap.ms} ms</Text>
           </View>
         )}
       </View>
@@ -123,16 +121,16 @@ export default function AvatarLab() {
         />
         {bfOverride != null && (
           <TouchableOpacity onPress={() => setBfOverride(null)}>
-            <Text className="text-sky-400 text-xs -mt-3">Use estimate from BMI instead</Text>
+            <Text className="text-text text-xs -mt-3">Use estimate from BMI instead</Text>
           </TouchableOpacity>
         )}
 
-        <View className="bg-zinc-900 rounded-2xl px-4 py-3">
-          <Text className="text-zinc-400 text-xs font-mono">
+        <View className="bg-surface rounded-2xl px-4 py-3">
+          <Text className="text-text-muted text-xs font-mono">
             BMI {body.bmi.toFixed(1)} · BF {body.bodyFatPct.toFixed(1)}%{body.bodyFatEstimated ? ' (est)' : ''} · FFMI{' '}
             {body.ffmi.toFixed(1)}
           </Text>
-          <Text className="text-white text-sm font-mono mt-1">
+          <Text className="text-text text-sm font-mono mt-1">
             fat {body.fat.toFixed(2)} · muscle {body.muscle.toFixed(2)} · height ×{body.heightScale.toFixed(2)}
           </Text>
         </View>
@@ -153,8 +151,8 @@ export default function AvatarLab() {
         <Swatches label="Hair" colors={HAIRS} value={look.hair} onChange={(hair) => setLook((l) => ({ ...l, hair }))} />
         <Swatches label="Top" colors={TOPS} value={look.top} onChange={(top) => setLook((l) => ({ ...l, top }))} />
 
-        <TouchableOpacity onPress={takeSnapshot} className="bg-white rounded-2xl py-3.5 items-center">
-          <Text className="text-black font-semibold">Take snapshot (race marker image)</Text>
+        <TouchableOpacity onPress={takeSnapshot} className="bg-accent rounded-2xl py-3.5 items-center">
+          <Text className="text-on-accent font-semibold">Take snapshot (race marker image)</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -164,7 +162,7 @@ export default function AvatarLab() {
 // ─── Small controls ─────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-2">{children}</Text>
+  return <Text className="text-text-muted text-xs uppercase tracking-widest mb-2">{children}</Text>
 }
 
 function Chips<T extends string>({
@@ -187,9 +185,9 @@ function Chips<T extends string>({
             key={o}
             onPress={() => onChange(o)}
             className="flex-1 py-2.5 rounded-xl border items-center"
-            style={{ backgroundColor: value === o ? 'white' : '#18181b', borderColor: value === o ? 'white' : '#3f3f46' }}
+            style={{ backgroundColor: value === o ? colors.text : colors.surface, borderColor: value === o ? colors.text : colors.border }}
           >
-            <Text className="text-sm font-semibold capitalize" style={{ color: value === o ? 'black' : '#a1a1aa' }}>
+            <Text className="text-sm font-semibold capitalize" style={{ color: value === o ? colors.bg : colors['text-muted'] }}>
               {o}
             </Text>
           </TouchableOpacity>
@@ -203,10 +201,9 @@ function Toggle({ label, on, onPress }: { label: string; on: boolean; onPress: (
   return (
     <TouchableOpacity
       onPress={onPress}
-      className="px-3 py-2 rounded-xl border"
-      style={{ backgroundColor: on ? '#052e16' : '#18181b', borderColor: on ? '#22c55e' : '#3f3f46' }}
+      className={`px-3 py-2 rounded-xl border ${on ? 'bg-success/15 border-success' : 'bg-surface border-border'}`}
     >
-      <Text className="text-xs font-medium" style={{ color: on ? '#4ade80' : '#a1a1aa' }}>
+      <Text className="text-xs font-medium" style={{ color: on ? colors.success : colors['text-muted'] }}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -215,7 +212,7 @@ function Toggle({ label, on, onPress }: { label: string; on: boolean; onPress: (
 
 function Swatches({
   label,
-  colors,
+  colors: swatches,
   value,
   onChange,
 }: {
@@ -228,7 +225,7 @@ function Swatches({
     <View>
       <SectionLabel>{label}</SectionLabel>
       <View className="flex-row" style={{ gap: 10 }}>
-        {colors.map((c) => (
+        {swatches.map((c) => (
           <TouchableOpacity
             key={c}
             onPress={() => onChange(c)}
@@ -238,7 +235,7 @@ function Swatches({
               borderRadius: 17,
               backgroundColor: c,
               borderWidth: 2,
-              borderColor: value === c ? 'white' : 'transparent',
+              borderColor: value === c ? colors.text : 'transparent',
             }}
           />
         ))}
@@ -287,8 +284,8 @@ function LabSlider({
   return (
     <View>
       <View className="flex-row justify-between mb-2">
-        <Text className="text-zinc-400 text-xs uppercase tracking-widest">{label}</Text>
-        <Text className="text-white text-xs font-mono">
+        <Text className="text-text-muted text-xs uppercase tracking-widest">{label}</Text>
+        <Text className="text-text text-xs font-mono">
           {Number.isInteger(value) ? value : value.toFixed(1)} {unit}
         </Text>
       </View>
@@ -297,8 +294,8 @@ function LabSlider({
         style={{ height: 28, justifyContent: 'center' }}
         {...pan.panHandlers}
       >
-        <View pointerEvents="none" style={{ height: 6, borderRadius: 3, backgroundColor: '#27272a' }}>
-          <View style={{ width: `${pct}%`, height: 6, borderRadius: 3, backgroundColor: '#fafafa' }} />
+        <View pointerEvents="none" style={{ height: 6, borderRadius: 3, backgroundColor: colors['surface-raised'] }}>
+          <View style={{ width: `${pct}%`, height: 6, borderRadius: 3, backgroundColor: colors.text }} />
         </View>
         <View
           pointerEvents="none"
@@ -309,7 +306,7 @@ function LabSlider({
             width: 22,
             height: 22,
             borderRadius: 11,
-            backgroundColor: 'white',
+            backgroundColor: colors.text,
           }}
         />
       </View>

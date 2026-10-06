@@ -9,6 +9,7 @@ addition to this file first — do not invent one-off values.
 ## 1. Hard rules
 
 1. No hex, rgb or rgba literals in `app/` or `components/`. Colors come from tokens only.
+   Avatar appearance colors (lib/avatar/palette.ts, rarity) are content, exempt from rule 1.
 2. No inline `fontSize`, `padding`, `margin`, `gap` or `borderRadius` numbers. Use the scales below via NativeWind classes.
 3. Only the type sizes in §3 exist. Only the spacing steps in §4 exist.
 4. Every tappable element is at least 44×44 pt.
@@ -53,7 +54,7 @@ Use these only in charts, scales and badges, never for UI chrome or text.
 | Group | Tokens |
 |---|---|
 | `score` | `low` #ef4444, `midLow` #f97316, `midHigh` #eab308, `high` #22c55e |
-| `data` | `protein` #818cf8, `carbs` #34d399, `fat` #fbbf24, `water` #38bdf8, `weight` #fafafa, `bodyfat` #a78bfa |
+| `data` | `protein` #818cf8, `carbs` #34d399, `fat` #fbbf24, `water` #38bdf8, `weight` #fafafa, `bodyfat` #a78bfa, `form` #2c66fb, `volume` #fafafa |
 | `muscle` | `chest` #f87171, `back` #34d399, `legs` #f472b6, `shoulders` #60a5fa, `arms` #a78bfa, `core` #facc15, `other` #a8a29e |
 | `medal` | `gold` #FCD34D, `silver` #D1D5DB, `bronze` #B45309 |
 
@@ -236,7 +237,7 @@ export const colors = {
   warning: '#f59e0b',
   danger: '#ef4444',
   score: { low, midLow, midHigh, high },          // §2 chart/scale/badge groups
-  data: { protein, carbs, fat, water, weight, bodyfat },
+  data: { protein, carbs, fat, water, weight, bodyfat, form, volume },
   muscle: { chest, back, legs, shoulders, arms, core, other },
   medal: { gold, silver, bronze },
 } as const;

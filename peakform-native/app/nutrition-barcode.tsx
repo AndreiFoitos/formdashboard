@@ -21,6 +21,7 @@ import { api } from '../api/client'
 import { PressableScale } from '../components/PressableScale'
 import { hapticMedium, hapticSuccess } from '../lib/haptics'
 import { extractErrorMessage } from '../lib/apiError'
+import { colors } from '../theme/tokens'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -64,11 +65,11 @@ function PermissionGate({
   onType: () => void
 }) {
   return (
-    <View className="flex-1 bg-black items-center justify-center px-8">
-      <Text className="text-white text-xl font-semibold text-center mb-2">
+    <View className="flex-1 bg-bg items-center justify-center px-8">
+      <Text className="text-text text-xl font-semibold text-center mb-2">
         Camera access needed
       </Text>
-      <Text className="text-zinc-400 text-sm text-center mb-8">
+      <Text className="text-text-muted text-sm text-center mb-8">
         {canAskAgain
           ? 'GainRace uses the camera to read the barcode on packaged food.'
           : 'Camera was denied. Open Settings to allow camera access for GainRace, or type the barcode number instead.'}
@@ -76,17 +77,17 @@ function PermissionGate({
       <PressableScale
         haptic
         onPress={canAskAgain ? onRequest : () => Linking.openSettings()}
-        className="bg-white rounded-2xl px-6 py-3"
+        className="bg-accent rounded-2xl px-6 py-3"
       >
-        <Text className="text-black font-semibold">
+        <Text className="text-on-accent font-semibold">
           {canAskAgain ? 'Allow camera' : 'Open Settings'}
         </Text>
       </PressableScale>
       <TouchableOpacity onPress={onType} hitSlop={12} className="mt-4 px-4 py-2.5">
-        <Text className="text-zinc-300 text-base font-medium">Type the number</Text>
+        <Text className="text-text-muted text-base font-medium">Type the number</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="px-4 py-2.5">
-        <Text className="text-zinc-500 text-base">Cancel</Text>
+        <Text className="text-text-subtle text-base">Cancel</Text>
       </TouchableOpacity>
     </View>
   )
@@ -108,8 +109,8 @@ function TypeCodePanel({
   const canSubmit = [8, 12, 13, 14].includes(digits.length) && !busy
 
   return (
-    <View className="bg-zinc-950 border-t border-zinc-800 px-4 pt-4 pb-6">
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+    <View className="bg-surface border-t border-divider px-4 pt-4 pb-6">
+      <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
         Barcode number
       </Text>
       <View className="flex-row" style={{ gap: 8 }}>
@@ -117,31 +118,31 @@ function TypeCodePanel({
           value={code}
           onChangeText={setCode}
           placeholder="e.g. 5941234567890"
-          placeholderTextColor="#52525b"
+          placeholderTextColor={colors['text-subtle']}
           keyboardType="number-pad"
           autoFocus
           maxLength={17}
           returnKeyType="search"
           onSubmitEditing={() => canSubmit && onSubmit(digits)}
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-base"
+          className="flex-1 bg-surface-raised border border-border rounded-2xl px-4 py-3 text-text text-base"
           style={{ letterSpacing: 1 }}
         />
         <PressableScale
           haptic
           onPress={() => onSubmit(digits)}
           disabled={!canSubmit}
-          className="bg-white rounded-2xl px-5 items-center justify-center"
+          className="bg-accent rounded-2xl px-5 items-center justify-center"
           style={{ opacity: canSubmit ? 1 : 0.4 }}
         >
           {busy ? (
-            <ActivityIndicator color="black" />
+            <ActivityIndicator color={colors['on-accent']} />
           ) : (
-            <Text className="text-black font-semibold">Look up</Text>
+            <Text className="text-on-accent font-semibold">Look up</Text>
           )}
         </PressableScale>
       </View>
       <TouchableOpacity onPress={onCancel} hitSlop={12} className="mt-3 self-center px-4 py-2">
-        <Text className="text-zinc-400 text-sm">Back to scanning</Text>
+        <Text className="text-text-muted text-sm">Back to scanning</Text>
       </TouchableOpacity>
     </View>
   )
@@ -161,7 +162,7 @@ function fmtQty(q: number) {
 function MacroCell({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <View className="flex-1 items-center">
-      <Text className="text-zinc-500 text-xs mb-0.5">{label}</Text>
+      <Text className="text-text-subtle text-xs mb-0.5">{label}</Text>
       <Text className="text-base font-semibold" style={{ color }}>
         {Math.round(value)}g
       </Text>
@@ -180,14 +181,14 @@ function LabelField({
 }) {
   return (
     <View className="flex-1">
-      <Text className="text-zinc-500 text-[11px] mb-1">{label}</Text>
+      <Text className="text-text-subtle text-[11px] mb-1">{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChange}
         keyboardType="decimal-pad"
         placeholder="0"
-        placeholderTextColor="#52525b"
-        className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2.5 text-white text-sm"
+        placeholderTextColor={colors['text-subtle']}
+        className="bg-surface-raised border border-border rounded-xl px-3 py-2.5 text-text text-sm"
       />
     </View>
   )
@@ -266,17 +267,17 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
       className="flex-1"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
+      <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
         <TouchableOpacity
           onPress={onRescan}
           hitSlop={12}
           className="-ml-1 px-2 py-2 flex-row items-center"
           style={{ gap: 2 }}
         >
-          <ChevronLeft size={22} color="#d4d4d8" strokeWidth={2.25} />
-          <Text className="text-zinc-300 text-base font-medium">Rescan</Text>
+          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
+          <Text className="text-text-muted text-base font-medium">Rescan</Text>
         </TouchableOpacity>
-        <Text className="text-white font-semibold">Review food</Text>
+        <Text className="text-text font-semibold">Review food</Text>
         <View style={{ width: 70 }} />
       </View>
 
@@ -291,17 +292,17 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
             {product.image_url ? (
               <Image
                 source={{ uri: product.image_url }}
-                className="bg-zinc-900 rounded-xl"
+                className="bg-surface rounded-xl"
                 style={{ width: 64, height: 64 }}
                 resizeMode="contain"
               />
             ) : null}
             <View className="flex-1">
-              <Text className="text-white text-lg font-semibold" numberOfLines={2}>
+              <Text className="text-text text-lg font-semibold" numberOfLines={2}>
                 {product.name}
               </Text>
               {product.brand ? (
-                <Text className="text-zinc-500 text-sm" numberOfLines={1}>
+                <Text className="text-text-subtle text-sm" numberOfLines={1}>
                   {product.brand}
                 </Text>
               ) : null}
@@ -309,18 +310,18 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
           </View>
         ) : (
           <View>
-            <Text className="text-white text-base font-semibold mb-1">
+            <Text className="text-text text-base font-semibold mb-1">
               Not in the food database yet
             </Text>
-            <Text className="text-zinc-500 text-sm mb-3">
+            <Text className="text-text-subtle text-sm mb-3">
               Barcode {product.barcode}. Name it and copy the values from the label.
             </Text>
             <TextInput
               value={name}
               onChangeText={setName}
               placeholder="Product name"
-              placeholderTextColor="#52525b"
-              className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-base"
+              placeholderTextColor={colors['text-subtle']}
+              className="bg-surface-raised border border-border rounded-2xl px-4 py-3 text-text text-base"
             />
           </View>
         )}
@@ -328,11 +329,11 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
         {/* Label values, when the database has none */}
         {!product.per_100g && (
           <View>
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
               Per 100{unit} on the label
             </Text>
             {known && (
-              <Text className="text-zinc-500 text-xs mb-2">
+              <Text className="text-text-subtle text-xs mb-2">
                 The database has this product but no nutrition values for it.
               </Text>
             )}
@@ -347,18 +348,18 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
 
         {/* Amount */}
         <View>
-          <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+          <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
             How much did you have?
           </Text>
-          <View className="flex-row items-center bg-zinc-900 border border-zinc-800 rounded-2xl px-4">
+          <View className="flex-row items-center bg-surface-raised border border-border rounded-2xl px-4">
             <TextInput
               value={amount}
               onChangeText={setAmount}
               keyboardType="decimal-pad"
               selectTextOnFocus
-              className="flex-1 py-3 text-white text-2xl font-semibold"
+              className="flex-1 py-3 text-text text-2xl font-semibold"
             />
-            <Text className="text-zinc-400 text-base">{unit}</Text>
+            <Text className="text-text-muted text-base">{unit}</Text>
           </View>
           <View className="flex-row flex-wrap mt-2" style={{ gap: 6 }}>
             {presets.map((p) => {
@@ -369,11 +370,11 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
                   onPress={() => setAmount(fmtQty(p.qty))}
                   className="rounded-full px-3 py-2 border"
                   style={{
-                    backgroundColor: active ? 'white' : '#18181b',
-                    borderColor: active ? 'white' : '#3f3f46',
+                    backgroundColor: active ? colors.text : colors.surface,
+                    borderColor: active ? colors.text : colors.border,
                   }}
                 >
-                  <Text className="text-xs font-medium" style={{ color: active ? 'black' : '#a1a1aa' }}>
+                  <Text className="text-xs font-medium" style={{ color: active ? colors.bg : colors['text-muted'] }}>
                     {p.label}
                   </Text>
                 </TouchableOpacity>
@@ -383,18 +384,18 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
         </View>
 
         {/* Totals */}
-        <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
+        <View className="bg-surface border border-divider rounded-2xl p-4">
           <View className="flex-row items-baseline" style={{ gap: 6 }}>
-            <Text className="text-white text-3xl font-bold">{Math.round(totals.calories)}</Text>
-            <Text className="text-zinc-500 text-sm">kcal</Text>
+            <Text className="text-text text-3xl font-bold">{Math.round(totals.calories)}</Text>
+            <Text className="text-text-subtle text-sm">kcal</Text>
           </View>
           <View className="flex-row mt-3">
-            <MacroCell label="Protein" value={totals.protein_g} color="#818cf8" />
-            <MacroCell label="Carbs" value={totals.carbs_g} color="#34d399" />
-            <MacroCell label="Fat" value={totals.fat_g} color="#fbbf24" />
+            <MacroCell label="Protein" value={totals.protein_g} color={colors.data.protein} />
+            <MacroCell label="Carbs" value={totals.carbs_g} color={colors.data.carbs} />
+            <MacroCell label="Fat" value={totals.fat_g} color={colors.data.fat} />
           </View>
           {product.per_100g && (
-            <Text className="text-zinc-600 text-[11px] mt-3">
+            <Text className="text-text-subtle text-[11px] mt-3">
               {product.per_100g.calories} kcal per 100{unit} · Open Food Facts
             </Text>
           )}
@@ -404,13 +405,13 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
           haptic
           onPress={handleLog}
           disabled={!canLog}
-          className="bg-white rounded-2xl py-4 items-center"
+          className="bg-accent rounded-2xl py-4 items-center"
           style={{ opacity: canLog ? 1 : 0.4 }}
         >
           {isPending ? (
-            <ActivityIndicator color="black" />
+            <ActivityIndicator color={colors['on-accent']} />
           ) : (
-            <Text className="text-black font-semibold text-base">Log food</Text>
+            <Text className="text-on-accent font-semibold text-base">Log food</Text>
           )}
         </PressableScale>
       </ScrollView>
@@ -473,7 +474,7 @@ export default function NutritionBarcodeScreen() {
 
   if (found) {
     return (
-      <SafeAreaView className="flex-1 bg-black" edges={['top', 'bottom']}>
+      <SafeAreaView className="flex-1 bg-bg" edges={['top', 'bottom']}>
         <ReviewProduct found={found} onRescan={rescan} />
       </SafeAreaView>
     )
@@ -481,8 +482,8 @@ export default function NutritionBarcodeScreen() {
 
   if (!permission) {
     return (
-      <View className="flex-1 bg-black items-center justify-center">
-        <ActivityIndicator color="#ffffff" />
+      <View className="flex-1 bg-bg items-center justify-center">
+        <ActivityIndicator color={colors.text} />
       </View>
     )
   }
@@ -490,7 +491,7 @@ export default function NutritionBarcodeScreen() {
   // Without the camera the typed entry is the whole screen.
   if (!permission.granted) {
     return typing ? (
-      <SafeAreaView className="flex-1 bg-black justify-end" edges={['top', 'bottom']}>
+      <SafeAreaView className="flex-1 bg-bg justify-end" edges={['top', 'bottom']}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <TypeCodePanel busy={busy} onSubmit={lookup} onCancel={() => router.back()} />
         </KeyboardAvoidingView>
@@ -513,7 +514,7 @@ export default function NutritionBarcodeScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -530,7 +531,7 @@ export default function NutritionBarcodeScreen() {
           <View className="absolute inset-0 items-center justify-center" pointerEvents="none">
             <View
               className="rounded-2xl"
-              style={{ width: '78%', height: 150, borderWidth: 2, borderColor: 'rgba(255,255,255,0.85)' }}
+              style={{ width: '78%', height: 150, borderWidth: 2, borderColor: `${colors.text}d9` }}
             />
           </View>
 
@@ -538,21 +539,21 @@ export default function NutritionBarcodeScreen() {
           <View className="absolute top-0 left-0 right-0 px-4 pt-3 flex-row items-center justify-between">
             <TouchableOpacity
               onPress={() => router.back()}
-              className="w-11 h-11 rounded-full bg-black/60 items-center justify-center"
+              className="w-11 h-11 rounded-full bg-bg/60 items-center justify-center"
               hitSlop={12}
             >
-              <X size={22} color="#ffffff" strokeWidth={2.25} />
+              <X size={22} color={colors.text} strokeWidth={2.25} />
             </TouchableOpacity>
-            <View className="bg-black/60 rounded-full px-3 py-1.5">
-              <Text className="text-white text-xs">Point at the barcode</Text>
+            <View className="bg-bg/60 rounded-full px-3 py-1.5">
+              <Text className="text-text text-xs">Point at the barcode</Text>
             </View>
             <View style={{ width: 44 }} />
           </View>
 
           {busy && (
-            <View className="absolute inset-0 bg-black/70 items-center justify-center">
-              <ActivityIndicator color="#ffffff" />
-              <Text className="text-white text-sm mt-3">Looking up product…</Text>
+            <View className="absolute inset-0 bg-bg/70 items-center justify-center">
+              <ActivityIndicator color={colors.text} />
+              <Text className="text-text text-sm mt-3">Looking up product…</Text>
             </View>
           )}
         </View>
@@ -563,11 +564,11 @@ export default function NutritionBarcodeScreen() {
           <View className="items-center pt-4 pb-6">
             <TouchableOpacity
               onPress={() => setTyping(true)}
-              className="flex-row items-center bg-zinc-900 border border-zinc-800 rounded-full px-4 py-2.5"
+              className="flex-row items-center bg-surface border border-divider rounded-full px-4 py-2.5"
               style={{ gap: 8 }}
             >
-              <Keyboard size={16} color="#e4e4e7" strokeWidth={2} />
-              <Text className="text-zinc-200 text-sm font-medium">Type the number</Text>
+              <Keyboard size={16} color={colors.text} strokeWidth={2} />
+              <Text className="text-text text-sm font-medium">Type the number</Text>
             </TouchableOpacity>
           </View>
         )}

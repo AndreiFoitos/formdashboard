@@ -7,6 +7,7 @@ import { useRequireAuth } from '../hooks/useRequireAuth'
 import { WEEKDAYS, usePitPlan } from '../hooks/usePitCrew'
 import { useExerciseName } from '../hooks/useExerciseName'
 import { EXERCISE_NAME } from '../lib/exercises'
+import { colors } from '../theme/tokens'
 
 // The whole Pit Crew week: each day's session and meals. Read-only; logging
 // happens from the Today card on the Pit tab.
@@ -24,7 +25,7 @@ export default function PlanWeekScreen() {
   const meals = plan?.plan.nutrition?.days.find((d) => d.weekday === day)
 
   return (
-    <SafeAreaView className="flex-1 bg-black" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <View className="flex-row items-center px-4 pt-2 pb-4">
         <TouchableOpacity
           onPress={() => router.back()}
@@ -32,10 +33,10 @@ export default function PlanWeekScreen() {
           className="-ml-1 pr-4 py-2 flex-row items-center"
           style={{ gap: 2 }}
         >
-          <ChevronLeft size={22} color="#d4d4d8" strokeWidth={2.25} />
-          <Text className="text-zinc-300 text-base font-medium">Back</Text>
+          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
+          <Text className="text-text-muted text-base font-medium">Back</Text>
         </TouchableOpacity>
-        <Text className="text-white text-xl font-bold">This week</Text>
+        <Text className="text-text text-xl font-bold">This week</Text>
       </View>
 
       <View className="flex-row px-4 mb-4" style={{ gap: 6 }}>
@@ -47,12 +48,12 @@ export default function PlanWeekScreen() {
               key={label}
               onPress={() => setDay(i)}
               className="flex-1 py-2 rounded-xl items-center border"
-              style={{ backgroundColor: active ? 'white' : '#18181b', borderColor: active ? 'white' : '#27272a' }}
+              style={{ backgroundColor: active ? colors.text : colors.surface, borderColor: active ? colors.text : colors.divider }}
             >
-              <Text className="text-xs font-semibold" style={{ color: active ? 'black' : '#a1a1aa' }}>{label}</Text>
+              <Text className="text-xs font-semibold" style={{ color: active ? colors.bg : colors['text-muted'] }}>{label}</Text>
               <View
                 className="w-1 h-1 rounded-full mt-1"
-                style={{ backgroundColor: trains ? (active ? 'black' : '#a3e635') : 'transparent' }}
+                style={{ backgroundColor: trains ? (active ? colors.bg : colors.success) : 'transparent' }}
               />
             </TouchableOpacity>
           )
@@ -61,28 +62,28 @@ export default function PlanWeekScreen() {
 
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingBottom: 40, gap: 16 }}>
         {!plan ? (
-          <Text className="text-zinc-500 text-sm">No plan yet.</Text>
+          <Text className="text-text-subtle text-sm">No plan yet.</Text>
         ) : (
           <>
-            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-              <View className="px-4 pt-4 pb-3 border-b border-zinc-800">
-                <Text className="text-zinc-500 text-xs uppercase tracking-widest">{WEEKDAYS[day]}</Text>
-                <Text className="text-white text-base font-semibold mt-1">{training ? training.name : 'Rest day'}</Text>
-                {!!training?.focus && <Text className="text-zinc-500 text-xs mt-0.5">{training.focus}</Text>}
+            <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
+              <View className="px-4 pt-4 pb-3 border-b border-divider">
+                <Text className="text-text-subtle text-xs uppercase tracking-widest">{WEEKDAYS[day]}</Text>
+                <Text className="text-text text-base font-semibold mt-1">{training ? training.name : 'Rest day'}</Text>
+                {!!training?.focus && <Text className="text-text-subtle text-xs mt-0.5">{training.focus}</Text>}
               </View>
               {training?.exercises.map((e, i) => (
                 <View
                   key={e.key}
                   className="px-4 py-3"
-                  style={{ borderBottomWidth: i === training.exercises.length - 1 ? 0 : 1, borderBottomColor: '#27272a' }}
+                  style={{ borderBottomWidth: i === training.exercises.length - 1 ? 0 : 1, borderBottomColor: colors.divider }}
                 >
                   <View className="flex-row justify-between">
-                    <Text className="text-white text-sm font-medium flex-1 pr-2">{displayName(e.key)}</Text>
-                    <Text className="text-zinc-400 text-sm">
+                    <Text className="text-text text-sm font-medium flex-1 pr-2">{displayName(e.key)}</Text>
+                    <Text className="text-text-muted text-sm">
                       {e.sets} × {e.reps_min === e.reps_max ? e.reps_max : `${e.reps_min}–${e.reps_max}`}
                     </Text>
                   </View>
-                  <Text className="text-zinc-500 text-xs mt-0.5">
+                  <Text className="text-text-subtle text-xs mt-0.5">
                     {e.start_weight_kg != null ? `Start ${e.start_weight_kg} kg · ` : ''}rest {Math.round(e.rest_seconds / 30) / 2} min
                     {e.note ? ` · ${e.note}` : ''}
                   </Text>
@@ -93,25 +94,25 @@ export default function PlanWeekScreen() {
             {meals && (
               <View>
                 <View className="flex-row items-end justify-between mb-2">
-                  <Text className="text-zinc-500 text-xs uppercase tracking-widest">Meals</Text>
-                  <Text className="text-zinc-500 text-xs">
+                  <Text className="text-text-subtle text-xs uppercase tracking-widest">Meals</Text>
+                  <Text className="text-text-subtle text-xs">
                     {meals.totals.calories} kcal · {Math.round(meals.totals.protein_g)} g protein
                   </Text>
                 </View>
-                <View className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
+                <View className="bg-surface border border-divider rounded-2xl overflow-hidden">
                   {meals.meals.map((m, i) => (
                     <View
                       key={m.id}
                       className="px-4 py-3"
-                      style={{ borderBottomWidth: i === meals.meals.length - 1 ? 0 : 1, borderBottomColor: '#27272a' }}
+                      style={{ borderBottomWidth: i === meals.meals.length - 1 ? 0 : 1, borderBottomColor: colors.divider }}
                     >
                       <View className="flex-row justify-between">
-                        <Text className="text-white text-sm font-medium flex-1 pr-2">{m.name}</Text>
-                        <Text className="text-zinc-400 text-sm">{m.totals.calories} kcal</Text>
+                        <Text className="text-text text-sm font-medium flex-1 pr-2">{m.name}</Text>
+                        <Text className="text-text-muted text-sm">{m.totals.calories} kcal</Text>
                       </View>
-                      {!!m.prep && <Text className="text-zinc-300 text-xs leading-5 mt-1">{m.prep}</Text>}
+                      {!!m.prep && <Text className="text-text-muted text-xs leading-5 mt-1">{m.prep}</Text>}
                       {m.items.map((it) => (
-                        <Text key={it.food} className="text-zinc-500 text-xs mt-0.5">
+                        <Text key={it.food} className="text-text-subtle text-xs mt-0.5">
                           {it.food} · {it.grams} g
                         </Text>
                       ))}
