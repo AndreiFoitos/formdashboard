@@ -10,9 +10,9 @@ import { useAuthStore } from '../store/auth'
 import { getToken } from '../lib/storage'
 import { api } from '../api/client'
 import {
-  enablePredictiveNudges,
   handlePlanReadyResponse,
   handleQuickLogResponse,
+  registerIfGranted,
   setupNotificationHandlers,
 } from '../lib/notifications'
 import { syncPurchasesUser } from '../lib/purchases'
@@ -71,11 +71,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     syncPurchasesUser(user?.id ?? null).catch(() => {})
   }, [hydrated, user?.id])
 
-  // Once a user is authed, make sure notifications are wired and the push
-  // token is registered with the backend. Idempotent — no-ops if already set up.
+  // Once a user is authed, re-register the push token if notifications are
+  // already allowed. Asking happens in context (onboarding, the Today card,
+  // Build my plan), not here.
   useEffect(() => {
     if (!user) return
-    enablePredictiveNudges().catch(() => {})
+    registerIfGranted().catch(() => {})
   }, [user?.id])
 
   // Cold-start case: app launched from a notification tap. Handle the queued

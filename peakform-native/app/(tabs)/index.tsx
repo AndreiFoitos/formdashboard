@@ -25,6 +25,7 @@ import { effectsForToday } from '../../lib/avatar/config'
 import { useRewards } from '../../hooks/useRewards'
 import { UnlockModal } from '../../components/avatar/UnlockModal'
 import { AiDigest } from '../../components/AiDigest'
+import { NotificationsCard } from '../../components/NotificationsCard'
 import { CaffeineCurve, type CurveData } from '../../components/CaffeineCurve'
 import { UndoToast } from '../../components/UndoToast'
 import { showUndo } from '../../store/undo'
@@ -684,6 +685,8 @@ export default function DashboardScreen() {
             <SettingsIcon color="#d4d4d8" size={26} />
           </TouchableOpacity>
         </View>
+
+        <NotificationsCard />
 
         {isLoading ? (
           <View style={{ gap: 12 }}>

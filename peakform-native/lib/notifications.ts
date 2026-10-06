@@ -138,6 +138,21 @@ export async function disableNudges(): Promise<void> {
   }
 }
 
+/** App start: register this phone's token if notifications are already
+ *  allowed, without prompting. The prompt itself belongs where it can be
+ *  explained (onboarding's last step, the Today card, Build my plan): iOS
+ *  shows it only once, and a bare prompt at launch didn't reliably appear. */
+export async function registerIfGranted(): Promise<void> {
+  try {
+    await setupNotificationHandlers()
+    const Notifications = await loadNotifs()
+    const perm = await Notifications.getPermissionsAsync()
+    if (perm.granted && canRegisterPushToken()) await registerPushTokenWithBackend()
+  } catch (e) {
+    if (__DEV__) console.warn('[notifications] silent register failed:', e)
+  }
+}
+
 /** Full enable flow — permission → token → backend register. Idempotent.
  *  On failure, `detail` carries the underlying error so Settings → Send test
  *  notification can show why (it used to be swallowed, which is how no device

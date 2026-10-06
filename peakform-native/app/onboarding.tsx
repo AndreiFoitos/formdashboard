@@ -22,6 +22,9 @@ import { AvatarCanvas } from '../components/avatar/AvatarCanvas'
 import { bodyFromMetrics, DEFAULT_LOOK, toState } from '../lib/avatar/config'
 import { FoodPrefsFields, TrainingPrefsFields } from '../components/preferences/PreferenceFields'
 import { EMPTY_PREFERENCES, type Goal, type Preferences } from '../hooks/usePreferences'
+import { NOTIFICATION_REASONS } from '../components/NotificationsCard'
+import { enablePredictiveNudges } from '../lib/notifications'
+import { Bell } from 'lucide-react-native'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,11 +74,15 @@ const STEPS = [
   { title: 'Your targets',     subtitle: 'Pre-filled from your stats. You can edit any of these later in Settings.' },
   { title: 'Your training',    subtitle: 'So Pit Crew can build a plan that fits. Skip anything you’d rather not answer.' },
   { title: 'Your food',        subtitle: 'Used for your meal plan. You can change all of this in Settings.' },
+  { title: 'Stay on track',    subtitle: 'GainRace works best with notifications on. You can change this any time in Settings.' },
 ]
 
 // Steps from here on are optional Pit Crew preferences. Your account is fully
 // set up before them, so quitting the app here loses nothing that matters.
 const TARGETS_STEP = 3
+// Last step: explain notifications, then ask. iOS shows its prompt only once,
+// so it should come with a reason, not at app launch.
+const NOTIF_STEP = 6
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
 
@@ -764,6 +771,15 @@ export default function OnboardingScreen() {
   }
 
   async function handleNext() {
+    if (step === NOTIF_STEP) {
+      setLoading(true)
+      // Whatever the answer, onboarding ends here; the Today card covers
+      // anyone who says no.
+      await enablePredictiveNudges().catch(() => null)
+      setLoading(false)
+      router.replace('/')
+      return
+    }
     if (step > TARGETS_STEP) {
       await savePrefsStep()
       return
@@ -886,8 +902,7 @@ export default function OnboardingScreen() {
     else router.replace('/')
   }
 
-  const isLast = step === STEPS.length - 1
-  const isPrefsStep = step > TARGETS_STEP
+  const isPrefsStep = step > TARGETS_STEP && step < NOTIF_STEP
   const canSkip = step === TARGETS_STEP // targets — allow Skip since defaults are sane
 
   return (
@@ -961,6 +976,19 @@ export default function OnboardingScreen() {
           )}
           {step === 4 && <TrainingPrefsFields value={prefs} onChange={patchPrefs} />}
           {step === 5 && <FoodPrefsFields value={prefs} onChange={patchPrefs} />}
+          {step === NOTIF_STEP && (
+            <View style={{ gap: 14 }}>
+              {NOTIFICATION_REASONS.map((r) => (
+                <View key={r} className="flex-row items-start bg-zinc-900 border border-zinc-800 rounded-2xl p-4" style={{ gap: 12 }}>
+                  <Bell size={18} color="#facc15" style={{ marginTop: 1 }} />
+                  <Text className="text-zinc-200 text-sm leading-5 flex-1">{r}</Text>
+                </View>
+              ))}
+              <Text className="text-zinc-600 text-xs leading-5">
+                Reminders adapt to when you actually log, and you can turn them off in Settings.
+              </Text>
+            </View>
+          )}
 
           {/* Error */}
           {error && (
@@ -982,7 +1010,7 @@ export default function OnboardingScreen() {
               <ActivityIndicator color="black" />
             ) : (
               <Text className="text-black font-semibold text-base">
-                {isLast ? 'Finish' : step === TARGETS_STEP ? 'Save and continue' : 'Continue'}
+                {step === NOTIF_STEP ? 'Turn on notifications' : step === TARGETS_STEP ? 'Save and continue' : 'Continue'}
               </Text>
             )}
           </TouchableOpacity>
@@ -990,6 +1018,12 @@ export default function OnboardingScreen() {
           {isPrefsStep && (
             <TouchableOpacity onPress={skipPrefsStep} disabled={loading} className="py-2 items-center">
               <Text className="text-zinc-500 text-sm">Skip for now</Text>
+            </TouchableOpacity>
+          )}
+
+          {step === NOTIF_STEP && (
+            <TouchableOpacity onPress={() => router.replace('/')} disabled={loading} className="py-2 items-center">
+              <Text className="text-zinc-500 text-sm">Not now</Text>
             </TouchableOpacity>
           )}
 
