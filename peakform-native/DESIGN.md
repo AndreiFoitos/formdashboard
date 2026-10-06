@@ -339,3 +339,9 @@ One line per decision made during the autonomous redesign run (2026-10-06).
 - Phase 2: Smart nudges switch off is remembered locally (`nudges_off`) so app start no longer re-registers the push token after the user turned nudges off.
 - Phase 2: "Send test notification" (§6 table) doesn't exist in the codebase; nothing to move. `FEATURES.avatarDevTools` is now unused (Avatar lab is `__DEV__`-only) — kept, not deleted.
 - Phase 2: Onboarding stats step gets a Metric/Imperial toggle (same store as Settings → Units) so imperial users can enter lb and ft/in.
+- Phase 3: native tabs work on SDK 54 (`expo-router/unstable-native-tabs`, alpha). Android icons use `VectorIcon` + MaterialIcons because SDK 54 has no `md` prop; added `@expo/vector-icons` (JS-only, SDK-matched via `expo install`). Removed `@react-navigation/material-top-tabs` and `react-native-pager-view` (only used by the swipe tabs).
+- Phase 3: tab bar tint = `accent` (active tab, §1.5), inactive = `text-subtle`, Android bar = `surface`.
+- Phase 3: tab bar height can't be measured, so `theme/layout.ts` gains `tabBarClearance` (iOS: inset + 49pt; Android: 0) for content pinned to a tab's bottom — Pit chat input and UndoToast.
+- Phase 3: SF Symbols — Today `house`/`house.fill`, Training `dumbbell.fill`, Nutrition `fork.knife`, Body `figure`, Pit `bubble.left.and.text.bubble.right` (chat = AI coach, §5).
+- Phase 3: Camera screens (snap, barcode, body-comp) stay headerless full-screen pushes (§5 media exception); login/register/onboarding stay headerless as the signed-out flow.
+- Phase 3: Paywall is a native modal titled "Plans" with Cancel; methodology topic sets its title at runtime.

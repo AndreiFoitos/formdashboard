@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
-import { ChevronLeft, ChevronRight, Lock } from 'lucide-react-native'
+import { Stack, router } from 'expo-router'
+import { ChevronRight, Lock } from 'lucide-react-native'
 import { AvatarCanvas } from '../components/avatar/AvatarCanvas'
 import { useMyAvatar, useSaveAvatar } from '../hooks/useMyAvatar'
 import { appliedBody, PALETTE, toState, type AvatarConfig, type LookColors } from '../lib/avatar/config'
@@ -108,27 +108,20 @@ export default function AvatarEditScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <View className="flex-row items-center px-4 pt-2 pb-2">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center gap-1">
-          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-body font-medium">Back</Text>
-        </TouchableOpacity>
-        <Text className="text-text text-headline font-bold flex-1">Your avatar</Text>
-        <TouchableOpacity
-          onPress={() => save.mutate(buildConfig(false))}
-          disabled={!dirty || save.isPending}
-          className="px-4 py-2 rounded-md"
-          style={{ borderCurve: 'continuous', backgroundColor: dirty ? colors.accent : colors['surface-raised'] }}
-        >
-          {save.isPending ? (
-            <ActivityIndicator color={colors['on-accent']} size="small" />
-          ) : (
-            <Text className="text-footnote font-semibold" style={{ color: dirty ? colors['on-accent'] : colors['text-subtle'] }}>
-              {savedFlash ? 'Saved' : 'Save'}
-            </Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      <Stack.Screen
+        options={{
+          headerRight: () =>
+            save.isPending ? (
+              <ActivityIndicator color={colors.text} />
+            ) : (
+              <TouchableOpacity onPress={() => save.mutate(buildConfig(false))} disabled={!dirty} hitSlop={12} className="py-2">
+                <Text className="text-body font-semibold" style={{ color: dirty ? colors.accent : colors['text-subtle'] }}>
+                  {savedFlash ? 'Saved' : 'Save'}
+                </Text>
+              </TouchableOpacity>
+            ),
+        }}
+      />
 
       <View style={{ borderCurve: 'continuous', height: 360 }} className="mx-4 rounded-xl bg-surface overflow-hidden">
         <AvatarCanvas base={base} state={state} emote={previewEmote ?? equipped.emote ?? null} style={{ flex: 1 }} />

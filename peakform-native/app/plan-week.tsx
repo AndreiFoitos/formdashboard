@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { ChevronLeft } from 'lucide-react-native'
 import { useRequireAuth } from '../hooks/useRequireAuth'
 import { WEEKDAYS, usePitPlan } from '../hooks/usePitCrew'
 import { useExerciseName } from '../hooks/useExerciseName'
@@ -28,18 +27,6 @@ export default function PlanWeekScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <View className="flex-row items-center px-4 pt-2 pb-4">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={12}
-          className="-ml-1 pr-4 py-2 flex-row items-center gap-1"
-        >
-          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-body font-medium">Back</Text>
-        </TouchableOpacity>
-        <Text className="text-text text-headline font-bold">This week</Text>
-      </View>
-
       <View className="flex-row px-4 mb-4 gap-2">
         {SHORT.map((label, i) => {
           const active = i === day

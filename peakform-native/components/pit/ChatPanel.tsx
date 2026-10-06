@@ -15,6 +15,8 @@ import { handleLimitError, openPaywall, usePlan, useSetPlan } from '../../hooks/
 import { PREFERENCES_KEY } from '../../hooks/usePreferences'
 import { useKeyboardOverlap } from '../../hooks/useKeyboardOverlap'
 import { colors } from '../../theme/tokens'
+import { tabBarClearance } from '../../theme/layout'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 interface Action {
   type: string
@@ -71,6 +73,9 @@ export function ChatPanel() {
   // Lifts the input bar above the keyboard (KeyboardAvoidingView got the
   // offset wrong here and the keyboard covered the input and Send).
   const keyboardOverlap = useKeyboardOverlap(rootRef)
+  // The native tab bar overlays the screen; the keyboard covers it when up.
+  const insets = useSafeAreaInsets()
+  const bottomPad = Math.max(keyboardOverlap, tabBarClearance(insets.bottom))
   useEffect(() => {
     if (keyboardOverlap > 0) scrollDown()
   }, [keyboardOverlap])
@@ -160,7 +165,7 @@ export function ChatPanel() {
   }
 
   return (
-    <View ref={rootRef} className="flex-1" style={{ paddingBottom: keyboardOverlap }}>
+    <View ref={rootRef} className="flex-1" style={{ paddingBottom: bottomPad }}>
       <View className="flex-row items-center justify-between px-4 pb-2" style={{ minHeight: 24 }}>
         {asksLeft ? (
           <TouchableOpacity onPress={() => openPaywall('ask')} hitSlop={10}>

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { router, useLocalSearchParams } from 'expo-router'
+import { Stack, router, useLocalSearchParams } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
-import { Check, X } from 'lucide-react-native'
+import { Check } from 'lucide-react-native'
 import type { PurchasesPackage } from 'react-native-purchases'
 import { PressableScale } from '../components/PressableScale'
 import { hapticSuccess } from '../lib/haptics'
@@ -151,17 +151,16 @@ export default function PaywallScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={['top', 'bottom']}>
-      <View className="flex-row px-4 pt-2">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={12}
-          className="w-10 h-10 rounded-full bg-surface items-center justify-center" style={{ borderCurve: 'continuous' }}
-          accessibilityLabel="Close"
-        >
-          <X size={20} color={colors.text} strokeWidth={2.25} />
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView className="flex-1 bg-bg" edges={['bottom']}>
+      <Stack.Screen
+        options={{
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="py-2">
+              <Text className="text-text text-body">Cancel</Text>
+            </TouchableOpacity>
+          ),
+        }}
+      />
 
       <ScrollView className="flex-1 px-5" contentContainerClassName="pb-6">
         <Text className="text-text text-title font-bold mt-4">{head.title}</Text>

@@ -3,7 +3,7 @@ import { ActivityIndicator, Dimensions, ScrollView, Text, TouchableOpacity, View
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, Lock } from 'lucide-react-native'
+import { Lock } from 'lucide-react-native'
 import Svg, { Line, Polyline, Rect } from 'react-native-svg'
 import { api } from '../api/client'
 import { useRequireAuth } from '../hooks/useRequireAuth'
@@ -145,18 +145,6 @@ export default function TrendsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <View className="flex-row items-center px-4 pt-2 pb-4">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={12}
-          className="-ml-1 pr-4 py-2 flex-row items-center gap-1"
-        >
-          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-body font-medium">Back</Text>
-        </TouchableOpacity>
-        <Text className="text-text text-headline font-bold">Trends</Text>
-      </View>
-
       {/* Range picker — ranges beyond the plan open the paywall */}
       <View className="flex-row px-4 gap-2">
         {RANGES.map((r) => {

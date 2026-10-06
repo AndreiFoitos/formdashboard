@@ -6,7 +6,6 @@ import { useMemo, useRef, useState } from 'react'
 import { Image, PanResponder, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Redirect, router } from 'expo-router'
-import { ChevronLeft } from 'lucide-react-native'
 import { useAuthStore } from '../store/auth'
 import { AvatarCanvas, type AvatarCanvasHandle, type AvatarSource } from '../components/avatar/AvatarCanvas'
 import { computeBodyParams, computeDailyEffects, type AvatarBase } from '../lib/avatar/bodyParams'
@@ -69,14 +68,6 @@ function AvatarLab() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <View className="flex-row items-center px-4 pt-2 pb-2">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center gap-1">
-          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-body font-medium">Back</Text>
-        </TouchableOpacity>
-        <Text className="text-text text-headline font-bold">Avatar lab</Text>
-      </View>
-
       <View style={{ borderCurve: 'continuous', height: 340 }} className="mx-4 rounded-xl bg-surface overflow-hidden">
         {started ? (
           <AvatarCanvas key={source} ref={canvas} base={base} source={source} state={state} onFps={setFps} style={{ flex: 1 }} />

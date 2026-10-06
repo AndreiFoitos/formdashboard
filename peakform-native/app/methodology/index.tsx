@@ -1,7 +1,6 @@
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { ChevronLeft } from 'lucide-react-native'
 import { TOPICS } from '../../lib/methodology'
 import { colors } from '../../theme/tokens'
 
@@ -11,14 +10,6 @@ import { colors } from '../../theme/tokens'
 export default function MethodologyHubScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <View className="flex-row items-center px-4 pt-2 pb-4">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 pr-4 py-2 flex-row items-center gap-1">
-          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-body font-medium">Back</Text>
-        </TouchableOpacity>
-        <Text className="text-text text-headline font-bold flex-1">How is this calculated?</Text>
-      </View>
-
       <ScrollView
         className="flex-1 px-4"
         contentContainerClassName="pt-1 pb-12"

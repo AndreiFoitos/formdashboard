@@ -53,3 +53,19 @@ New: Profile (age, sex, height + calorie recompute prompt), Units, Notifications
 Show body shape to friends (mirrored from avatar edit). Units applied to Body, Training, Today,
 Friends, Trends, Pit (plan, log sheet, check-in), weekly recap, onboarding (with a units toggle).
 tsc clean.
+
+Commit: dd3c063
+
+## Phase 3 — §8 step 6, native tabs
+In progress: read expo-router 6 native-tabs docs/types, replace material-top-tabs + BottomNav, move OfflineBanner/PolicyUpdateNotice to root, ThemeProvider DarkTheme, native headers on pushed screens.
+Done. Native tabs (expo-router/unstable-native-tabs) with SF Symbols + MaterialIcons VectorIcon
+fallback; material-top-tabs, react-native-pager-view and BottomNav removed (no swipe). OfflineBanner
+and PolicyUpdateNotice moved to the root layout. ThemeProvider pinned to DarkTheme with token colors.
+Native headers with titles on: settings/*, friends, plan-week, shopping-list, invite, methodology x3,
+avatar-edit (Save in headerRight), avatar-lab, combo-dex, trends, nutrition-confirm (back = "Retake"),
+paywall (modal, Cancel). Headerless by design: tab roots, login/register/onboarding, camera screens
+(nutrition-snap, nutrition-barcode, body-comp-snap), weekly-recap (full-screen media).
+SDK 54 native-tabs limitations found (docs + types): alpha API; no `md` icon prop (Android needs
+drawable/androidSrc/VectorIcon); tab bar height can't be measured; only the first ScrollView of a tab
+gets automatic iOS content insets; FlatList scroll-to-top/minimize unsupported; 5-tab max on Android;
+no nested native tabs; custom tab-bar styling heavily constrained.

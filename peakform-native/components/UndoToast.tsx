@@ -8,6 +8,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useUndoStore } from '../store/undo'
 import { hapticLight } from '../lib/haptics'
+import { tabBarClearance } from '../theme/layout'
 
 export function UndoToast() {
   const insets = useSafeAreaInsets()
@@ -50,7 +51,8 @@ export function UndoToast() {
           position: 'absolute',
           left: 16,
           right: 16,
-          bottom: insets.bottom + 16,
+          // Shown on tab screens: sit one step above the tab bar.
+          bottom: tabBarClearance(insets.bottom) + 16,
           zIndex: 60,
         },
         animatedStyle,

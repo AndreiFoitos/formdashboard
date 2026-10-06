@@ -5,6 +5,7 @@ import { Stack, router } from 'expo-router'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { DarkTheme, ThemeProvider, type Theme } from '@react-navigation/native'
 import * as Sentry from '@sentry/react-native'
 import { useAuthStore } from '../store/auth'
 import { getToken } from '../lib/storage'
@@ -19,6 +20,22 @@ import { syncPurchasesUser } from '../lib/purchases'
 import { colors } from '../theme/tokens'
 import { formSheet, modalHeader, pushedHeader } from '../theme/navigation'
 import { loadUnits } from '../lib/units'
+import { OfflineBanner } from '../components/OfflineBanner'
+import { PolicyUpdateNotice } from '../components/PolicyUpdateNotice'
+
+// Native headers, sheets and the tab bar render dark (DESIGN.md §5, §6 rule 6).
+const navTheme: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: colors.accent,
+    background: colors.bg,
+    card: colors.bg,
+    text: colors.text,
+    border: colors.divider,
+    notification: colors.danger,
+  },
+}
 
 // ── Sentry — fire-and-forget crash + JS error reporting ──────────────────────
 // DSN comes from EXPO_PUBLIC_SENTRY_DSN set per-profile in eas.json. When the
@@ -180,6 +197,7 @@ function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
+          <ThemeProvider value={navTheme}>
           <AuthGate>
             <Stack
               screenOptions={{
@@ -194,7 +212,7 @@ function RootLayout() {
               <Stack.Screen name="register" />
               <Stack.Screen name="onboarding" />
 
-              {/* Main app — swipeable tab group, protected via useRequireAuth() */}
+              {/* Main app — native tab group, protected via useRequireAuth() */}
               <Stack.Screen name="(tabs)" />
               {/* Settings hub and its drill-downs (DESIGN.md §6) */}
               <Stack.Screen name="settings/index" options={{ ...pushedHeader, title: 'Settings' }} />
@@ -207,32 +225,32 @@ function RootLayout() {
 
               {/* Photo-based calorie estimation flow */}
               <Stack.Screen name="nutrition-snap" options={{ animation: 'slide_from_bottom' }} />
-              <Stack.Screen name="nutrition-confirm" />
+              <Stack.Screen name="nutrition-confirm" options={{ ...pushedHeader, title: 'Review meal', headerBackButtonDisplayMode: 'default', headerBackTitle: 'Retake' }} />
               {/* Packaged food by barcode (Open Food Facts via the backend) */}
               <Stack.Screen name="nutrition-barcode" options={{ animation: 'slide_from_bottom' }} />
               {/* AI body-comp estimate (image is sent to Claude and dropped — never persisted). */}
               <Stack.Screen name="body-comp-snap" options={{ animation: 'slide_from_bottom' }} />
 
               {/* Friends + leaderboard + weekly recap */}
-              <Stack.Screen name="friends" />
+              <Stack.Screen name="friends" options={{ ...pushedHeader, title: 'Friends' }} />
               {/* Pit Crew: the whole week of the current plan */}
-              <Stack.Screen name="plan-week" />
-              <Stack.Screen name="shopping-list" />
+              <Stack.Screen name="plan-week" options={{ ...pushedHeader, title: 'This week' }} />
+              <Stack.Screen name="shopping-list" options={{ ...pushedHeader, title: 'Shopping list' }} />
               {/* Deep-link target for gainrace://invite/<token> */}
-              <Stack.Screen name="invite/[token]" />
+              <Stack.Screen name="invite/[token]" options={{ ...pushedHeader, title: 'Invite' }} />
               {/* Methodology — "How is this calculated?" surface */}
-              <Stack.Screen name="methodology/index" />
-              <Stack.Screen name="methodology/[topic]" />
-              <Stack.Screen name="methodology/sources" />
+              <Stack.Screen name="methodology/index" options={{ ...pushedHeader, title: 'How GainRace works' }} />
+              <Stack.Screen name="methodology/[topic]" options={{ ...pushedHeader, title: '' }} />
+              <Stack.Screen name="methodology/sources" options={{ ...pushedHeader, title: 'Sources & references' }} />
               {/* Internal renderer instrumentation — reachable from Settings
                   in dev builds only (__DEV__) */}
-              <Stack.Screen name="avatar-lab" />
-              <Stack.Screen name="avatar-edit" />
-              <Stack.Screen name="combo-dex" />
+              <Stack.Screen name="avatar-lab" options={{ ...pushedHeader, title: 'Avatar lab' }} />
+              <Stack.Screen name="avatar-edit" options={{ ...pushedHeader, title: 'Your avatar' }} />
+              <Stack.Screen name="combo-dex" options={{ ...pushedHeader, title: 'Combo Dex' }} />
               {/* Long-range charts; how far back depends on the plan */}
-              <Stack.Screen name="trends" />
+              <Stack.Screen name="trends" options={{ ...pushedHeader, title: 'Trends' }} />
               {/* Plans (Free / Plus / Pro) — opened on a limit or from Settings */}
-              <Stack.Screen name="paywall" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="paywall" options={{ ...pushedHeader, presentation: 'modal', title: 'Plans' }} />
               {/* Cinematic full-screen Weekly Race recap (Sun-Mon hero card → modal) */}
               <Stack.Screen
                 name="weekly-recap"
@@ -243,7 +261,10 @@ function RootLayout() {
                 }}
               />
             </Stack>
+            <OfflineBanner />
+            <PolicyUpdateNotice />
           </AuthGate>
+          </ThemeProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -14,7 +14,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { Award, ChevronLeft, HelpCircle, MoreHorizontal, Trophy, X } from 'lucide-react-native'
+import { Award, HelpCircle, MoreHorizontal, Trophy, X } from 'lucide-react-native'
 import { api } from '../api/client'
 import { useExerciseName } from '../hooks/useExerciseName'
 import { useAuthStore } from '../store/auth'
@@ -1004,16 +1004,6 @@ export default function FriendsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-4 pt-2 pb-3">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 px-2 py-2 flex-row items-center gap-1">
-          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-body font-medium">Back</Text>
-        </TouchableOpacity>
-        <Text className="text-text text-headline font-semibold">Friends</Text>
-        <View style={{ width: 70 }} />
-      </View>
-
       {/* Tabs */}
       <View className="flex-row mx-4 mt-1 p-1 bg-surface border border-divider rounded-full" style={{ borderCurve: 'continuous' }}>
         {(['leaderboard', 'friends'] as Tab[]).map(t => (

@@ -10,7 +10,6 @@ import { useMemo, useState } from 'react'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft } from 'lucide-react-native'
 import { api } from '../api/client'
 import { CountUp } from '../components/CountUp'
 import { SwipeableRow } from '../components/SwipeableRow'
@@ -222,16 +221,6 @@ function ConfirmContent({ raw }: { raw: string }) {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} className="-ml-1 px-2 py-2 flex-row items-center gap-1">
-          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-body font-medium">Retake</Text>
-        </TouchableOpacity>
-        <Text className="text-text font-semibold">Review meal</Text>
-        <View style={{ width: 60 }} />
-      </View>
-
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: totalsFooterClearance(insets.bottom) }}

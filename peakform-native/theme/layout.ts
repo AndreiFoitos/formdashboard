@@ -3,6 +3,7 @@
 // never by a raw number. Each one is built from the §3 line heights and §4 steps
 // the element itself uses, plus the safe-area inset, so they move together.
 
+import { Platform } from 'react-native'
 import type { EdgeInsets } from 'react-native-safe-area-context'
 import { fontSize } from './tokens'
 
@@ -44,3 +45,14 @@ export const recapOverlayClearance = (insets: Pick<EdgeInsets, 'top' | 'bottom'>
     bottom: offset.bottom + RECAP_REPLAY_HEIGHT + 4,
   }
 }
+
+// The native tab bar (expo-router 6) overlays tab screens on iOS and can't be
+// measured. Only the first ScrollView of a tab gets automatic insets, so
+// anything else pinned to the bottom of a tab clears it by this: the standard
+// 49pt bar plus the home-indicator inset (the iOS 26 floating bar fits inside
+// it too). On Android the bar sits below the content, so nothing to clear.
+const TAB_BAR_HEIGHT = 49
+
+/** Bottom clearance for content pinned to the bottom of a tab screen. */
+export const tabBarClearance = (bottomInset: number) =>
+  Platform.OS === 'ios' ? bottomInset + TAB_BAR_HEIGHT : 0

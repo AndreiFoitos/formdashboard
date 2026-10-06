@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { Check, ChevronLeft } from 'lucide-react-native'
+import { Check } from 'lucide-react-native'
 import { useRequireAuth } from '../hooks/useRequireAuth'
 import { usePitPlan, useShoppingList, type ShoppingItem } from '../hooks/usePitCrew'
 import { getToken, setToken } from '../lib/storage'
@@ -53,17 +53,6 @@ export default function ShoppingListScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <View className="flex-row items-center px-4 pt-2 pb-2">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={12}
-          className="-ml-1 pr-4 py-2 flex-row items-center gap-1"
-        >
-          <ChevronLeft size={22} color={colors.text} strokeWidth={2.25} />
-          <Text className="text-text-muted text-body font-medium">Back</Text>
-        </TouchableOpacity>
-        <Text className="text-text text-headline font-bold">Shopping list</Text>
-      </View>
       {list.data && (
         <Text className="text-text-subtle text-caption px-4 mb-3">
           {fmtRange(list.data.from, list.data.to)} · {ticked.size}/{total} ticked
