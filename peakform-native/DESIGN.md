@@ -115,6 +115,7 @@ All rounded surfaces use `borderCurve: 'continuous'` via style prop.
 Selectable cards (multi-line options) stay rounded-xl.
 Controls overlaid on full-screen camera/media are rounded-full.
 Clearances for fixed/floating elements use constants from `theme/layout.ts`, never raw numbers.
+Anything fixed to the top or bottom edge offsets from safe-area insets, never fixed padding.
 `letterSpacing` is allowed only on codes (invite codes, barcode input).
 
 Elevation: no shadows on black. Separate layers with `surface` vs `bg`, and hairline `border` where needed.

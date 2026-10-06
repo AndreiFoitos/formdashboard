@@ -22,7 +22,8 @@ import { randomFreeEmote } from '../lib/avatar/emotes'
 import type { PodiumAvatar } from '../components/recap/PodiumCanvas'
 import { FEATURES } from '../lib/featureFlags'
 import { colors } from '../theme/tokens'
-import { RECAP_CONTROL_OFFSET, RECAP_OVERLAY_CLEARANCE } from '../theme/layout'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { recapControlOffset, recapOverlayClearance } from '../theme/layout'
 
 // ─── Types (mirror backend /friends/recap/race shape) ───────────────────────
 
@@ -260,9 +261,10 @@ function PodiumScene({
   heads: Record<string, string>
   avatars: Record<string, PodiumAvatar>
 }) {
+  const clearance = recapOverlayClearance(useSafeAreaInsets())
   return (
     <View className="flex-1">
-      <View className="items-center pb-1" style={{ paddingTop: RECAP_OVERLAY_CLEARANCE.top }}>
+      <View className="items-center pb-1" style={{ paddingTop: clearance.top }}>
         <Text className="text-text-subtle text-caption">
           Final standings
         </Text>
@@ -272,7 +274,7 @@ function PodiumScene({
       </View>
       <PodiumCanvas crew={data.crew} runId={runId} heads={heads} avatars={avatars} />
       {phase === 'outro' && (
-        <Text className="text-text-subtle text-caption text-center" style={{ marginBottom: RECAP_OVERLAY_CLEARANCE.bottom }}>
+        <Text className="text-text-subtle text-caption text-center" style={{ marginBottom: clearance.bottom }}>
           Tap replay to watch again
         </Text>
       )}
@@ -283,12 +285,13 @@ function PodiumScene({
 // ─── Controls ───────────────────────────────────────────────────────────────
 
 function CloseButton({ onPress }: { onPress: () => void }) {
+  const { top } = recapControlOffset(useSafeAreaInsets())
   return (
     <TouchableOpacity
       onPress={onPress}
       hitSlop={12}
       className="absolute right-5"
-      style={{ top: RECAP_CONTROL_OFFSET }}
+      style={{ top }}
     >
       <X size={22} color={colors['text-muted']} strokeWidth={2} />
     </TouchableOpacity>
@@ -296,12 +299,13 @@ function CloseButton({ onPress }: { onPress: () => void }) {
 }
 
 function ReplayButton({ onPress }: { onPress: () => void }) {
+  const { bottom } = recapControlOffset(useSafeAreaInsets())
   return (
     <TouchableOpacity
       onPress={onPress}
       hitSlop={12}
       className="absolute self-center flex-row items-center gap-2 px-5 py-3 rounded-full"
-      style={{ borderCurve: 'continuous', bottom: RECAP_CONTROL_OFFSET, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
+      style={{ borderCurve: 'continuous', bottom, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }}
     >
       <RotateCcw size={16} color={colors.text} strokeWidth={2} />
       <Text className="text-text text-footnote font-semibold">Replay</Text>

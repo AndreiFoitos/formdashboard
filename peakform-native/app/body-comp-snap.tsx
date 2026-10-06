@@ -9,7 +9,7 @@ import {
   Image,
   ScrollView,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera'
 import * as Speech from 'expo-speech'
@@ -24,7 +24,7 @@ import { extractErrorMessage } from '../lib/apiError'
 import { handleLimitError, usePlan, useSetPlan, type ScanUsage } from '../hooks/usePlan'
 import { ScanLimitCard, ScanQuotaPill } from '../components/ScanQuota'
 import { colors } from '../theme/tokens'
-import { FOOTER_CLEARANCE } from '../theme/layout'
+import { footerBottomPadding, footerClearance } from '../theme/layout'
 
 // BF% estimator, three-angle version. The user props the phone up, steps
 // back, and a spoken countdown walks them through front → side → back while
@@ -249,9 +249,10 @@ function EstimateView({
 }) {
   const hasNumber =
     estimate.bf_percent_low != null && estimate.bf_percent_high != null
+  const insets = useSafeAreaInsets()
   const angles = estimate.views_used && estimate.views_used > 1 ? ` · ${estimate.views_used} angles` : ''
   return (
-    <SafeAreaView className="flex-1 bg-bg" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
         <TouchableOpacity onPress={onRetake} hitSlop={8}>
           <Text className="text-text-muted text-body">‹ Retake</Text>
@@ -260,7 +261,7 @@ function EstimateView({
         <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView className="flex-1 px-4 pt-5" contentContainerStyle={{ paddingBottom: FOOTER_CLEARANCE }}>
+      <ScrollView className="flex-1 px-4 pt-5" contentContainerStyle={{ paddingBottom: footerClearance(insets.bottom) }}>
         {hasNumber ? (
           <View className="items-center pb-3">
             <Text className="text-text-subtle text-caption mb-1">
@@ -335,7 +336,7 @@ function EstimateView({
         <Text className="text-text-subtle text-caption mt-5">{estimate.disclaimer}</Text>
       </ScrollView>
 
-      <View className="absolute bottom-0 left-0 right-0 bg-bg border-t border-divider px-4 pt-3 pb-8">
+      <View className="absolute bottom-0 left-0 right-0 bg-bg border-t border-divider px-4 pt-3" style={{ paddingBottom: footerBottomPadding(insets.bottom) }}>
         <TouchableOpacity
           onPress={onSave}
           disabled={!hasNumber || saving}

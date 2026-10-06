@@ -7,7 +7,7 @@ import {
   Alert,
 } from 'react-native'
 import { useMemo, useState } from 'react'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft } from 'lucide-react-native'
@@ -18,7 +18,7 @@ import { PressableScale } from '../components/PressableScale'
 import { hapticSuccess } from '../lib/haptics'
 import { extractErrorMessage } from '../lib/apiError'
 import { colors } from '../theme/tokens'
-import { TOTALS_FOOTER_CLEARANCE } from '../theme/layout'
+import { footerBottomPadding, totalsFooterClearance } from '../theme/layout'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -168,6 +168,7 @@ function ConfirmContent({ raw }: { raw: string }) {
   // ingredient, so the composed dish name no longer travels with the data.
   // Kept as context so the user can see what the model recognised.
   const dishName = initial.dish
+  const insets = useSafeAreaInsets()
   const [items, setItems] = useState<EstimateItem[]>(initial.items)
   const [multiplier, setMultiplier] = useState<number>(1)
 
@@ -233,7 +234,7 @@ function ConfirmContent({ raw }: { raw: string }) {
 
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingBottom: TOTALS_FOOTER_CLEARANCE }}
+        contentContainerStyle={{ paddingBottom: totalsFooterClearance(insets.bottom) }}
         keyboardShouldPersistTaps="handled"
       >
         {/* Recognised-as label. Read-only; each ingredient is logged
@@ -341,7 +342,7 @@ function ConfirmContent({ raw }: { raw: string }) {
       </ScrollView>
 
       {/* Bottom totals + log button */}
-      <View className="absolute bottom-0 left-0 right-0 bg-bg border-t border-divider px-4 pt-3 pb-8">
+      <View className="absolute bottom-0 left-0 right-0 bg-bg border-t border-divider px-4 pt-3" style={{ paddingBottom: footerBottomPadding(insets.bottom) }}>
         <View className="flex-row items-center justify-between mb-3">
           <View>
             <Text className="text-text-subtle text-caption mb-1">
