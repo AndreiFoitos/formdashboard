@@ -4,6 +4,7 @@ import { X } from 'lucide-react-native'
 import { useLogPlanExercise, type TodayExercise } from '../../hooks/usePitCrew'
 import { hapticLight, hapticSuccess } from '../../lib/haptics'
 import { extractErrorMessage } from '../../lib/apiError'
+import { useUnits } from '../../lib/units'
 import { colors } from '../../theme/tokens'
 
 // Log one exercise from today's plan. Sets come pre-filled with the
@@ -24,11 +25,12 @@ export function ExerciseLogSheet({
   name: string
   onClose: () => void
 }) {
+  const u = useUnits()
   const { suggestion } = exercise
   const [rows, setRows] = useState<Row[]>(() =>
     Array.from({ length: exercise.sets }, () => ({
       reps: String(suggestion.reps),
-      weight: suggestion.weight_kg != null ? String(suggestion.weight_kg) : '',
+      weight: suggestion.weight_kg != null ? String(u.weight(suggestion.weight_kg)) : '',
     })),
   )
   const log = useLogPlanExercise()
@@ -41,7 +43,7 @@ export function ExerciseLogSheet({
     const sets = rows
       .map((r) => ({
         reps: r.reps ? parseInt(r.reps, 10) : null,
-        weight_kg: r.weight ? parseFloat(r.weight.replace(',', '.')) : null,
+        weight_kg: r.weight ? u.weightToKg(parseFloat(r.weight.replace(',', '.'))) : null,
       }))
       .filter((s) => s.reps || s.weight_kg)
     if (!sets.length) return
@@ -87,7 +89,7 @@ export function ExerciseLogSheet({
             <Text className="text-text text-footnote">{suggestion.reason}</Text>
             {exercise.last.length > 0 && (
               <Text className="text-text-subtle text-caption mt-2">
-                Last time: {exercise.last.map((s) => `${s.weight_kg ?? '–'} kg × ${s.reps ?? '–'}`).join('  ·  ')}
+                Last time: {exercise.last.map((s) => `${s.weight_kg != null ? u.weightLabel(s.weight_kg) : '–'} × ${s.reps ?? '–'}`).join('  ·  ')}
               </Text>
             )}
             {!!exercise.note && <Text className="text-text-muted text-caption mt-2">{exercise.note}</Text>}
@@ -110,7 +112,7 @@ export function ExerciseLogSheet({
                 <TextInput
                   value={r.weight}
                   onChangeText={(v) => update(i, 'weight', v)}
-                  placeholder={exercise.basis === 'bodyweight' ? 'bodyweight' : 'kg'}
+                  placeholder={exercise.basis === 'bodyweight' ? 'bodyweight' : u.weightUnit}
                   placeholderTextColor={colors['text-subtle']}
                   keyboardType="decimal-pad"
                   className="flex-1 bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}

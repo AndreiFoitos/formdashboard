@@ -35,6 +35,7 @@ import {
 } from '../../hooks/useProgression'
 import { UndoToast } from '../../components/UndoToast'
 import { showUndo } from '../../store/undo'
+import { useUnits } from '../../lib/units'
 import { colors } from '../../theme/tokens'
 
 // ─── Exercise catalogue ───────────────────────────────────────────────────────
@@ -123,6 +124,7 @@ function todayISO() {
 // ─── Volume chart ─────────────────────────────────────────────────────────────
 
 function VolumeChart({ data }: { data: VolumeWeek | undefined }) {
+  const u = useUnits()
   const days = data?.days ?? []
   const total = data?.total_volume_kg ?? 0
   const max = Math.max(1, ...days.map(d => d.volume_kg))
@@ -137,9 +139,9 @@ function VolumeChart({ data }: { data: VolumeWeek | undefined }) {
           </Text>
           <View className="flex-row items-baseline gap-2">
             <Text className="text-text text-hero">
-              {total.toLocaleString()}
+              {u.weightNum(total, 0)}
             </Text>
-            <Text className="text-text-muted text-body">kg moved</Text>
+            <Text className="text-text-muted text-body">{u.weightUnit} moved</Text>
           </View>
         </View>
       </View>
@@ -186,6 +188,7 @@ function PRChart({
   exerciseKey: string
   onPickExercise: () => void
 }) {
+  const u = useUnits()
   const displayName = useExerciseName(EXERCISE_NAME)
   const points = data?.progression.filter(p => p.top_weight_kg != null) ?? []
   const last = points[points.length - 1]
@@ -256,7 +259,7 @@ function PRChart({
           <View>
             <Text className="text-text-subtle text-caption">PR</Text>
             <Text className="text-text text-footnote font-semibold">
-              {pr.top_weight_kg}kg × {pr.top_reps}
+              {u.weightLabel(pr.top_weight_kg!)} × {pr.top_reps}
             </Text>
           </View>
         )}
@@ -264,7 +267,7 @@ function PRChart({
           <View>
             <Text className="text-text-subtle text-caption">Last</Text>
             <Text className="text-text text-footnote font-semibold">
-              {last.top_weight_kg}kg × {last.top_reps}
+              {u.weightLabel(last.top_weight_kg!)} × {last.top_reps}
             </Text>
           </View>
         )}
@@ -289,12 +292,13 @@ function ProgressBadge({
 }: {
   info?: { ready_for_weight: boolean; stalled: boolean }
 }) {
+  const u = useUnits()
   if (!info || (!info.ready_for_weight && !info.stalled)) return null
   const colour = info.stalled ? colors.warning : colors.success
   return (
     <View className="rounded-full px-2 py-1" style={{ borderCurve: 'continuous', backgroundColor: `${colour}22` }}>
       <Text className="text-caption font-semibold" style={{ color: colour }}>
-        {info.stalled ? 'Stalled' : '↑ kg'}
+        {info.stalled ? 'Stalled' : `↑ ${u.weightUnit}`}
       </Text>
     </View>
   )
@@ -542,6 +546,7 @@ function LogExerciseModal({
   exerciseKey: string
   onClose: () => void
 }) {
+  const u = useUnits()
   const qc = useQueryClient()
   const displayName = useExerciseName(EXERCISE_NAME)
 
@@ -563,7 +568,7 @@ function LogExerciseModal({
   const [sets, setSets] = useState<SetRow[]>([
     {
       reps: lastReps != null ? String(lastReps) : '',
-      weight: lastWeight != null ? String(lastWeight) : '',
+      weight: lastWeight != null ? String(u.weight(lastWeight)) : '',
     },
   ])
   const [notes, setNotes] = useState('')
@@ -580,12 +585,12 @@ function LogExerciseModal({
     if (target?.sets.length) {
       setSets(target.sets.map(t => ({
         reps: String(t.reps),
-        weight: t.weight_kg != null ? String(t.weight_kg) : '',
+        weight: t.weight_kg != null ? String(u.weight(t.weight_kg)) : '',
       })))
     } else if (progression.isFetched && lastSession?.length) {
       setSets(lastSession.map(l => ({
         reps: l.reps != null ? String(l.reps) : '',
-        weight: l.weight_kg != null ? String(l.weight_kg) : '',
+        weight: l.weight_kg != null ? String(u.weight(l.weight_kg)) : '',
       })))
     }
   }, [target, lastSession, progression.isFetched, touched])
@@ -650,7 +655,7 @@ function LogExerciseModal({
   function handleSave() {
     const cleanSets = sets
       .map(s => ({
-        weight_kg: s.weight ? parseFloat(s.weight) : null,
+        weight_kg: s.weight ? u.weightToKg(parseFloat(s.weight)) : null,
         reps:      s.reps   ? parseInt(s.reps)     : null,
       }))
       .filter(s => s.weight_kg != null || s.reps != null)
@@ -714,7 +719,7 @@ function LogExerciseModal({
               </Text>
               <Text className="text-text-muted text-footnote">
                 {lastSession.map((s, i) =>
-                  `${s.weight_kg ?? '–'}kg × ${s.reps ?? '–'}`
+                  `${s.weight_kg != null ? u.weightLabel(s.weight_kg) : '–'} × ${s.reps ?? '–'}`
                 ).join('  ·  ')}
               </Text>
             </View>
@@ -739,7 +744,7 @@ function LogExerciseModal({
                 <TextInput
                   value={s.weight}
                   onChangeText={v => updateSet(i, 'weight', v)}
-                  placeholder="kg"
+                  placeholder={u.weightUnit}
                   placeholderTextColor={colors['text-subtle']}
                   keyboardType="decimal-pad"
                   className="flex-1 bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}
@@ -811,6 +816,7 @@ function ExerciseRow({
   onPress: () => void
   isLast: boolean
 }) {
+  const u = useUnits()
   return (
     <PressableScale
       haptic
@@ -825,7 +831,7 @@ function ExerciseRow({
         <Text className="text-text text-footnote font-medium">{exercise.name}</Text>
         {pr ? (
           <Text className="text-text-subtle text-caption">
-            {pr.weight_kg}kg × {pr.reps}
+            {u.weightLabel(pr.weight_kg)} × {pr.reps}
           </Text>
         ) : (
           <Text className="text-text-subtle text-caption">—</Text>
@@ -854,6 +860,7 @@ interface LeaderboardPayload {
 }
 
 function WeeklyRaceCard() {
+  const u = useUnits()
   const { data, isLoading } = useQuery<LeaderboardPayload>({
     queryKey: ['friends-leaderboard', null],
     queryFn: () => api.get('/friends/leaderboard').then((r) => r.data),
@@ -871,7 +878,7 @@ function WeeklyRaceCard() {
           <Text className="text-text-subtle text-caption">Weekly race</Text>
         </View>
         <Text className="text-text-muted text-footnote">
-          {meRow ? `You've moved ${meRow.total_volume_kg.toLocaleString()} kg this week.` : 'No volume logged yet this week.'}
+          {meRow ? `You've moved ${u.weightLabel(meRow.total_volume_kg, 0)} this week.` : 'No volume logged yet this week.'}
         </Text>
         <Text className="text-text-subtle text-caption mt-1">
           Add friends to race them on weekly weight moved.
@@ -924,6 +931,7 @@ function WeeklyRaceCard() {
 }
 
 function RaceRowView({ row, maxVol }: { row: RaceRow; maxVol: number }) {
+  const u = useUnits()
   const medal = row.rank === 1 ? { Icon: Trophy, color: colors.medal.gold }
               : row.rank === 2 ? { Icon: Award,  color: colors.medal.silver }
               : row.rank === 3 ? { Icon: Award,  color: colors.medal.bronze }
@@ -946,8 +954,8 @@ function RaceRowView({ row, maxVol }: { row: RaceRow; maxVol: number }) {
         </View>
         <View className="items-end" style={{ minWidth: 68 }}>
           <Text className="text-caption tabular-nums" style={{ color: row.is_me ? colors.text : colors['text-muted'], fontWeight: '600' }}>
-            {row.total_volume_kg.toLocaleString()}
-            <Text className="text-text-subtle text-caption font-normal"> kg</Text>
+            {u.weightNum(row.total_volume_kg, 0)}
+            <Text className="text-text-subtle text-caption font-normal"> {u.weightUnit}</Text>
           </Text>
           <Text className="text-caption tabular-nums mt-1" style={{ color: row.is_me ? colors['text-muted'] : colors['text-subtle'] }}>
             {row.dots_volume != null ? row.dots_volume.toLocaleString() : '—'}
@@ -1024,6 +1032,7 @@ function MuscleGroupTile({
   isToday: boolean
   onPress: () => void
 }) {
+  const u = useUnits()
   const daysSince = last ? daysAgo(last.date) : null
 
   return (
@@ -1054,7 +1063,7 @@ function MuscleGroupTile({
             {last.exerciseName}
           </Text>
           <Text className="text-text-subtle text-caption mt-1" numberOfLines={1}>
-            {last.weightKg ?? '–'}kg × {last.reps ?? '–'}
+            {last.weightKg != null ? u.weightLabel(last.weightKg) : '–'} × {last.reps ?? '–'}
           </Text>
           <Text className="text-text-subtle text-caption mt-1">
             {daysSince === 0 ? 'today' : `${daysSince}d ago`}
@@ -1177,6 +1186,7 @@ interface OneRMEstimate {
 }
 
 function OneRMCard() {
+  const u = useUnits()
   const { data, isLoading } = useQuery<{ estimates: OneRMEstimate[] }>({
     queryKey: ['one-rm'],
     queryFn: () => api.get('/training/one-rm?days=90').then((r) => r.data),
@@ -1223,12 +1233,12 @@ function OneRMCard() {
                   {displayName(row.exercise)}
                 </Text>
                 <Text className="text-text-subtle text-caption mt-1">
-                  from {row.source.weight_kg}kg × {row.source.reps}
+                  from {u.weightLabel(row.source.weight_kg)} × {row.source.reps}
                 </Text>
               </View>
               <Text className="text-text text-footnote font-semibold">
-                {row.mean}
-                <Text className="text-text-subtle text-caption font-normal"> kg</Text>
+                {u.weightNum(row.mean)}
+                <Text className="text-text-subtle text-caption font-normal"> {u.weightUnit}</Text>
               </Text>
             </View>
           ))}
@@ -1326,6 +1336,7 @@ function SessionRow({
   session: TrainingSession
   nameForKey: (key: string) => string
 }) {
+  const u = useUnits()
   const [open, setOpen] = useState(false)
   const summary = session.exercises
     .map(e => nameForKey(e.type))
@@ -1346,7 +1357,7 @@ function SessionRow({
             {sessionDateLabel(session.date)}
           </Text>
           <Text className="text-text-subtle text-caption">
-            {Math.round(session.volume_kg).toLocaleString()} kg {open ? '▾' : '▸'}
+            {u.weightLabel(session.volume_kg, 0)} {open ? '▾' : '▸'}
           </Text>
         </View>
         <Text className="text-text-subtle text-caption mt-1" numberOfLines={open ? undefined : 1}>
@@ -1366,7 +1377,7 @@ function SessionRow({
               <Text className="text-text-subtle text-caption">
                 {e.sets} {e.sets === 1 ? 'set' : 'sets'}
                 {e.top_weight_kg != null
-                  ? ` · top ${e.top_weight_kg}kg×${e.top_reps ?? '?'}`
+                  ? ` · top ${u.weightLabel(e.top_weight_kg)} × ${e.top_reps ?? '?'}`
                   : ''}
               </Text>
             </View>

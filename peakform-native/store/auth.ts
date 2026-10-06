@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { AvatarConfig } from '../lib/avatar/config'
 
-interface User {
+export interface User {
   id: string
   email: string
   username: string | null

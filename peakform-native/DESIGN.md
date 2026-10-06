@@ -329,3 +329,13 @@ One line per decision made during the autonomous redesign run (2026-10-06).
 - Kept as proper names in title case: "Combo Dex" (feature name), "Open Settings" (iOS Settings app), "Hide My Email" (Apple feature), exercise names (data).
 - UndoToast drops its shadow (§4: no shadows on black); it already separates with `surface-raised` + `border`.
 - Scroll content inside pageSheet modals ends with `mb-12` (48 ≥ home-indicator inset); not edge-fixed, so no inset math.
+- Phase 2: Settings sub-routes live under `app/settings/` (`index`, `profile`, `units`, `training`, `nutrition`, `edit/[field]` modal, `choose/[field]` form sheet); `app/preferences.tsx` became `settings/training` + `settings/nutrition`.
+- Phase 2: single-value number/text edits use a `modal` with Cancel/Done (keyboard-safe); pick-one choices (goal, sex, bedtime) use a `formSheet` that saves on tap. RN-screens formSheets don't show a native header, so sheets draw a `text-headline` title.
+- Phase 2: SettingsGroup gets a `raised` tone (surface-raised + `border` hairlines) for groups inside surface sheets, per §2 divider rule.
+- Phase 2: Switch on-track uses `accent` (one accent; it marks state like the active tab), off-track `border`, thumb `text`. Avatar edit's switches now match.
+- Phase 2: Units are a device-local setting (SecureStore), metric default; the API stays metric. Food macros stay in grams. Imperial lift input is rounded to 0.05 kg on save so unchanged values round-trip.
+- Phase 2: Bedtime keeps the app's 12-hour format ("11:00 PM") rather than §6's illustrative "23:00", matching nudge times elsewhere.
+- Phase 2: Goal, sex, age and height changes offer the recomputed calorie target (Mifflin-St Jeor, shared in `lib/targets.ts`) via an Alert; protein/water follow bodyweight only so they're untouched.
+- Phase 2: Smart nudges switch off is remembered locally (`nudges_off`) so app start no longer re-registers the push token after the user turned nudges off.
+- Phase 2: "Send test notification" (§6 table) doesn't exist in the codebase; nothing to move. `FEATURES.avatarDevTools` is now unused (Avatar lab is `__DEV__`-only) — kept, not deleted.
+- Phase 2: Onboarding stats step gets a Metric/Imperial toggle (same store as Settings → Units) so imperial users can enter lb and ft/in.

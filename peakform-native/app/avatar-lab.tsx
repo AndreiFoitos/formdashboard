@@ -5,7 +5,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Image, PanResponder, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
+import { Redirect, router } from 'expo-router'
 import { ChevronLeft } from 'lucide-react-native'
 import { useAuthStore } from '../store/auth'
 import { AvatarCanvas, type AvatarCanvasHandle, type AvatarSource } from '../components/avatar/AvatarCanvas'
@@ -14,7 +14,14 @@ import type { AvatarLook, AvatarState, HeadStyle } from '../lib/avatar/model'
 import { BOTTOMS, HAIRS, SHOES, SKINS, TOPS } from '../lib/avatar/palette'
 import { colors } from '../theme/tokens'
 
-export default function AvatarLab() {
+/** Dev builds only (DESIGN.md §5 Cleanup): production has no route to it, and a
+ *  deep link lands on Today. */
+export default function AvatarLabRoute() {
+  if (!__DEV__) return <Redirect href="/" />
+  return <AvatarLab />
+}
+
+function AvatarLab() {
   const user = useAuthStore((s) => s.user)
   const [base, setBase] = useState<AvatarBase>(user?.sex ?? 'male')
   const [age, setAge] = useState(user?.age ?? 25)

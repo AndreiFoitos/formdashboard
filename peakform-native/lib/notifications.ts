@@ -3,6 +3,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants'
 import { api } from '../api/client'
 import { router } from 'expo-router'
 import { colors } from '../theme/tokens'
+import { getToken, removeToken, setToken } from './storage'
 
 // Same lazy-load pattern as healthkit.ts: importing expo-notifications at the
 // top level is fine, but `getExpoPushTokenAsync` no longer works in Expo Go
@@ -104,6 +105,17 @@ export async function registerPushTokenWithBackend(): Promise<{ token: string } 
   return { token }
 }
 
+const NUDGES_OFF_KEY = 'nudges_off'
+
+/** True after the user switched Smart nudges off in Settings. */
+export async function nudgesOptedOut(): Promise<boolean> {
+  try {
+    return (await getToken(NUDGES_OFF_KEY)) === '1'
+  } catch {
+    return false
+  }
+}
+
 /** Cheap read for the Settings toggle. Doesn't prompt. */
 export async function getNudgeStatus(): Promise<{
   granted: boolean
@@ -125,6 +137,8 @@ export async function getNudgeStatus(): Promise<{
  * without another prompt.
  */
 export async function disableNudges(): Promise<void> {
+  // Remembered so app start doesn't re-register the token behind the user's back.
+  await setToken(NUDGES_OFF_KEY, '1').catch(() => {})
   if (!canRegisterPushToken()) return
   try {
     const Notifications = await loadNotifs()
@@ -148,7 +162,7 @@ export async function registerIfGranted(): Promise<void> {
     await setupNotificationHandlers()
     const Notifications = await loadNotifs()
     const perm = await Notifications.getPermissionsAsync()
-    if (perm.granted && canRegisterPushToken()) await registerPushTokenWithBackend()
+    if (perm.granted && canRegisterPushToken() && !(await nudgesOptedOut())) await registerPushTokenWithBackend()
   } catch (e) {
     if (__DEV__) console.warn('[notifications] silent register failed:', e)
   }
@@ -163,6 +177,7 @@ export async function enablePredictiveNudges(): Promise<{ enabled: boolean; reas
     await setupNotificationHandlers()
     const granted = await requestNotificationPermission()
     if (!granted) return { enabled: false, reason: 'permission_denied' }
+    await removeToken(NUDGES_OFF_KEY).catch(() => {})
     if (!canRegisterPushToken()) return { enabled: true, reason: 'expo_go_local_only' }
     const result = await registerPushTokenWithBackend()
     if (!result) return { enabled: false, reason: 'no_project_id' }

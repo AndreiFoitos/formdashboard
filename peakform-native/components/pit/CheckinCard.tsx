@@ -2,6 +2,7 @@ import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-na
 import { Check, X } from 'lucide-react-native'
 import { useBuildPlan, useCheckinAction, type Checkin } from '../../hooks/usePitCrew'
 import { hapticSuccess } from '../../lib/haptics'
+import { useUnits } from '../../lib/units'
 import { colors } from '../../theme/tokens'
 
 // The weekly check-in (backend services/plan_checkin.py), shown at the top of
@@ -17,6 +18,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export function CheckinCard({ checkin }: { checkin: Checkin }) {
+  const u = useUnits()
   const action = useCheckinAction()
   const build = useBuildPlan()
   const s = checkin.stats
@@ -59,7 +61,7 @@ export function CheckinCard({ checkin }: { checkin: Checkin }) {
       <View className="flex-row px-4 mt-3 gap-2">
         <Stat label="sessions" value={`${s.sessions_done}/${s.sessions_planned}`} />
         {s.avg_kcal != null && <Stat label={`avg kcal${s.target_kcal ? ` / ${s.target_kcal}` : ''}`} value={String(s.avg_kcal)} />}
-        {trend != null && <Stat label="kg / week" value={`${trend > 0 ? '+' : ''}${trend}`} />}
+        {trend != null && <Stat label={`${u.weightUnit} / week`} value={`${trend > 0 ? '+' : ''}${u.weightNum(trend)}`} />}
       </View>
 
       <Text className="text-text text-footnote px-4 mt-3">{checkin.review}</Text>

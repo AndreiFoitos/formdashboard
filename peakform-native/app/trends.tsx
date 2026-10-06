@@ -8,6 +8,7 @@ import Svg, { Line, Polyline, Rect } from 'react-native-svg'
 import { api } from '../api/client'
 import { useRequireAuth } from '../hooks/useRequireAuth'
 import { openPaywall, usePlan } from '../hooks/usePlan'
+import { useUnits } from '../lib/units'
 import { colors } from '../theme/tokens'
 
 interface Point {
@@ -129,6 +130,7 @@ function Card({
 }
 
 export default function TrendsScreen() {
+  const u = useUnits()
   useRequireAuth()
   const { data: plan } = usePlan()
   const maxDays = plan?.history_days ?? 30
@@ -138,6 +140,8 @@ export default function TrendsScreen() {
     queryKey: ['trends', days],
     queryFn: () => api.get(`/dashboard/trends?days=${days}`).then((r) => r.data),
   })
+
+  const weightPts = (data?.weight_kg ?? []).map((p) => ({ ...p, value: u.weight(p.value) }))
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
@@ -182,8 +186,8 @@ export default function TrendsScreen() {
             <Card title="Form score" subtitle={change(data.form_score)}>
               <LineChart points={data.form_score} color={colors.data.form} />
             </Card>
-            <Card title="Body weight (kg)" subtitle={change(data.weight_kg)}>
-              <LineChart points={data.weight_kg} color={colors.data.weight} />
+            <Card title={`Body weight (${u.weightUnit})`} subtitle={change(weightPts)}>
+              <LineChart points={weightPts} color={colors.data.weight} />
             </Card>
             {data.body_fat_pct.length > 1 && (
               <Card title="Body fat (%)" subtitle={change(data.body_fat_pct)}>
@@ -191,10 +195,10 @@ export default function TrendsScreen() {
               </Card>
             )}
             <Card
-              title="Weekly volume (kg moved)"
+              title={`Weekly volume (${u.weightUnit} moved)`}
               subtitle={`${data.volume_weekly.length} weeks with training`}
             >
-              <BarChart points={data.volume_weekly} />
+              <BarChart points={data.volume_weekly.map((p) => ({ ...p, value: u.weight(p.value, 0) }))} />
             </Card>
             <Card title="Protein (g/day)" subtitle={change(data.protein_g)}>
               <LineChart points={data.protein_g} color={colors.data.protein} />

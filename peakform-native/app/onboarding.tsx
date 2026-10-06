@@ -26,19 +26,24 @@ import { NOTIFICATION_REASONS } from '../components/NotificationsCard'
 import { enablePredictiveNudges } from '../lib/notifications'
 import { Bell } from 'lucide-react-native'
 import { colors } from '../theme/tokens'
+import { DEFICIT_KCAL, SURPLUS_KCAL, tdee, type Sex, type TrainingFreq } from '../lib/targets'
+import { unitsFor, useUnits, useUnitsStore, type UnitSystem, type Units } from '../lib/units'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Sex = 'male' | 'female'
 type SleepHours = '<6h' | '6-7h' | '7-8h' | '8h+'
-type TrainingFreq = '0-1x' | '2-3x' | '4-5x' | '6x+'
 type CaffeineHabit = 'none' | '1_coffee' | '2-3' | 'preworkout'
 
 interface FormState {
   username: string
   age: string
   sex: Sex | null
+  // Height, weight and water hold what the user typed, in their unit system
+  // (Settings → Units, also switchable on the stats step). metricStats() and
+  // the submit code convert to cm / kg / ml for the API. In imperial,
+  // height_cm holds feet and height_in the remaining inches.
   height_cm: string
+  height_in: string
   weight_kg: string
   avg_sleep_hours: SleepHours | null
   training_frequency: TrainingFreq | null
@@ -58,14 +63,22 @@ const sleepToHours: Record<SleepHours, number> = {
   '8h+': 8.5,
 }
 
-// Training frequency → activity multiplier for TDEE (Harris-Benedict revised
-// activity factors, as adopted across modern sports-nutrition guidance —
-// e.g. Mifflin et al. 1990; ISSN position stand 2017).
-const ACTIVITY_MULTIPLIER: Record<TrainingFreq, number> = {
-  '0-1x': 1.2,    // sedentary
-  '2-3x': 1.375,  // lightly active
-  '4-5x': 1.55,   // moderately active
-  '6x+':  1.725,  // very active
+function parseNum(v: string): number | null {
+  const n = parseFloat(v.replace(',', '.'))
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+/** The typed stats in cm / kg, whatever the unit system. */
+function metricStats(form: FormState, u: Units): { heightCm: number | null; weightKg: number | null } {
+  const w = parseNum(form.weight_kg)
+  let heightCm: number | null
+  if (u.system === 'imperial') {
+    const ft = parseNum(form.height_cm)
+    heightCm = ft != null ? u.heightToCm(ft * 12 + (parseNum(form.height_in) ?? 0)) : null
+  } else {
+    heightCm = parseNum(form.height_cm)
+  }
+  return { heightCm, weightKg: w != null ? u.weightToKg(w) : null }
 }
 
 const STEPS = [
@@ -136,35 +149,6 @@ function hourLabel(h: number): string {
   return `${display}:00 ${period}`
 }
 
-// ─── BMR / TDEE (Mifflin-St Jeor, JADA 2005 + ISSN activity factors) ──────────
-
-function mifflinStJeorBMR(
-  sex: Sex,
-  weightKg: number,
-  heightCm: number,
-  ageYears: number,
-): number {
-  // BMR (kcal/day) = 10·W + 6.25·H − 5·A + s, where s = +5 (male) / −161 (female)
-  const offset = sex === 'male' ? 5 : -161
-  return 10 * weightKg + 6.25 * heightCm - 5 * ageYears + offset
-}
-
-function tdee(
-  sex: Sex,
-  weightKg: number,
-  heightCm: number,
-  ageYears: number,
-  freq: TrainingFreq,
-): number {
-  return mifflinStJeorBMR(sex, weightKg, heightCm, ageYears) * ACTIVITY_MULTIPLIER[freq]
-}
-
-// Cut: 500 kcal/day deficit ≈ 0.45 kg/week (ACSM position stand, Donnelly et al. 2009).
-// Bulk: 300 kcal/day surplus — conservative lean-mass-gain target backed by
-//   Aragon & Schoenfeld (J Int Soc Sports Nutr 2013) and Helms et al. (2014).
-const DEFICIT_KCAL = 500
-const SURPLUS_KCAL = 300
-
 // ─── Step 1 — Username ────────────────────────────────────────────────────────
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/
@@ -225,20 +209,28 @@ function Step2Stats({
   form,
   onChangeString,
   onChangeSex,
+  onChangeUnits,
 }: {
   form: FormState
-  onChangeString: (key: 'age' | 'height_cm' | 'weight_kg', value: string) => void
+  onChangeString: (key: 'age' | 'height_cm' | 'height_in' | 'weight_kg', value: string) => void
   onChangeSex: (sex: Sex) => void
+  onChangeUnits: (system: UnitSystem) => void
 }) {
+  const u = useUnits()
+  const imperial = u.system === 'imperial'
   const fields: {
     key: 'age' | 'height_cm' | 'weight_kg'
     label: string
     unit: string
     placeholder: string
+    /** Imperial height: a second input for inches. */
+    second?: { key: 'height_in'; unit: string; placeholder: string }
   }[] = [
     { key: 'age',       label: 'Age',    unit: 'yrs', placeholder: '25' },
-    { key: 'height_cm', label: 'Height', unit: 'cm',  placeholder: '180' },
-    { key: 'weight_kg', label: 'Weight', unit: 'kg',  placeholder: '80' },
+    imperial
+      ? { key: 'height_cm', label: 'Height', unit: 'ft', placeholder: '5', second: { key: 'height_in', unit: 'in', placeholder: '11' } }
+      : { key: 'height_cm', label: 'Height', unit: 'cm', placeholder: '180' },
+    { key: 'weight_kg', label: 'Weight', unit: u.weightUnit, placeholder: imperial ? '175' : '80' },
   ]
 
   const fieldsView = (
@@ -274,21 +266,45 @@ function Step2Stats({
         </Text>
       </View>
 
+      {/* Units — the same setting as Settings → Units */}
+      <View className="flex-row gap-2">
+        {(['metric', 'imperial'] as UnitSystem[]).map((sys) => (
+          <TouchableOpacity
+            key={sys}
+            onPress={() => onChangeUnits(sys)}
+            className="flex-1 py-3 rounded-full border items-center"
+            style={{
+              borderCurve: 'continuous',
+              backgroundColor: u.system === sys ? colors.text : colors.surface,
+              borderColor: u.system === sys ? colors.text : colors.border,
+            }}
+          >
+            <Text className="text-footnote font-semibold" style={{ color: u.system === sys ? colors.bg : colors['text-muted'] }}>
+              {sys === 'metric' ? 'Metric' : 'Imperial'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {fields.map((f) => (
         <View key={f.key}>
           <Text className="text-text-muted text-caption mb-2">
             {f.label}
           </Text>
-          <View>
-            <TextInput
-              value={form[f.key]}
-              onChangeText={(v) => onChangeString(f.key, v)}
-              placeholder={f.placeholder}
-              placeholderTextColor={colors['text-subtle']}
-              keyboardType="decimal-pad"
-              className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
-            />
-            <Text className="absolute right-4 top-4 text-text-subtle text-footnote">{f.unit}</Text>
+          <View className="flex-row gap-2">
+            {[{ key: f.key, unit: f.unit, placeholder: f.placeholder }, ...(f.second ? [f.second] : [])].map((input) => (
+              <View key={input.key} className="flex-1">
+                <TextInput
+                  value={form[input.key]}
+                  onChangeText={(v) => onChangeString(input.key, v)}
+                  placeholder={input.placeholder}
+                  placeholderTextColor={colors['text-subtle']}
+                  keyboardType="decimal-pad"
+                  className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
+                />
+                <Text className="absolute right-4 top-4 text-text-subtle text-footnote">{input.unit}</Text>
+              </View>
+            ))}
           </View>
         </View>
       ))}
@@ -307,13 +323,9 @@ function Step2Stats({
 
 /** Live 3D avatar that reshapes as the user types their stats. */
 function StatsAvatarPreview({ form }: { form: FormState }) {
-  const num = (v: string) => {
-    const n = parseFloat(v.replace(',', '.'))
-    return Number.isFinite(n) && n > 0 ? n : null
-  }
-  const age = num(form.age)
-  const height = num(form.height_cm)
-  const weight = num(form.weight_kg)
+  const u = useUnits()
+  const age = parseNum(form.age)
+  const { heightCm: height, weightKg: weight } = metricStats(form, u)
   const base = form.sex ?? 'male'
   const state = useMemo(
     () => toState(DEFAULT_LOOK, bodyFromMetrics({ sex: base, age, heightCm: height, weightKg: weight })),
@@ -448,6 +460,7 @@ function CalorieGoalChips({
   selected: CalorieOption['key'] | null
   onPick: (o: CalorieOption) => void
 }) {
+  const u = useUnits()
   return (
     <View>
       <Text className="text-text-muted text-caption mb-2">
@@ -492,7 +505,7 @@ function CalorieGoalChips({
         })}
       </View>
       <Text className="text-text-subtle text-caption mt-2">
-        Mifflin-St Jeor BMR × your training-day activity factor. Cut: −500 kcal/day (~0.45 kg/week loss). Bulk: +300 kcal/day (lean-mass focus).
+        Mifflin-St Jeor BMR × your training-day activity factor. Cut: −500 kcal/day (~{u.weightLabel(0.45)}/week loss). Bulk: +300 kcal/day (lean-mass focus).
       </Text>
     </View>
   )
@@ -513,6 +526,7 @@ function Step4Targets({
   onChangeBedtime: (delta: 1 | -1) => void
   onPickGoal: (o: CalorieOption) => void
 }) {
+  const u = useUnits()
   return (
     <View className="gap-5">
       {/* Protein */}
@@ -538,12 +552,12 @@ function Step4Targets({
           <TextInput
             value={form.water_target_ml}
             onChangeText={(v) => onChange('water_target_ml', v)}
-            placeholder="2800"
+            placeholder={String(u.water(2800))}
             placeholderTextColor={colors['text-subtle']}
             keyboardType="number-pad"
             className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
           />
-          <Text className="absolute right-4 top-4 text-text-subtle text-footnote">ml</Text>
+          <Text className="absolute right-4 top-4 text-text-subtle text-footnote">{u.waterUnit}</Text>
         </View>
       </View>
 
@@ -646,6 +660,7 @@ export default function OnboardingScreen() {
     age: '',
     sex: user?.sex ?? null,
     height_cm: '',
+    height_in: '',
     weight_kg: '',
     avg_sleep_hours: null,
     training_frequency: null,
@@ -656,6 +671,25 @@ export default function OnboardingScreen() {
     targets_edited: false,
     sleep_hour: user?.sleep_hour ?? 23,
   })
+
+  const u = useUnits()
+
+  /** Switch unit systems, converting whatever has been typed so far. */
+  function switchUnits(next: UnitSystem) {
+    if (next === u.system) return
+    const nu = unitsFor(next)
+    const { heightCm, weightKg } = metricStats(form, u)
+    const water = parseNum(form.water_target_ml)
+    const inches = heightCm != null ? nu.height(heightCm) : null
+    setForm((prev) => ({
+      ...prev,
+      weight_kg: weightKg != null ? String(nu.weight(weightKg)) : '',
+      height_cm: inches == null ? '' : next === 'imperial' ? String(Math.floor(inches / 12)) : String(inches),
+      height_in: inches != null && next === 'imperial' ? String(inches % 12) : '',
+      water_target_ml: water != null ? String(nu.water(u.waterToMl(water))) : prev.water_target_ml,
+    }))
+    useUnitsStore.getState().setSystem(next)
+  }
 
   // Only the two weight-derived targets. calorie_target is never recomputed by
   // autoFillTargets, so picking a calorie goal must not pin protein and water.
@@ -684,7 +718,7 @@ export default function OnboardingScreen() {
         : String(Math.round(weight * 2)),
       water_target_ml: prev.targets_edited
         ? prev.water_target_ml
-        : String(Math.round(weight * 35)),
+        : String(u.water(weight * 35)),
     }))
   }
 
@@ -699,8 +733,7 @@ export default function OnboardingScreen() {
   // Compute calorie suggestions once all inputs are present.
   const calorieOptions: CalorieOption[] | null = useMemo(() => {
     const age = parseInt(form.age)
-    const heightCm = parseFloat(form.height_cm)
-    const weightKg = parseFloat(form.weight_kg)
+    const { heightCm, weightKg } = metricStats(form, u)
     if (
       !form.sex ||
       !form.training_frequency ||
@@ -711,11 +744,11 @@ export default function OnboardingScreen() {
     }
     const t = tdee(form.sex, weightKg, heightCm, age, form.training_frequency)
     return [
-      { key: 'cut',      label: 'Cut',      desc: 'Lose fat (~0.45 kg/week)', kcal: Math.round((t - DEFICIT_KCAL) / 10) * 10 },
+      { key: 'cut',      label: 'Cut',      desc: `Lose fat (~${u.weightLabel(0.45)}/week)`, kcal: Math.round((t - DEFICIT_KCAL) / 10) * 10 },
       { key: 'maintain', label: 'Maintain', desc: 'Hold current weight',     kcal: Math.round(t / 10) * 10 },
-      { key: 'bulk',     label: 'Bulk',     desc: 'Lean gain (~0.25 kg/week)', kcal: Math.round((t + SURPLUS_KCAL) / 10) * 10 },
+      { key: 'bulk',     label: 'Bulk',     desc: `Lean gain (~${u.weightLabel(0.25)}/week)`, kcal: Math.round((t + SURPLUS_KCAL) / 10) * 10 },
     ]
-  }, [form.sex, form.training_frequency, form.age, form.height_cm, form.weight_kg])
+  }, [form.sex, form.training_frequency, form.age, form.height_cm, form.height_in, form.weight_kg, u.system])
 
   // The goal used to be thrown away once it had set calorie_target. Keep it
   // for Pit Crew; if the user typed their own number instead of tapping a
@@ -807,12 +840,12 @@ export default function OnboardingScreen() {
             step: 'stats',
             data: {
               age: form.age ? parseInt(form.age) : null,
-              height_cm: form.height_cm ? parseFloat(form.height_cm) : null,
-              weight_kg: form.weight_kg ? parseFloat(form.weight_kg) : null,
+              height_cm: metricStats(form, u).heightCm,
+              weight_kg: metricStats(form, u).weightKg,
               sex: form.sex,
             },
           })
-          autoFillTargets(form.weight_kg ? parseFloat(form.weight_kg) : null)
+          autoFillTargets(metricStats(form, u).weightKg)
         }
         setStep((s) => s + 1)
       } catch (err: any) {
@@ -829,7 +862,7 @@ export default function OnboardingScreen() {
         // calorie target leaves the Form Score "_score_calories" branch
         // permanently at the neutral 50 until the user finds Settings and
         // fixes it manually — they're unlikely to.
-        const weight = form.weight_kg ? parseFloat(form.weight_kg) : null
+        const weight = metricStats(form, u).weightKg
         const calorieDefault =
           form.sex === 'female' ? 2000 : 2500
         await api.put('/users/me/onboarding', {
@@ -841,7 +874,7 @@ export default function OnboardingScreen() {
                 ? Math.round(weight * 2)
                 : 140,
             water_target_ml: form.water_target_ml
-              ? parseInt(form.water_target_ml)
+              ? u.waterToMl(parseInt(form.water_target_ml))
               : weight
                 ? Math.round(weight * 35)
                 : 2500,
@@ -853,8 +886,8 @@ export default function OnboardingScreen() {
         })
         await api.post('/users/me/baseline', {
           age: form.age ? parseInt(form.age) : null,
-          height_cm: form.height_cm ? parseFloat(form.height_cm) : null,
-          weight_kg: form.weight_kg ? parseFloat(form.weight_kg) : null,
+          height_cm: metricStats(form, u).heightCm,
+          weight_kg: metricStats(form, u).weightKg,
           avg_sleep_hours: form.avg_sleep_hours
             ? sleepToHours[form.avg_sleep_hours]
             : null,
@@ -968,6 +1001,7 @@ export default function OnboardingScreen() {
               form={form}
               onChangeString={(key, value) => setField(key, value as any)}
               onChangeSex={(s) => setField('sex', s)}
+              onChangeUnits={switchUnits}
             />
           )}
           {step === 2 && <Step3Baseline form={form} onChange={setField} />}

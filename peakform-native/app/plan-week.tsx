@@ -7,6 +7,7 @@ import { useRequireAuth } from '../hooks/useRequireAuth'
 import { WEEKDAYS, usePitPlan } from '../hooks/usePitCrew'
 import { useExerciseName } from '../hooks/useExerciseName'
 import { EXERCISE_NAME } from '../lib/exercises'
+import { useUnits } from '../lib/units'
 import { colors } from '../theme/tokens'
 
 // The whole Pit Crew week: each day's session and meals. Read-only; logging
@@ -16,6 +17,7 @@ const SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export default function PlanWeekScreen() {
   useRequireAuth()
+  const u = useUnits()
   const { data } = usePitPlan()
   const displayName = useExerciseName(EXERCISE_NAME)
   const plan = data?.plan
@@ -83,7 +85,7 @@ export default function PlanWeekScreen() {
                     </Text>
                   </View>
                   <Text className="text-text-subtle text-caption mt-1">
-                    {e.start_weight_kg != null ? `Start ${e.start_weight_kg} kg · ` : ''}rest {Math.round(e.rest_seconds / 30) / 2} min
+                    {e.start_weight_kg != null ? `Start ${u.weightLabel(e.start_weight_kg)} · ` : ''}rest {Math.round(e.rest_seconds / 30) / 2} min
                     {e.note ? ` · ${e.note}` : ''}
                   </Text>
                 </View>

@@ -26,6 +26,7 @@ import { TrustedShield } from '../components/icons/TrustedShield'
 import { SusFace } from '../components/icons/SusFace'
 import { extractErrorMessage } from '../lib/apiError'
 import { PLAN_KEY, handleLimitError } from '../hooks/usePlan'
+import { useUnits } from '../lib/units'
 import { colors } from '../theme/tokens'
 
 // ─── Exercise catalogue (mirror of training.tsx for the picker) ──────────────
@@ -155,6 +156,7 @@ function SusVouchSheet({
   target: LeaderboardRow
   onClose: () => void
 }) {
+  const u = useUnits()
   const qc = useQueryClient()
   const [mode, setMode] = useState<'weekly' | 'per_lift'>('weekly')
 
@@ -204,7 +206,7 @@ function SusVouchSheet({
           <View>
             <Text className="text-text font-semibold">{target.user.name}</Text>
             <Text className="text-text-subtle text-caption mt-1">
-              {target.total_volume_kg.toLocaleString()} kg this week
+              {u.weightLabel(target.total_volume_kg, 0)} this week
             </Text>
           </View>
           <TouchableOpacity
@@ -354,6 +356,7 @@ function LiftRowSusVouch({
   onSus: () => void
   busy?: boolean
 }) {
+  const u = useUnits()
   const displayName = useExerciseName(EXERCISE_NAME)
   return (
     <View className="rounded-xl bg-surface-raised border border-border px-4 py-3 flex-row items-center" style={{ borderCurve: 'continuous' }}>
@@ -364,7 +367,7 @@ function LiftRowSusVouch({
         <Text className="text-text-subtle text-caption mt-1">
           {new Date(lift.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
           {' · '}
-          {lift.weight_kg ?? '–'}kg × {lift.reps ?? '–'}
+          {lift.weight_kg != null ? u.weightLabel(lift.weight_kg) : '–'} × {lift.reps ?? '–'}
         </Text>
       </View>
       <View className="flex-row gap-2">
@@ -424,6 +427,7 @@ function PillButton({
 // ─── Leaderboard tab ─────────────────────────────────────────────────────────
 
 function LeaderboardTab() {
+  const u = useUnits()
   const [exercise, setExercise] = useState<string | null>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [sheetFor, setSheetFor] = useState<LeaderboardRow | null>(null)
@@ -545,8 +549,8 @@ function LeaderboardTab() {
                   </View>
                   <View className="items-end" style={{ minWidth: 88 }}>
                     <Text className="text-text text-headline font-bold">
-                      {row.total_volume_kg.toLocaleString()}
-                      <Text className="text-text-subtle text-caption font-normal"> kg</Text>
+                      {u.weightNum(row.total_volume_kg, 0)}
+                      <Text className="text-text-subtle text-caption font-normal"> {u.weightUnit}</Text>
                     </Text>
                     <Text className="text-text-muted text-footnote font-semibold mt-1">
                       {row.dots_volume != null ? row.dots_volume.toLocaleString() : '—'}

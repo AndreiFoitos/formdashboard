@@ -21,6 +21,7 @@ import type { AvatarBase } from '../../lib/avatar/bodyParams'
 import type { AvatarState } from '../../lib/avatar/model'
 import { TrustedShield } from '../icons/TrustedShield'
 import { colorForUser } from './recapShared'
+import { useUnits } from '../../lib/units'
 import { colors } from '../../theme/tokens'
 
 // Rank → medal icon + metal color. Lucide icons are stroke-only by default.
@@ -136,6 +137,7 @@ function Stand({
   delay: number
   runId: number
 }) {
+  const u = useUnits()
   const rise = useSharedValue(0)
   const reveal = useSharedValue(0)
   const medalDrop = useSharedValue(0)
@@ -227,7 +229,7 @@ function Stand({
             ) : null}
           </View>
           <Text className="text-text text-caption font-semibold mt-1">
-            {member.total_kg.toLocaleString()} kg
+            {u.weightLabel(member.total_kg, 0)}
           </Text>
           <Text className="text-text-subtle text-caption">
             {member.days_trained} {member.days_trained === 1 ? 'day' : 'days'}
@@ -255,6 +257,7 @@ function Stand({
 // ─── Places 4+ (fades in once the podium has settled) ───────────────────────
 
 function TailList({ tail, runId }: { tail: RecapCrewMember[]; runId: number }) {
+  const u = useUnits()
   const reveal = useSharedValue(0)
 
   useEffect(() => {
@@ -300,7 +303,7 @@ function TailList({ tail, runId }: { tail: RecapCrewMember[]; runId: number }) {
               </View>
             ) : null}
             <Text className="text-text-muted text-caption ml-2">
-              {m.total_kg.toLocaleString()} kg
+              {u.weightLabel(m.total_kg, 0)}
             </Text>
           </View>
         ))}

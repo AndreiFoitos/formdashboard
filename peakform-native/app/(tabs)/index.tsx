@@ -13,6 +13,8 @@ import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { CountUp } from '../../components/CountUp'
 import { AnimatedBar } from '../../components/AnimatedBar'
 import { SwipeableRow } from '../../components/SwipeableRow'
+import { useUnits } from '../../lib/units'
+import { formatNumber } from '../../lib/format'
 import { colors } from '../../theme/tokens'
 import { SkeletonCard } from '../../components/Skeleton'
 import { PressableScale } from '../../components/PressableScale'
@@ -239,7 +241,8 @@ function StatTile({
 
 // ─── Hydration Quick Log ──────────────────────────────────────────────────────
 
-const WATER_PRESETS = [250, 500, 750] as const
+// Presets per unit system; imperial ones are 8/16/24 fl oz.
+const WATER_PRESETS = { metric: [250, 500, 750], imperial: [8, 16, 24] } as const
 
 interface HydrationEntry {
   id: string
@@ -259,6 +262,7 @@ function HydrationQuickLog({
   waterMl: number | null
   targetMl: number | null
 }) {
+  const u = useUnits()
   const qc = useQueryClient()
   // Entries were never listed here, so once the undo toast expired a mistyped
   // log was permanent. Collapsed by default to keep the card compact.
@@ -304,7 +308,7 @@ function HydrationQuickLog({
       qc.invalidateQueries({ queryKey: ['dashboard'] })
       qc.invalidateQueries({ queryKey: ['hydration-today'] })
       showUndo({
-        label: `+${ml.toLocaleString()} ml water`,
+        label: `+${u.waterLabel(ml)} water`,
         onUndo: async () => {
           await api.delete(`/hydration/${entry.id}`)
           qc.invalidateQueries({ queryKey: ['dashboard'] })
@@ -324,8 +328,8 @@ function HydrationQuickLog({
           Hydration
         </Text>
         <Text className="text-footnote text-text-muted">
-          <Text className="text-text font-bold text-body">{current.toLocaleString()}</Text>
-          <Text className="text-text-subtle"> / {target.toLocaleString()}ml</Text>
+          <Text className="text-text font-bold text-body">{formatNumber(u.water(current))}</Text>
+          <Text className="text-text-subtle"> / {u.waterLabel(target)}</Text>
         </Text>
       </View>
 
@@ -334,15 +338,15 @@ function HydrationQuickLog({
       </View>
 
       <View className="flex-row gap-2">
-        {WATER_PRESETS.map((ml) => (
+        {WATER_PRESETS[u.system].map((amount) => (
           <PressableScale
-            key={ml}
-            onPress={() => handleLog(ml)}
+            key={amount}
+            onPress={() => handleLog(u.waterToMl(amount))}
             disabled={isPending}
             className="flex-1 py-3 rounded-md bg-surface-raised items-center"
             style={{ borderCurve: 'continuous', opacity: isPending ? 0.6 : 1 }}
           >
-            <Text className="text-text text-footnote font-semibold">+{ml}ml</Text>
+            <Text className="text-text text-footnote font-semibold">+{amount} {u.waterUnit}</Text>
           </PressableScale>
         ))}
       </View>
@@ -377,7 +381,7 @@ function HydrationQuickLog({
                   }}
                 >
                   <Text className="text-text-muted text-caption">
-                    {entry.amount_ml.toLocaleString()} ml
+                    {u.waterLabel(entry.amount_ml)}
                     {entry.source && entry.source !== 'water'
                       ? ` · ${entry.source.replace(/_/g, ' ')}`
                       : ''}
@@ -403,6 +407,7 @@ function HydrationQuickLog({
 // Both tap → push '/weekly-recap' which opens the cinematic full-screen modal.
 
 function WeeklyRaceCard() {
+  const u = useUnits()
   const { data, isLoading, isError, refetch } = useQuery<RecapRaceData>({
     queryKey: ['friends-recap-race', 0],
     queryFn: () => api.get('/friends/recap/race?week_offset=0').then((r) => r.data),
@@ -526,7 +531,7 @@ function WeeklyRaceCard() {
           @{winner.username ?? winner.name} took the week
         </Text>
         <Text className="text-text-subtle text-caption mt-1">
-          {totalCrewKg.toLocaleString()} kg moved by crew of {data.crew.length}
+          {u.weightLabel(totalCrewKg, 0)} moved by crew of {data.crew.length}
         </Text>
 
         <View
@@ -573,6 +578,7 @@ function formatWeekShort(startISO: string, endISO: string): string {
 // ─── Dashboard Screen ─────────────────────────────────────────────────────────
 
 export default function DashboardScreen() {
+  const u = useUnits()
   const { user } = useRequireAuth()
 
   // Weekly Race card surfaces every day — the card itself switches between
@@ -684,9 +690,9 @@ export default function DashboardScreen() {
             <View className="flex-row gap-3">
               <StatTile
                 label="Water"
-                value={summary?.water_ml}
-                target={targets?.water_target_ml}
-                unit="ml"
+                value={summary?.water_ml != null ? u.water(summary.water_ml) : null}
+                target={targets?.water_target_ml != null ? u.water(targets.water_target_ml) : null}
+                unit={u.waterUnit}
               />
               <StatTile
                 label="Protein"

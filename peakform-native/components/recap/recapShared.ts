@@ -1,3 +1,4 @@
+import { unitsFor, useUnitsStore } from '../../lib/units'
 // Shared primitives for the Weekly Race recap (race canvas + podium).
 // Keeping color + timing here guarantees the line race and the podium agree
 // on a member's color and that the canvas animation matches the screen's
@@ -23,7 +24,9 @@ export function colorForUser(userId: string): string {
   return PALETTE[Math.abs(h) % PALETTE.length]
 }
 
-export function formatKg(n: number): string {
+/** Axis label for a kg total, in the user's unit (k-abbreviated). */
+export function formatKg(kg: number): string {
+  const n = unitsFor(useUnitsStore.getState().system).weight(kg, 0)
   if (n >= 10000) return `${Math.round(n / 1000)}k`
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
   return `${Math.round(n)}`

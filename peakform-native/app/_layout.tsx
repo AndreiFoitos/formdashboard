@@ -17,6 +17,8 @@ import {
 } from '../lib/notifications'
 import { syncPurchasesUser } from '../lib/purchases'
 import { colors } from '../theme/tokens'
+import { formSheet, modalHeader, pushedHeader } from '../theme/navigation'
+import { loadUnits } from '../lib/units'
 
 // ── Sentry — fire-and-forget crash + JS error reporting ──────────────────────
 // DSN comes from EXPO_PUBLIC_SENTRY_DSN set per-profile in eas.json. When the
@@ -111,6 +113,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [qc])
 
   useEffect(() => {
+    loadUnits()
     async function hydrate() {
       try {
         const { getToken: _getToken } = await import('../lib/storage')
@@ -193,7 +196,14 @@ function RootLayout() {
 
               {/* Main app — swipeable tab group, protected via useRequireAuth() */}
               <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="settings" />
+              {/* Settings hub and its drill-downs (DESIGN.md §6) */}
+              <Stack.Screen name="settings/index" options={{ ...pushedHeader, title: 'Settings' }} />
+              <Stack.Screen name="settings/profile" options={{ ...pushedHeader, title: 'Profile' }} />
+              <Stack.Screen name="settings/units" options={{ ...pushedHeader, title: 'Units' }} />
+              <Stack.Screen name="settings/training" options={{ ...pushedHeader, title: 'Training preferences' }} />
+              <Stack.Screen name="settings/nutrition" options={{ ...pushedHeader, title: 'Nutrition preferences' }} />
+              <Stack.Screen name="settings/edit/[field]" options={modalHeader} />
+              <Stack.Screen name="settings/choose/[field]" options={formSheet} />
 
               {/* Photo-based calorie estimation flow */}
               <Stack.Screen name="nutrition-snap" options={{ animation: 'slide_from_bottom' }} />
@@ -208,8 +218,6 @@ function RootLayout() {
               {/* Pit Crew: the whole week of the current plan */}
               <Stack.Screen name="plan-week" />
               <Stack.Screen name="shopping-list" />
-              {/* Settings → Training & food (Pit Crew preferences) */}
-              <Stack.Screen name="preferences" />
               {/* Deep-link target for gainrace://invite/<token> */}
               <Stack.Screen name="invite/[token]" />
               {/* Methodology — "How is this calculated?" surface */}
@@ -217,7 +225,7 @@ function RootLayout() {
               <Stack.Screen name="methodology/[topic]" />
               <Stack.Screen name="methodology/sources" />
               {/* Internal renderer instrumentation — reachable from Settings
-                  only when FEATURES.avatarDevTools is on (ships off) */}
+                  in dev builds only (__DEV__) */}
               <Stack.Screen name="avatar-lab" />
               <Stack.Screen name="avatar-edit" />
               <Stack.Screen name="combo-dex" />

@@ -21,6 +21,7 @@ import { hapticLight } from '../../lib/haptics'
 import { enablePredictiveNudges } from '../../lib/notifications'
 import { ExerciseLogSheet } from './ExerciseLogSheet'
 import { CheckinCard } from './CheckinCard'
+import { useUnits } from '../../lib/units'
 import { colors } from '../../theme/tokens'
 
 // The Plan segment of the Pit tab: build a plan, then today's workout and
@@ -115,7 +116,7 @@ function Intro() {
         </View>
       </Card>
       {missing && (
-        <TouchableOpacity onPress={() => router.push('/preferences')}>
+        <TouchableOpacity onPress={() => router.push('/settings/training')}>
           <Card className="p-4 flex-row items-center">
             <View className="flex-1 pr-3">
               <Text className="text-text text-footnote font-medium">Tell your crew about you first</Text>
@@ -155,6 +156,7 @@ function ExerciseRow({
   last: boolean
   onPress: () => void
 }) {
+  const u = useUnits()
   const done = ex.logged_today.length > 0
   const w = ex.suggestion.weight_kg
   return (
@@ -167,7 +169,7 @@ function ExerciseRow({
         <Text className={`text-footnote font-medium ${done ? 'text-text-subtle' : 'text-text'}`}>{name}</Text>
         <Text className="text-text-subtle text-caption mt-1">
           {ex.sets} × {ex.reps_min === ex.reps_max ? ex.reps_max : `${ex.reps_min}–${ex.reps_max}`}
-          {w != null ? ` · ${w} kg` : ex.basis === 'bodyweight' ? ' · bodyweight' : ''}
+          {w != null ? ` · ${u.weightLabel(w)}` : ex.basis === 'bodyweight' ? ' · bodyweight' : ''}
         </Text>
       </View>
       {done ? (

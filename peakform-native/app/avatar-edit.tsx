@@ -18,6 +18,7 @@ import {
   type Equipped,
 } from '../lib/avatar/rewards'
 import { colors } from '../theme/tokens'
+import { switchTrack } from '../components/settings/SettingsRow'
 
 const SLOTS: { key: EquipSlot; label: string }[] = [
   { key: 'aura', label: 'Aura' },
@@ -309,7 +310,7 @@ function ToggleRow({
         <Text className="text-text text-footnote font-medium">{label}</Text>
         <Text className="text-text-subtle text-caption mt-1">{detail}</Text>
       </View>
-      <Switch value={value} onValueChange={onChange} trackColor={{ true: colors.success }} />
+      <Switch value={value} onValueChange={onChange} trackColor={switchTrack} thumbColor={colors.text} ios_backgroundColor={colors.border} />
     </View>
   )
 }

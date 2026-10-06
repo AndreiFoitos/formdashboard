@@ -24,6 +24,7 @@ import { SwipeableRow } from '../../components/SwipeableRow'
 import { PressableScale } from '../../components/PressableScale'
 import { hapticSuccess, hapticSelection } from '../../lib/haptics'
 import { colors, fontPx } from '../../theme/tokens'
+import { useUnits, type Units } from '../../lib/units'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ function formatDateFull(iso: string) {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-function trendInfo(change: number | null, isWeight = true) {
+function trendInfo(change: number | null, u: Units, isWeight = true) {
   if (change === null) return null
   const abs = Math.abs(change)
   const threshold = isWeight ? 0.05 : 0.1
@@ -79,7 +80,7 @@ function trendInfo(change: number | null, isWeight = true) {
     arrow: up ? '↑' : '↓',
     color: colors['text-muted'],
     label: isWeight
-      ? `${up ? '+' : ''}${change.toFixed(1)} kg`
+      ? `${up ? '+' : ''}${u.weight(change).toFixed(1)} ${u.weightUnit}`
       : `${up ? '+' : ''}${change.toFixed(1)}%`,
   }
 }
@@ -97,9 +98,13 @@ function MetricChart({
   color: string
   label: string
 }) {
+  const u = useUnits()
   const data = entries
     .filter((e) => e[field] != null)
-    .map((e) => ({ date: formatDate(e.date), value: e[field] as number }))
+    .map((e) => ({
+      date: formatDate(e.date),
+      value: field === 'weight_kg' ? u.weight(e[field] as number) : (e[field] as number),
+    }))
 
   if (data.length < 2) {
     return (
@@ -237,8 +242,9 @@ function TrendCard({
   change30d: number | null
   isWeight?: boolean
 }) {
-  const t7 = trendInfo(change7d, isWeight)
-  const t30 = trendInfo(change30d, isWeight)
+  const u = useUnits()
+  const t7 = trendInfo(change7d, u, isWeight)
+  const t30 = trendInfo(change30d, u, isWeight)
 
   return (
     <View className="flex-1 bg-surface border border-divider rounded-xl p-4" style={{ borderCurve: 'continuous' }}>
@@ -289,7 +295,9 @@ function LogModal({
 }) {
   const qc = useQueryClient()
   const { user } = useAuthStore()
-  const [weight, setWeight] = useState(currentWeight ? currentWeight.toFixed(1) : '')
+  const u = useUnits()
+  const shownCurrent = currentWeight != null ? u.weight(currentWeight).toFixed(1) : null
+  const [weight, setWeight] = useState(shownCurrent ?? '')
   const [bodyFat, setBodyFat] = useState('')
 
   const { mutate, isPending } = useMutation({
@@ -305,12 +313,12 @@ function LogModal({
 
   const bmiVal =
     weight && user?.height_cm
-      ? (parseFloat(weight) / Math.pow(user.height_cm / 100, 2)).toFixed(1)
+      ? (u.weightToKg(parseFloat(weight)) / Math.pow(user.height_cm / 100, 2)).toFixed(1)
       : null
 
   function handleLog() {
     const payload: { weight_kg?: number; body_fat_pct?: number } = {}
-    if (weight) payload.weight_kg = parseFloat(weight)
+    if (weight) payload.weight_kg = Math.round(u.weightToKg(parseFloat(weight)) * 100) / 100
     if (bodyFat) payload.body_fat_pct = parseFloat(bodyFat)
     if (!payload.weight_kg && !payload.body_fat_pct) return
     mutate(payload)
@@ -349,12 +357,12 @@ function LogModal({
               <TextInput
                 value={weight}
                 onChangeText={(t) => setWeight(t.replace(',', '.'))}
-                placeholder={currentWeight ? currentWeight.toFixed(1) : '80.0'}
+                placeholder={shownCurrent ?? (u.system === 'imperial' ? '175.0' : '80.0')}
                 placeholderTextColor={colors['text-subtle']}
                 keyboardType="decimal-pad"
                 className="bg-surface-raised border border-border rounded-xl px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
               />
-              <Text className="absolute right-4 top-4 text-text-subtle text-footnote">kg</Text>
+              <Text className="absolute right-4 top-4 text-text-subtle text-footnote">{u.weightUnit}</Text>
             </View>
             {bmiVal && (
               <Text className="text-text-subtle text-caption mt-2">BMI: {bmiVal}</Text>
@@ -407,6 +415,7 @@ function HistoryRow({
   metric: BodyMetric
   isLast: boolean
 }) {
+  const u = useUnits()
   return (
     <View
       className="flex-row items-center px-4 py-4 bg-surface"
@@ -417,8 +426,8 @@ function HistoryRow({
         <View className="flex-row gap-4 mt-1">
           {metric.weight_kg != null && (
             <Text className="text-text text-footnote font-semibold">
-              {metric.weight_kg.toFixed(1)}
-              <Text className="text-text-subtle text-caption font-normal"> kg</Text>
+              {u.weight(metric.weight_kg).toFixed(1)}
+              <Text className="text-text-subtle text-caption font-normal"> {u.weightUnit}</Text>
             </Text>
           )}
           {metric.body_fat_pct != null && (
@@ -439,6 +448,7 @@ export default function BodyScreen() {
   const { user } = useRequireAuth()
   const [showLog, setShowLog] = useState(false)
   const [range, setRange] = useState<30 | 60 | 90>(90)
+  const u = useUnits()
   const qc = useQueryClient()
 
   const { data, isLoading, refetch, isRefetching } = useQuery<BodyHistory>({
@@ -517,8 +527,8 @@ export default function BodyScreen() {
               <View className="flex-row gap-3">
                 <TrendCard
                   label="Weight"
-                  value={stats.current_weight_kg}
-                  unit="kg"
+                  value={stats.current_weight_kg != null ? u.weight(stats.current_weight_kg) : null}
+                  unit={u.weightUnit}
                   change7d={stats.weight_change_7d}
                   change30d={stats.weight_change_30d}
                   isWeight
@@ -614,23 +624,23 @@ export default function BodyScreen() {
                       <View>
                         <Text className="text-text-subtle text-caption mb-1">Low</Text>
                         <Text className="text-text text-footnote font-semibold">
-                          {stats.lowest_weight_kg?.toFixed(1)}
-                          <Text className="text-text-subtle text-caption font-normal"> kg</Text>
+                          {u.weight(stats.lowest_weight_kg ?? 0).toFixed(1)}
+                          <Text className="text-text-subtle text-caption font-normal"> {u.weightUnit}</Text>
                         </Text>
                       </View>
                       <View>
                         <Text className="text-text-subtle text-caption mb-1">High</Text>
                         <Text className="text-text text-footnote font-semibold">
-                          {stats.highest_weight_kg?.toFixed(1)}
-                          <Text className="text-text-subtle text-caption font-normal"> kg</Text>
+                          {u.weight(stats.highest_weight_kg ?? 0).toFixed(1)}
+                          <Text className="text-text-subtle text-caption font-normal"> {u.weightUnit}</Text>
                         </Text>
                       </View>
                       {stats.highest_weight_kg != null && stats.lowest_weight_kg != null && (
                         <View>
                           <Text className="text-text-subtle text-caption mb-1">Variance</Text>
                           <Text className="text-text text-footnote font-semibold">
-                            {(stats.highest_weight_kg - stats.lowest_weight_kg).toFixed(1)}
-                            <Text className="text-text-subtle text-caption font-normal"> kg</Text>
+                            {u.weight(stats.highest_weight_kg - stats.lowest_weight_kg).toFixed(1)}
+                            <Text className="text-text-subtle text-caption font-normal"> {u.weightUnit}</Text>
                           </Text>
                         </View>
                       )}
