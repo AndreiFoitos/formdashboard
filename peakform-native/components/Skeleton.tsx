@@ -8,6 +8,7 @@ import Animated, {
   Easing,
   interpolate,
 } from 'react-native-reanimated'
+import { colors } from '../theme/tokens'
 
 type BlockProps = {
   width?: DimensionValue
@@ -36,7 +37,7 @@ export function SkeletonBlock({ width = '100%', height = 16, radius = 8, style }
   return (
     <Animated.View
       style={[
-        { width, height, borderRadius: radius, backgroundColor: '#27272a' },
+        { width, height, borderRadius: radius, backgroundColor: colors['surface-raised'] },
         animatedStyle,
         style,
       ]}
@@ -49,8 +50,8 @@ export function SkeletonCard({ height = 96 }: { height?: number }) {
   return (
     <View
       style={{
-        backgroundColor: '#18181b',
-        borderColor: '#27272a',
+        backgroundColor: colors.surface,
+        borderColor: colors.divider,
         borderWidth: 1,
         borderRadius: 16,
         padding: 16,

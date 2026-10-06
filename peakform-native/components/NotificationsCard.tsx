@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/auth'
 import { getToken, setToken } from '../lib/storage'
 import { enablePredictiveNudges, getNudgeStatus, registerIfGranted } from '../lib/notifications'
 import { hapticSuccess } from '../lib/haptics'
+import { colors } from '../theme/tokens'
 
 // What notifications do for you, shown before asking. Shared by the last
 // onboarding step and the Today card so both say the same thing.
@@ -77,32 +78,32 @@ export function NotificationsCard() {
   if (state === 'hidden') return null
 
   return (
-    <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 mb-4">
+    <View className="bg-surface border border-divider rounded-2xl p-4 mb-4">
       <View className="flex-row items-center" style={{ gap: 10 }}>
-        <Bell size={18} color="#facc15" />
-        <Text className="text-white text-base font-semibold flex-1">Turn on notifications</Text>
+        <Bell size={18} color={colors.accent} />
+        <Text className="text-text text-base font-semibold flex-1">Turn on notifications</Text>
       </View>
       <View className="mt-3" style={{ gap: 6 }}>
         {NOTIFICATION_REASONS.map((r) => (
-          <Text key={r} className="text-zinc-400 text-xs leading-5">• {r}</Text>
+          <Text key={r} className="text-text-muted text-xs leading-5">• {r}</Text>
         ))}
       </View>
       <View className="flex-row mt-4" style={{ gap: 8 }}>
-        <TouchableOpacity onPress={turnOn} disabled={busy} className="bg-white rounded-full px-4 py-2">
+        <TouchableOpacity onPress={turnOn} disabled={busy} className="bg-accent rounded-full px-4 py-2">
           {busy ? (
-            <ActivityIndicator size="small" color="black" />
+            <ActivityIndicator size="small" color={colors['on-accent']} />
           ) : (
-            <Text className="text-black text-sm font-semibold">
+            <Text className="text-on-accent text-sm font-semibold">
               {state === 'settings' ? 'Open Settings' : 'Turn on'}
             </Text>
           )}
         </TouchableOpacity>
-        <TouchableOpacity onPress={notNow} className="rounded-full px-4 py-2 border border-zinc-700">
-          <Text className="text-zinc-300 text-sm font-semibold">Not now</Text>
+        <TouchableOpacity onPress={notNow} className="rounded-full px-4 py-2 border border-border">
+          <Text className="text-text-muted text-sm font-semibold">Not now</Text>
         </TouchableOpacity>
       </View>
       {state === 'settings' && (
-        <Text className="text-zinc-600 text-xs mt-3">
+        <Text className="text-text-subtle text-xs mt-3">
           Notifications were turned off for GainRace. Allow them under Settings → GainRace → Notifications.
         </Text>
       )}

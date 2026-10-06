@@ -1,15 +1,12 @@
 // Avatar rewards (combos + milestones). The backend (services/avatar_rewards.py)
 // decides what is earned; this file only knows how rewards LOOK.
 
+import { colors } from '../../theme/tokens'
+
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary'
 export type EquipSlot = 'aura' | 'frame' | 'eyes'
 
-export const RARITY_COLOR: Record<Rarity, string> = {
-  common: '#a1a1aa',
-  rare: '#38bdf8',
-  epic: '#c084fc',
-  legendary: '#facc15',
-}
+export const RARITY_COLOR: Record<Rarity, string> = colors.rarity
 
 export interface RewardNew {
   key: string

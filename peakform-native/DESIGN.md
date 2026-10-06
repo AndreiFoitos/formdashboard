@@ -9,7 +9,8 @@ addition to this file first — do not invent one-off values.
 ## 1. Hard rules
 
 1. No hex, rgb or rgba literals in `app/` or `components/`. Colors come from tokens only.
-   Avatar appearance colors (lib/avatar/palette.ts, rarity) are content, exempt from rule 1.
+   Exempt from rule 1: all of `lib/avatar/` (avatar content), `SusFace.tsx` and `TrustedShield.tsx`
+   (illustration art), `SsoButtonsImpl.tsx` (Apple/Google brand guidelines — never restyle).
 2. No inline `fontSize`, `padding`, `margin`, `gap` or `borderRadius` numbers. Use the scales below via NativeWind classes.
 3. Only the type sizes in §3 exist. Only the spacing steps in §4 exist.
 4. Every tappable element is at least 44×44 pt.
@@ -57,6 +58,10 @@ Use these only in charts, scales and badges, never for UI chrome or text.
 | `data` | `protein` #818cf8, `carbs` #34d399, `fat` #fbbf24, `water` #38bdf8, `weight` #fafafa, `bodyfat` #a78bfa, `form` #2c66fb, `volume` #fafafa |
 | `muscle` | `chest` #f87171, `back` #34d399, `legs` #f472b6, `shoulders` #60a5fa, `arms` #a78bfa, `core` #facc15, `other` #a8a29e |
 | `medal` | `gold` #FCD34D, `silver` #D1D5DB, `bronze` #B45309 |
+| `rarity` | `common` #a1a1aa, `rare` #38bdf8, `epic` #c084fc, `legendary` #facc15 |
+| `racer` | `sky` #38BDF8, `emerald` #34D399, `amber` #FBBF24, `rose` #F472B6, `violet` #A78BFA, `coral` #FB7185 |
+
+Token groups are scoped: `score`/`data`/`muscle`/`medal`/`rarity`/`racer` are never borrowed outside their purpose. Missing a color = propose a token.
 
 Classes: `bg-score-high`, `text-data-protein`, etc. Raw values: `colors.muscle.chest`.
 
@@ -72,7 +77,7 @@ Migration map for existing literals:
 - `#27272a` / `zinc-800` as a border, divider or chart axis → `divider`
 - `zinc-600`, `zinc-700`, `#52525b` text/placeholders → `text-subtle`
 - `zinc-950` → `surface` for sheets, `surface-raised` for cards inside sheets and inputs
-- Data-viz series colors → the `score` / `data` / `muscle` / `medal` groups above.
+- Data-viz series colors → the `score` / `data` / `muscle` / `medal` / `rarity` / `racer` groups above.
   A new series gets a named token there — don't scatter hex.
 
 ---
@@ -240,6 +245,8 @@ export const colors = {
   data: { protein, carbs, fat, water, weight, bodyfat, form, volume },
   muscle: { chest, back, legs, shoulders, arms, core, other },
   medal: { gold, silver, bronze },
+  rarity: { common, rare, epic, legendary },
+  racer: { sky, emerald, amber, rose, violet, coral },
 } as const;
 
 export const fontSize = {

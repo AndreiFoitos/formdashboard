@@ -17,11 +17,11 @@ export function AiDigest() {
   if (isLoading || isError || !data) return null
 
   return (
-    <View className="border-t border-zinc-800 mt-4 pt-4">
-      <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+    <View className="border-t border-divider mt-4 pt-4">
+      <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
         Morning Briefing
       </Text>
-      <Text className="text-zinc-200 text-sm leading-6">{data}</Text>
+      <Text className="text-text text-sm leading-6">{data}</Text>
     </View>
   )
 }

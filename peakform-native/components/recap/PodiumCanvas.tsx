@@ -21,12 +21,13 @@ import type { AvatarBase } from '../../lib/avatar/bodyParams'
 import type { AvatarState } from '../../lib/avatar/model'
 import { TrustedShield } from '../icons/TrustedShield'
 import { colorForUser } from './recapShared'
+import { colors } from '../../theme/tokens'
 
 // Rank → medal icon + metal color. Lucide icons are stroke-only by default.
 const MEDALS = {
-  1: { Icon: Trophy, color: '#FCD34D' }, // gold
-  2: { Icon: Award, color: '#D1D5DB' }, // silver (same ribbon shape as 3rd, silver tint)
-  3: { Icon: Award, color: '#B45309' }, // bronze
+  1: { Icon: Trophy, color: colors.medal.gold },
+  2: { Icon: Award, color: colors.medal.silver }, // same ribbon shape as 3rd, silver tint
+  3: { Icon: Award, color: colors.medal.bronze },
 } as const
 
 // 1st is full height; 2nd/3rd step down so the winner reads tallest.
@@ -111,7 +112,7 @@ export function PodiumCanvas({ crew, runId, heads, avatars }: Props) {
       </View>
 
       {/* Baseline the stands sit on. */}
-      <View style={{ height: 1, backgroundColor: '#27272a' }} />
+      <View style={{ height: 1, backgroundColor: colors.divider }} />
 
       {tail.length > 0 && <TailList tail={tail} runId={runId} />}
     </View>
@@ -196,7 +197,7 @@ function Stand({
         borderRadius: 999,
         borderWidth: 2,
         borderColor: medalColor,
-        backgroundColor: '#18181b',
+        backgroundColor: colors.surface,
         marginTop: 4,
       }}
     />
@@ -226,7 +227,7 @@ function Stand({
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 }}>
           <Text
             numberOfLines={1}
-            style={{ color: '#fafafa', fontSize: 13, fontWeight: '700', maxWidth: colW - 24 }}
+            style={{ color: colors.text, fontSize: 13, fontWeight: '700', maxWidth: colW - 24 }}
           >
             @{member.username ?? member.name}
           </Text>
@@ -236,10 +237,10 @@ function Stand({
             <SusFace size={13} />
           ) : null}
         </View>
-        <Text style={{ color: '#fafafa', fontSize: 12, fontWeight: '600', marginTop: 2 }}>
+        <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600', marginTop: 2 }}>
           {member.total_kg.toLocaleString()} kg
         </Text>
-        <Text style={{ color: '#71717a', fontSize: 10, marginTop: 1 }}>
+        <Text style={{ color: colors['text-subtle'], fontSize: 10, marginTop: 1 }}>
           {member.days_trained} {member.days_trained === 1 ? 'day' : 'days'}
         </Text>
         {isMe && (
@@ -252,7 +253,7 @@ function Stand({
               paddingVertical: 1,
             }}
           >
-            <Text style={{ color: '#000', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>
+            <Text style={{ color: colors.bg, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>
               YOU
             </Text>
           </View>
@@ -270,12 +271,12 @@ function Stand({
             justifyContent: 'flex-end',
             overflow: 'hidden',
             borderWidth: isMe ? 2 : 0,
-            borderColor: '#fafafa',
+            borderColor: colors.text,
           },
           barStyle,
         ]}
       >
-        <Text style={{ color: 'rgba(0,0,0,0.55)', fontSize: 22, fontWeight: '900', marginBottom: 6 }}>
+        <Text style={{ color: `${colors.bg}8c`, fontSize: 22, fontWeight: '900', marginBottom: 6 }}>
           {rank}
         </Text>
       </Animated.View>
@@ -313,10 +314,10 @@ function TailList({ tail, runId }: { tail: RecapCrewMember[]; runId: number }) {
             paddingVertical: 6,
             paddingHorizontal: 12,
             borderRadius: 10,
-            backgroundColor: m.is_me ? '#18181b' : 'transparent',
+            backgroundColor: m.is_me ? colors.surface : 'transparent',
           }}
         >
-          <Text style={{ color: '#71717a', fontSize: 12, fontWeight: '700', width: 22 }}>
+          <Text style={{ color: colors['text-subtle'], fontSize: 12, fontWeight: '700', width: 22 }}>
             {i + 4}
           </Text>
           <View
@@ -330,7 +331,7 @@ function TailList({ tail, runId }: { tail: RecapCrewMember[]; runId: number }) {
           />
           <Text
             numberOfLines={1}
-            style={{ color: '#e4e4e7', fontSize: 13, fontWeight: '600', flex: 1 }}
+            style={{ color: colors.text, fontSize: 13, fontWeight: '600', flex: 1 }}
           >
             @{m.username ?? m.name}
           </Text>
@@ -343,7 +344,7 @@ function TailList({ tail, runId }: { tail: RecapCrewMember[]; runId: number }) {
               <SusFace size={13} />
             </View>
           ) : null}
-          <Text style={{ color: '#a1a1aa', fontSize: 12, marginLeft: 8 }}>
+          <Text style={{ color: colors['text-muted'], fontSize: 12, marginLeft: 8 }}>
             {m.total_kg.toLocaleString()} kg
           </Text>
         </View>

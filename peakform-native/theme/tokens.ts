@@ -37,6 +37,15 @@ export const colors = {
     other: '#a8a29e',
   },
   medal: { gold: '#FCD34D', silver: '#D1D5DB', bronze: '#B45309' },
+  rarity: { common: '#a1a1aa', rare: '#38bdf8', epic: '#c084fc', legendary: '#facc15' },
+  racer: {
+    sky: '#38BDF8',
+    emerald: '#34D399',
+    amber: '#FBBF24',
+    rose: '#F472B6',
+    violet: '#A78BFA',
+    coral: '#FB7185',
+  },
 } as const;
 
 export const fontSize = {

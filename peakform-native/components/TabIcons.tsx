@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import Svg, { Path, Circle, Line } from 'react-native-svg'
+import { colors } from '../theme/tokens'
 
 type IconProps = { color: string; size?: number }
 
@@ -125,7 +126,7 @@ export function SettingsIcon({ color, size = 24 }: IconProps) {
           cx={cx}
           cy={cy}
           r={2.4}
-          fill="black"
+          fill={colors.bg}
           stroke={color}
           strokeWidth={STROKE}
         />

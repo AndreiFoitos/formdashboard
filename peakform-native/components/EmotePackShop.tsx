@@ -9,6 +9,7 @@ import { extractErrorMessage } from '../lib/apiError'
 import { hapticSuccess } from '../lib/haptics'
 import { openPaywall, usePlan, useSetPlan, type PackInfo } from '../hooks/usePlan'
 import { REWARDS_KEY } from '../hooks/useRewards'
+import { colors } from '../theme/tokens'
 
 /**
  * Paid emote packs (backend/services/avatar_packs.py). A pack is listed only
@@ -53,42 +54,41 @@ export function EmotePackShop({ onPreview }: { onPreview: (emote: string) => voi
 
   return (
     <View>
-      <Text className="text-zinc-400 text-xs uppercase tracking-widest mb-2">Emote packs</Text>
+      <Text className="text-text-muted text-xs uppercase tracking-widest mb-2">Emote packs</Text>
       <View style={{ gap: 10 }}>
         {visible.map((pack) => {
           const product = products[pack.product_id]
           const emotes = pack.items.emote ?? []
           return (
-            <View key={pack.id} className="bg-zinc-900 rounded-2xl p-4">
+            <View key={pack.id} className="bg-surface rounded-2xl p-4">
               <View className="flex-row items-center justify-between">
-                <Text className="text-white text-base font-semibold">{pack.name}</Text>
+                <Text className="text-text text-base font-semibold">{pack.name}</Text>
                 {pack.owned ? (
-                  <Text className="text-green-400 text-sm font-medium">Owned</Text>
+                  <Text className="text-success text-sm font-medium">Owned</Text>
                 ) : (
                   <PressableScale
                     haptic
                     onPress={() => buy(pack)}
                     disabled={!!buying}
-                    className="rounded-xl px-4 py-2"
-                    style={{ backgroundColor: '#facc15' }}
+                    className="bg-accent rounded-xl px-4 py-2"
                   >
                     {buying === pack.id ? (
-                      <ActivityIndicator color="#000" size="small" />
+                      <ActivityIndicator color={colors['on-accent']} size="small" />
                     ) : (
-                      <Text className="text-black text-sm font-bold">{product?.priceString ?? '—'}</Text>
+                      <Text className="text-on-accent text-sm font-bold">{product?.priceString ?? '—'}</Text>
                     )}
                   </PressableScale>
                 )}
               </View>
-              <Text className="text-zinc-500 text-xs mt-1 mb-3">Tap an emote to preview it. Yours forever.</Text>
+              <Text className="text-text-subtle text-xs mt-1 mb-3">Tap an emote to preview it. Yours forever.</Text>
               <View className="flex-row flex-wrap" style={{ gap: 8 }}>
                 {emotes.map((id) => (
                   <TouchableOpacity
                     key={id}
                     onPress={() => onPreview(id)}
-                    className="px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-950"
+                    className="px-3 py-2 rounded-xl border border-border bg-surface-raised"
                   >
-                    <Text className="text-zinc-200 text-sm">{emoteName(id)}</Text>
+                    <Text className="text-text text-sm">{emoteName(id)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -98,7 +98,7 @@ export function EmotePackShop({ onPreview }: { onPreview: (emote: string) => voi
       </View>
       {plan && plan.plan !== 'pro' && (
         <TouchableOpacity onPress={() => openPaywall()} className="mt-2">
-          <Text className="text-zinc-500 text-xs">Pro members get emote packs at a discount ›</Text>
+          <Text className="text-text-subtle text-xs">Pro members get emote packs at a discount ›</Text>
         </TouchableOpacity>
       )}
     </View>

@@ -21,6 +21,7 @@ import { hapticLight } from '../../lib/haptics'
 import { enablePredictiveNudges } from '../../lib/notifications'
 import { ExerciseLogSheet } from './ExerciseLogSheet'
 import { CheckinCard } from './CheckinCard'
+import { colors } from '../../theme/tokens'
 
 // The Plan segment of the Pit tab: build a plan, then today's workout and
 // meals from it. docs/ai-plans-design.md §2.
@@ -29,12 +30,12 @@ const SLOT_LABEL = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', s
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <View className={`bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden ${className}`}>{children}</View>
+    <View className={`bg-surface border border-divider rounded-2xl overflow-hidden ${className}`}>{children}</View>
   )
 }
 
 function SectionLabel({ children }: { children: string }) {
-  return <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">{children}</Text>
+  return <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">{children}</Text>
 }
 
 function quotaLabel(u?: ScanUsage): string | null {
@@ -75,18 +76,18 @@ function BuildButton({ label, rebuild }: { label: string; rebuild?: boolean }) {
       <TouchableOpacity
         onPress={start}
         disabled={build.isPending}
-        className={`w-full rounded-2xl py-4 items-center ${rebuild ? 'bg-zinc-900 border border-zinc-800' : 'bg-white'}`}
+        className={`w-full rounded-2xl py-4 items-center ${rebuild ? 'bg-surface border border-divider' : 'bg-accent'}`}
         style={{ opacity: build.isPending ? 0.5 : 1 }}
       >
         {build.isPending ? (
-          <ActivityIndicator color={rebuild ? 'white' : 'black'} />
+          <ActivityIndicator color={rebuild ? colors.text : colors['on-accent']} />
         ) : (
-          <Text className={`font-semibold text-base ${rebuild ? 'text-white' : 'text-black'}`}>
+          <Text className={`font-semibold text-base ${rebuild ? 'text-text' : 'text-on-accent'}`}>
             {out ? 'Upgrade for more plans' : label}
           </Text>
         )}
       </TouchableOpacity>
-      {quotaLabel(usage) && <Text className="text-zinc-600 text-xs mt-2">{quotaLabel(usage)}</Text>}
+      {quotaLabel(usage) && <Text className="text-text-subtle text-xs mt-2">{quotaLabel(usage)}</Text>}
     </View>
   )
 }
@@ -97,7 +98,7 @@ function Intro() {
   return (
     <View style={{ gap: 16 }}>
       <Card className="p-5">
-        <Text className="text-white text-xl font-bold">Your week, built by your crew</Text>
+        <Text className="text-text text-xl font-bold">Your week, built by your crew</Text>
         <View style={{ gap: 10 }} className="mt-4">
           {[
             'Training from your lifts, equipment and injuries',
@@ -105,8 +106,8 @@ function Intro() {
             'Weights that go up as you hit your reps',
           ].map((t) => (
             <View key={t} className="flex-row items-start" style={{ gap: 10 }}>
-              <Check size={16} color="#a3e635" strokeWidth={3} style={{ marginTop: 2 }} />
-              <Text className="text-zinc-300 text-sm flex-1">{t}</Text>
+              <Check size={16} color={colors.success} strokeWidth={3} style={{ marginTop: 2 }} />
+              <Text className="text-text-muted text-sm flex-1">{t}</Text>
             </View>
           ))}
         </View>
@@ -115,10 +116,10 @@ function Intro() {
         <TouchableOpacity onPress={() => router.push('/preferences')}>
           <Card className="p-4 flex-row items-center">
             <View className="flex-1 pr-3">
-              <Text className="text-white text-sm font-medium">Tell your crew about you first</Text>
-              <Text className="text-zinc-500 text-xs mt-0.5">Equipment, experience, diet and allergies. About a minute.</Text>
+              <Text className="text-text text-sm font-medium">Tell your crew about you first</Text>
+              <Text className="text-text-subtle text-xs mt-0.5">Equipment, experience, diet and allergies. About a minute.</Text>
             </View>
-            <ChevronRight size={18} color="#71717a" />
+            <ChevronRight size={18} color={colors['text-subtle']} />
           </Card>
         </TouchableOpacity>
       )}
@@ -130,9 +131,9 @@ function Intro() {
 function Building() {
   return (
     <Card className="p-5 items-center">
-      <ActivityIndicator color="white" />
-      <Text className="text-white text-base font-semibold mt-3">Your crew is building your plan</Text>
-      <Text className="text-zinc-500 text-sm text-center mt-1">
+      <ActivityIndicator color={colors.text} />
+      <Text className="text-text text-base font-semibold mt-3">Your crew is building your plan</Text>
+      <Text className="text-text-subtle text-sm text-center mt-1">
         Usually a minute or two. You'll get a notification when it's ready.
       </Text>
     </Card>
@@ -158,23 +159,23 @@ function ExerciseRow({
     <TouchableOpacity
       onPress={onPress}
       className="px-4 py-3 flex-row items-center"
-      style={{ borderBottomWidth: last ? 0 : 1, borderBottomColor: '#27272a' }}
+      style={{ borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.divider }}
     >
       <View className="flex-1 pr-3">
-        <Text className={`text-sm font-medium ${done ? 'text-zinc-500' : 'text-white'}`}>{name}</Text>
-        <Text className="text-zinc-500 text-xs mt-0.5">
+        <Text className={`text-sm font-medium ${done ? 'text-text-subtle' : 'text-text'}`}>{name}</Text>
+        <Text className="text-text-subtle text-xs mt-0.5">
           {ex.sets} × {ex.reps_min === ex.reps_max ? ex.reps_max : `${ex.reps_min}–${ex.reps_max}`}
           {w != null ? ` · ${w} kg` : ex.basis === 'bodyweight' ? ' · bodyweight' : ''}
         </Text>
       </View>
       {done ? (
         <View className="flex-row items-center" style={{ gap: 4 }}>
-          <Check size={16} color="#a3e635" strokeWidth={3} />
-          <Text className="text-lime-400 text-xs font-medium">{ex.logged_today.length} sets</Text>
+          <Check size={16} color={colors.success} strokeWidth={3} />
+          <Text className="text-success text-xs font-medium">{ex.logged_today.length} sets</Text>
         </View>
       ) : (
-        <View className="bg-white rounded-full px-3 py-1.5">
-          <Text className="text-black text-xs font-semibold">Log</Text>
+        <View className="bg-accent rounded-full px-3 py-1.5">
+          <Text className="text-on-accent text-xs font-semibold">Log</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -198,45 +199,45 @@ function MealRow({ meal, last }: { meal: Today['meals'][number]; last: boolean }
   }
 
   return (
-    <View style={{ borderBottomWidth: last ? 0 : 1, borderBottomColor: '#27272a' }}>
+    <View style={{ borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.divider }}>
       <View className="px-4 py-3 flex-row items-center">
         <TouchableOpacity className="flex-1 pr-3" onPress={() => setOpen((o) => !o)}>
-          <Text className="text-zinc-500 text-[11px] uppercase tracking-wider">{SLOT_LABEL[meal.slot]}</Text>
-          <Text className={`text-sm font-medium mt-0.5 ${meal.logged ? 'text-zinc-500' : 'text-white'}`}>{meal.name}</Text>
+          <Text className="text-text-subtle text-[11px] uppercase tracking-wider">{SLOT_LABEL[meal.slot]}</Text>
+          <Text className={`text-sm font-medium mt-0.5 ${meal.logged ? 'text-text-subtle' : 'text-text'}`}>{meal.name}</Text>
           <View className="flex-row items-center mt-0.5" style={{ gap: 4 }}>
-            <Text className="text-zinc-500 text-xs">
+            <Text className="text-text-subtle text-xs">
               {meal.totals.calories} kcal · {Math.round(meal.totals.protein_g)} g protein
             </Text>
-            {open ? <ChevronUp size={12} color="#71717a" /> : <ChevronDown size={12} color="#71717a" />}
+            {open ? <ChevronUp size={12} color={colors['text-subtle']} /> : <ChevronDown size={12} color={colors['text-subtle']} />}
           </View>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={toggleLogged}
           disabled={log.isPending}
           hitSlop={8}
-          className={`rounded-full px-3 py-1.5 ${meal.logged ? 'bg-zinc-800' : 'bg-white'}`}
+          className={`rounded-full px-3 py-1.5 ${meal.logged ? 'bg-surface-raised' : 'bg-accent'}`}
         >
           {log.isPending ? (
-            <ActivityIndicator size="small" color={meal.logged ? 'white' : 'black'} />
+            <ActivityIndicator size="small" color={meal.logged ? colors.text : colors['on-accent']} />
           ) : meal.logged ? (
             <View className="flex-row items-center" style={{ gap: 4 }}>
-              <Check size={14} color="#a3e635" strokeWidth={3} />
-              <Text className="text-lime-400 text-xs font-semibold">Logged</Text>
+              <Check size={14} color={colors.success} strokeWidth={3} />
+              <Text className="text-success text-xs font-semibold">Logged</Text>
             </View>
           ) : (
-            <Text className="text-black text-xs font-semibold">Log</Text>
+            <Text className="text-on-accent text-xs font-semibold">Log</Text>
           )}
         </TouchableOpacity>
       </View>
       {open && (
         <View className="px-4 pb-3" style={{ gap: 4 }}>
-          {!!meal.prep && <Text className="text-zinc-300 text-xs leading-5 mb-1">{meal.prep}</Text>}
+          {!!meal.prep && <Text className="text-text-muted text-xs leading-5 mb-1">{meal.prep}</Text>}
           {meal.items.map((i) => (
             <View key={i.food} className="flex-row justify-between">
-              <Text className="text-zinc-400 text-xs flex-1 pr-2">
+              <Text className="text-text-muted text-xs flex-1 pr-2">
                 {i.food} · {i.grams} g
               </Text>
-              <Text className="text-zinc-500 text-xs">{i.calories} kcal</Text>
+              <Text className="text-text-subtle text-xs">{i.calories} kcal</Text>
             </View>
           ))}
         </View>
@@ -257,9 +258,9 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
         <SectionLabel>{`Today · ${WEEKDAYS[today.weekday]}`}</SectionLabel>
         {w ? (
           <Card>
-            <View className="px-4 pt-4 pb-3 border-b border-zinc-800">
-              <Text className="text-white text-base font-semibold">{w.name}</Text>
-              {!!w.focus && <Text className="text-zinc-500 text-xs mt-0.5">{w.focus}</Text>}
+            <View className="px-4 pt-4 pb-3 border-b border-divider">
+              <Text className="text-text text-base font-semibold">{w.name}</Text>
+              {!!w.focus && <Text className="text-text-subtle text-xs mt-0.5">{w.focus}</Text>}
             </View>
             {w.exercises.map((ex, i) => (
               <ExerciseRow
@@ -273,9 +274,9 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
           </Card>
         ) : (
           <Card className="p-4">
-            <Text className="text-white text-base font-semibold">Rest day</Text>
+            <Text className="text-text text-base font-semibold">Rest day</Text>
             {today.next_workout && (
-              <Text className="text-zinc-500 text-sm mt-1">
+              <Text className="text-text-subtle text-sm mt-1">
                 Next: {today.next_workout.name} on {WEEKDAYS[today.next_workout.weekday]}.
               </Text>
             )}
@@ -286,8 +287,8 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
       {today.meals.length > 0 && today.targets && (
         <View>
           <View className="flex-row items-end justify-between mb-2">
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest">Meals</Text>
-            <Text className="text-zinc-500 text-xs">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest">Meals</Text>
+            <Text className="text-text-subtle text-xs">
               {loggedKcal} / {today.targets.kcal} kcal logged from plan
             </Text>
           </View>
@@ -301,7 +302,7 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
 
       {!plan.meal_plan_enabled && (
         <Card className="p-4">
-          <Text className="text-zinc-300 text-sm">
+          <Text className="text-text-muted text-sm">
             Meal plans are off because of one of your health answers. Food changes are best made with your doctor
             or a dietitian, so your crew plans your training only.
           </Text>
@@ -323,23 +324,23 @@ function WhyCard({ plan }: { plan: Plan }) {
   return (
     <Card>
       <TouchableOpacity onPress={() => setOpen((o) => !o)} className="px-4 py-4 flex-row items-center justify-between">
-        <Text className="text-white text-sm font-medium">Why this plan?</Text>
-        {open ? <ChevronUp size={18} color="#71717a" /> : <ChevronDown size={18} color="#71717a" />}
+        <Text className="text-text text-sm font-medium">Why this plan?</Text>
+        {open ? <ChevronUp size={18} color={colors['text-subtle']} /> : <ChevronDown size={18} color={colors['text-subtle']} />}
       </TouchableOpacity>
       {open && (
         <View className="px-4 pb-4" style={{ gap: 10 }}>
-          <Text className="text-zinc-300 text-sm leading-6">{plan.rationale}</Text>
+          <Text className="text-text-muted text-sm leading-6">{plan.rationale}</Text>
           {plan.meal_plan_enabled && (
-            <Text className="text-zinc-500 text-xs leading-5">
+            <Text className="text-text-subtle text-xs leading-5">
               Daily target {t.kcal} kcal, {t.protein_g} g protein, {t.carbs_g} g carbs, {t.fat_g} g fat
               {t.tdee ? `. Estimated maintenance ${t.tdee} kcal (${t.tdee_source === 'measured' ? 'from your logs and weigh-ins' : 'from a formula'}).` : '.'}
             </Text>
           )}
           {[...t.notes, ...t.warnings].map((n) => (
-            <Text key={n} className="text-amber-400 text-xs">{n}</Text>
+            <Text key={n} className="text-warning text-xs">{n}</Text>
           ))}
           <TouchableOpacity onPress={() => router.push('/methodology/plans')} hitSlop={8}>
-            <Text className="text-zinc-300 text-xs font-medium">How plans are built, with sources ›</Text>
+            <Text className="text-text-muted text-xs font-medium">How plans are built, with sources ›</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -370,16 +371,16 @@ export function PlanPanel() {
     <ScrollView
       className="flex-1 px-4"
       contentContainerStyle={{ paddingBottom: 40, gap: 16 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#71717a" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors['text-subtle']} />}
     >
       {state.isLoading ? (
-        <ActivityIndicator color="#71717a" style={{ marginTop: 40 }} />
+        <ActivityIndicator color={colors['text-subtle']} style={{ marginTop: 40 }} />
       ) : (
         <>
           {state.data?.building && <Building />}
           {state.data?.last_error && (
-            <Card className="p-4 border-red-900">
-              <Text className="text-red-400 text-sm">{state.data.last_error}</Text>
+            <Card className="p-4 border-danger/40">
+              <Text className="text-danger text-sm">{state.data.last_error}</Text>
             </Card>
           )}
           {!plan && !state.data?.building && <Intro />}
@@ -389,27 +390,27 @@ export function PlanPanel() {
               {today.data ? (
                 <TodayCard today={today.data} plan={plan} />
               ) : (
-                <ActivityIndicator color="#71717a" style={{ marginTop: 24 }} />
+                <ActivityIndicator color={colors['text-subtle']} style={{ marginTop: 24 }} />
               )}
               <TouchableOpacity onPress={() => router.push('/plan-week')}>
                 <Card className="px-4 py-4 flex-row items-center justify-between">
                   <View>
-                    <Text className="text-white text-sm font-medium">This week</Text>
-                    <Text className="text-zinc-500 text-xs mt-0.5">
+                    <Text className="text-text text-sm font-medium">This week</Text>
+                    <Text className="text-text-subtle text-xs mt-0.5">
                       {plan.plan.days_per_week} training days{plan.meal_plan_enabled ? ' and every meal' : ''}
                     </Text>
                   </View>
-                  <ChevronRight size={18} color="#71717a" />
+                  <ChevronRight size={18} color={colors['text-subtle']} />
                 </Card>
               </TouchableOpacity>
               {plan.meal_plan_enabled && (
                 <TouchableOpacity onPress={() => router.push('/shopping-list')}>
                   <Card className="px-4 py-4 flex-row items-center justify-between">
                     <View>
-                      <Text className="text-white text-sm font-medium">Shopping list</Text>
-                      <Text className="text-zinc-500 text-xs mt-0.5">Everything for the next 7 days, by aisle</Text>
+                      <Text className="text-text text-sm font-medium">Shopping list</Text>
+                      <Text className="text-text-subtle text-xs mt-0.5">Everything for the next 7 days, by aisle</Text>
                     </View>
-                    <ChevronRight size={18} color="#71717a" />
+                    <ChevronRight size={18} color={colors['text-subtle']} />
                   </Card>
                 </TouchableOpacity>
               )}
@@ -417,10 +418,10 @@ export function PlanPanel() {
               {!state.data?.building && <BuildButton label="Build a new plan" rebuild />}
             </>
           )}
-          <Text className="text-zinc-600 text-[11px] leading-4 text-center px-2">
+          <Text className="text-text-subtle text-[11px] leading-4 text-center px-2">
             Pit Crew plans are general fitness guidance, not medical advice. Talk to a doctor before big changes to
             how you eat or train, especially with a health condition.{' '}
-            <Text className="text-zinc-400" onPress={() => router.push('/methodology/plans')}>
+            <Text className="text-text-muted" onPress={() => router.push('/methodology/plans')}>
               How plans are built
             </Text>
           </Text>

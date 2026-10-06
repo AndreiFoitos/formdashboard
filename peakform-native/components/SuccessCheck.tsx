@@ -8,6 +8,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated'
 import Svg, { Circle, Path } from 'react-native-svg'
+import { colors } from '../theme/tokens'
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 const AnimatedPath = Animated.createAnimatedComponent(Path)
@@ -21,7 +22,7 @@ type Props = {
  * An animated checkmark that pops in: the ring scales up, then the tick
  * draws itself. Shown when a quick-log action succeeds.
  */
-export function SuccessCheck({ size = 22, color = '#22c55e' }: Props) {
+export function SuccessCheck({ size = 22, color = colors.success }: Props) {
   const ring = useSharedValue(0)
   const tick = useSharedValue(0)
 

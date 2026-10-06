@@ -8,6 +8,7 @@ import Reanimated, {
   type SharedValue,
 } from 'react-native-reanimated'
 import { hapticMedium, hapticSuccess, hapticWarning } from '../lib/haptics'
+import { colors } from '../theme/tokens'
 
 const ACTION_WIDTH = 88
 
@@ -31,12 +32,12 @@ function RightAction({
           onPress={onPress}
           style={{
             flex: 1,
-            backgroundColor: '#dc2626',
+            backgroundColor: colors.danger,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text className="text-white text-xs font-semibold">{label}</Text>
+          <Text className="text-text text-xs font-semibold">{label}</Text>
         </Pressable>
       </Reanimated.View>
     </View>
@@ -66,12 +67,12 @@ function LeftAction({
           onPress={onPress}
           style={{
             flex: 1,
-            backgroundColor: '#16a34a',
+            backgroundColor: colors.success,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text className="text-white text-xs font-semibold">{label}</Text>
+          <Text className="text-text text-xs font-semibold">{label}</Text>
         </Pressable>
       </Reanimated.View>
     </View>

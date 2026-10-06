@@ -6,6 +6,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated'
+import { colors } from '../theme/tokens'
 
 type Props = {
   /** Fill amount, 0–100. */
@@ -26,7 +27,7 @@ export function AnimatedBar({
   percent,
   color,
   height = 6,
-  trackColor = '#27272a',
+  trackColor = colors['surface-raised'],
   duration = 700,
   style,
 }: Props) {

@@ -9,6 +9,7 @@ import type { AvatarBase } from '../../lib/avatar/bodyParams'
 import type { AvatarModel, AvatarState } from '../../lib/avatar/model'
 import { createPlaceholderModel } from '../../lib/avatar/placeholderModel'
 import { createGlbModel } from '../../lib/avatar/glbModel'
+import { colors } from '../../theme/tokens'
 
 const GLB = {
   male: require('../../assets/avatar/avatar_male.glb'),
@@ -81,11 +82,11 @@ class AvatarErrorBoundary extends Component<{ children: ReactNode; onError?: (e:
     if (this.props.fallback !== undefined) return this.props.fallback
     return (
       <View style={{ flex: 1, padding: 12, justifyContent: 'center' }}>
-        <Text style={{ color: '#f87171', fontSize: 13, fontWeight: '600', marginBottom: 4 }}>3D avatar failed</Text>
-        <Text selectable style={{ color: '#d4d4d8', fontSize: 11 }}>
+        <Text style={{ color: colors.danger, fontSize: 13, fontWeight: '600', marginBottom: 4 }}>3D avatar failed</Text>
+        <Text selectable style={{ color: colors['text-muted'], fontSize: 11 }}>
           {String(error.message || error)}
         </Text>
-        <Text selectable style={{ color: '#71717a', fontSize: 9, marginTop: 6 }} numberOfLines={8}>
+        <Text selectable style={{ color: colors['text-subtle'], fontSize: 9, marginTop: 6 }} numberOfLines={8}>
           {String(error.stack ?? '')}
         </Text>
       </View>

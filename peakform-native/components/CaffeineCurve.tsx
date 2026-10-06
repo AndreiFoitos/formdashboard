@@ -24,6 +24,7 @@ import { api } from '../api/client'
 import { SwipeableRow } from './SwipeableRow'
 import { showUndo } from '../store/undo'
 import { hapticLight, hapticSuccess } from '../lib/haptics'
+import { colors } from '../theme/tokens'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,9 +66,9 @@ const IMPACT_STYLES: Record<
   string,
   { bg: string; border: string; text: string; icon: string }
 > = {
-  mild:     { bg: '#27210c', border: '#854d0e', text: '#fde68a', icon: '◑' },
-  moderate: { bg: '#2c1a0b', border: '#9a3412', text: '#fdba74', icon: '◕' },
-  high:     { bg: '#2c1114', border: '#991b1b', text: '#fca5a5', icon: '●' },
+  mild:     { bg: `${colors['text-muted']}26`, border: `${colors['text-muted']}66`, text: colors['text-muted'], icon: '◑' },
+  moderate: { bg: `${colors.warning}26`, border: `${colors.warning}66`, text: colors.warning, icon: '◕' },
+  high:     { bg: `${colors.danger}26`, border: `${colors.danger}66`, text: colors.danger, icon: '●' },
 }
 
 function hour12(h: number): string {
@@ -80,10 +81,10 @@ function BedtimeImpact({ data }: { data: CurveData }) {
 
   if (!style || data.caffeine_at_bedtime <= 0) {
     return (
-      <Text className="text-zinc-500 text-xs leading-5 mt-2">
+      <Text className="text-text-subtle text-xs leading-5 mt-2">
         {data.sleep_impact}
         {data.caffeine_at_bedtime > 0 && (
-          <Text className="text-zinc-600">
+          <Text className="text-text-subtle">
             {' '}· {Math.round(data.caffeine_at_bedtime)}mg at bedtime
           </Text>
         )}
@@ -141,10 +142,10 @@ interface SubstancesPayload {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function zoneColour(mg: number) {
-  if (mg < 50)  return '#52525b'
-  if (mg < 200) return '#22c55e'
-  if (mg < 300) return '#f59e0b'
-  return '#ef4444'
+  if (mg < 50)  return colors['text-subtle']
+  if (mg < 200) return colors.success
+  if (mg < 300) return colors.warning
+  return colors.danger
 }
 
 function zoneLabel(mg: number) {
@@ -218,7 +219,7 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
           y1={toY(v)}
           x2={chartWidth - paddingRight}
           y2={toY(v)}
-          stroke={v === 50 ? '#3f3f46' : v === 200 ? '#f59e0b' : '#ef4444'}
+          stroke={v === 50 ? colors.border : v === 200 ? colors.warning : colors.danger}
           strokeWidth={1}
           strokeDasharray="3,3"
           opacity={0.6}
@@ -232,7 +233,7 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
           x={paddingLeft - 6}
           y={toY(v) + 3}
           fontSize={9}
-          fill="#71717a"
+          fill={colors['text-subtle']}
           textAnchor="end"
         >
           {v}
@@ -259,7 +260,7 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
           y1={paddingTop}
           x2={toX(nowIdx)}
           y2={paddingTop + plotH}
-          stroke="#ffffff"
+          stroke={colors.text}
           strokeWidth={1}
           strokeDasharray="4,2"
           opacity={0.4}
@@ -273,7 +274,7 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
           x={toX(i)}
           y={paddingTop + plotH + 14}
           fontSize={9}
-          fill="#71717a"
+          fill={colors['text-subtle']}
           textAnchor={i === 0 ? 'start' : 'middle'}
         >
           {label}
@@ -385,19 +386,19 @@ function LogModal({ onClose }: { onClose: () => void }) {
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-zinc-950">
+      <View className="flex-1 bg-surface">
         <View className="items-center pt-3 pb-2">
-          <View className="w-10 h-1 bg-zinc-700 rounded-full" />
+          <View className="w-10 h-1 bg-border rounded-full" />
         </View>
 
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-zinc-800">
-          <Text className="text-white font-semibold">Log Stimulant</Text>
+        <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
+          <Text className="text-text font-semibold">Log Stimulant</Text>
           <TouchableOpacity
             onPress={onClose}
             hitSlop={12}
-            className="w-10 h-10 -mr-1 rounded-full bg-zinc-900 border border-zinc-800 items-center justify-center"
+            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center"
           >
-            <X size={20} color="#e4e4e7" strokeWidth={2.25} />
+            <X size={20} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
 
@@ -409,20 +410,20 @@ function LogModal({ onClose }: { onClose: () => void }) {
                 onPress={() => selectSubstance(s.key)}
                 className="px-4 py-3 rounded-2xl border"
                 style={{
-                  backgroundColor: selected === s.key ? 'white' : '#18181b',
-                  borderColor: selected === s.key ? 'white' : '#3f3f46',
+                  backgroundColor: selected === s.key ? colors.text : colors['surface-raised'],
+                  borderColor: selected === s.key ? colors.text : colors.border,
                   width: '47%',
                 }}
               >
                 <Text
                   className="text-sm font-medium"
-                  style={{ color: selected === s.key ? 'black' : 'white' }}
+                  style={{ color: selected === s.key ? colors.bg : colors.text }}
                 >
                   {s.label}
                 </Text>
                 <Text
                   className="text-xs mt-0.5"
-                  style={{ color: selected === s.key ? '#52525b' : '#71717a' }}
+                  style={{ color: colors['text-subtle'] }}
                 >
                   {s.caffeine_mg}mg · {s.calories} kcal
                 </Text>
@@ -433,20 +434,20 @@ function LogModal({ onClose }: { onClose: () => void }) {
               onPress={() => selectSubstance('custom')}
               className="px-4 py-3 rounded-2xl border"
               style={{
-                backgroundColor: selected === 'custom' ? 'white' : '#18181b',
-                borderColor: selected === 'custom' ? 'white' : '#3f3f46',
+                backgroundColor: selected === 'custom' ? colors.text : colors['surface-raised'],
+                borderColor: selected === 'custom' ? colors.text : colors.border,
                 width: '47%',
               }}
             >
               <Text
                 className="text-sm font-medium"
-                style={{ color: selected === 'custom' ? 'black' : 'white' }}
+                style={{ color: selected === 'custom' ? colors.bg : colors.text }}
               >
                 Custom
               </Text>
               <Text
                 className="text-xs mt-0.5"
-                style={{ color: selected === 'custom' ? '#52525b' : '#71717a' }}
+                style={{ color: colors['text-subtle'] }}
               >
                 Enter mg manually
               </Text>
@@ -455,7 +456,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
 
           {selected === 'custom' && (
             <View className="mb-4">
-              <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1.5">
+              <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1.5">
                 Caffeine (mg)
               </Text>
               <View>
@@ -463,18 +464,18 @@ function LogModal({ onClose }: { onClose: () => void }) {
                   value={customMg}
                   onChangeText={setCustomMg}
                   placeholder="e.g. 150"
-                  placeholderTextColor="#52525b"
+                  placeholderTextColor={colors['text-subtle']}
                   keyboardType="number-pad"
-                  className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-4 text-white text-sm"
+                  className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm"
                 />
-                <Text className="absolute right-4 top-4 text-zinc-500 text-sm">mg</Text>
+                <Text className="absolute right-4 top-4 text-text-subtle text-sm">mg</Text>
               </View>
             </View>
           )}
 
           {showAdditions && additions.length > 0 && (
             <View className="mb-4">
-              <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">
+              <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
                 Add-ons
               </Text>
               <View className="flex-row flex-wrap" style={{ gap: 8 }}>
@@ -486,13 +487,13 @@ function LogModal({ onClose }: { onClose: () => void }) {
                       onPress={() => toggleAddition(a.key)}
                       className="px-3 py-2 rounded-full border"
                       style={{
-                        backgroundColor: active ? 'white' : '#18181b',
-                        borderColor: active ? 'white' : '#3f3f46',
+                        backgroundColor: active ? colors.text : colors['surface-raised'],
+                        borderColor: active ? colors.text : colors.border,
                       }}
                     >
                       <Text
                         className="text-xs font-medium"
-                        style={{ color: active ? 'black' : '#d4d4d8' }}
+                        style={{ color: active ? colors.bg : colors['text-muted'] }}
                       >
                         {active ? '✓ ' : '+ '}{a.label} · {a.calories} kcal
                       </Text>
@@ -504,13 +505,13 @@ function LogModal({ onClose }: { onClose: () => void }) {
           )}
 
           {selectedSubstance && selected !== 'custom' && liveTotals && (
-            <View className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 mb-4">
-              <Text className="text-zinc-500 text-xs mb-1">
+            <View className="bg-surface-raised border border-border rounded-2xl px-4 py-3 mb-4">
+              <Text className="text-text-subtle text-xs mb-1">
                 {selectedSubstance.caffeine_mg}mg caffeine · half-life {selectedSubstance.half_life}h · {selectedSubstance.serving}
               </Text>
-              <Text className="text-white text-sm font-semibold">
+              <Text className="text-text text-sm font-semibold">
                 {liveTotals.calories} kcal
-                <Text className="text-zinc-500 text-xs font-normal">
+                <Text className="text-text-subtle text-xs font-normal">
                   {'  '}· {liveTotals.protein_g.toFixed(1)}p · {liveTotals.carbs_g.toFixed(1)}c · {liveTotals.fat_g.toFixed(1)}f
                 </Text>
               </Text>
@@ -520,15 +521,15 @@ function LogModal({ onClose }: { onClose: () => void }) {
           <TouchableOpacity
             onPress={handleLog}
             disabled={!selected || isPending || (selected === 'custom' && !customMg)}
-            className="bg-white rounded-2xl py-4 items-center mb-10"
+            className="bg-accent rounded-2xl py-4 items-center mb-10"
             style={{
               opacity: !selected || isPending || (selected === 'custom' && !customMg) ? 0.4 : 1,
             }}
           >
             {isPending ? (
-              <ActivityIndicator color="black" />
+              <ActivityIndicator color={colors['on-accent']} />
             ) : (
-              <Text className="text-black font-semibold text-base">Log</Text>
+              <Text className="text-on-accent font-semibold text-base">Log</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -576,10 +577,10 @@ export function CaffeineCurve({ data, isLoading }: Props) {
 
   if (isLoading) {
     return (
-      <View className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
-        <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Caffeine</Text>
+      <View className="bg-surface border border-divider rounded-3xl p-5">
+        <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">Caffeine</Text>
         <View style={{ height: 100, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color="#52525b" />
+          <ActivityIndicator color={colors['text-subtle']} />
         </View>
       </View>
     )
@@ -615,16 +616,16 @@ export function CaffeineCurve({ data, isLoading }: Props) {
 
   return (
     <>
-      <View className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5">
+      <View className="bg-surface border border-divider rounded-3xl p-5">
         {/* Header */}
         <View className="flex-row items-start justify-between mb-3">
           <View className="flex-1">
-            <Text className="text-zinc-500 text-xs uppercase tracking-widest mb-1">
+            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1">
               Caffeine
             </Text>
             <View className="flex-row items-baseline gap-2">
-              <Text className="text-white text-3xl font-bold">{currentMg}</Text>
-              <Text className="text-zinc-500 text-sm">mg active</Text>
+              <Text className="text-text text-3xl font-bold">{currentMg}</Text>
+              <Text className="text-text-subtle text-sm">mg active</Text>
               <View
                 className="px-1.5 py-0.5 rounded-full ml-1"
                 style={{ backgroundColor: `${colour}20` }}
@@ -644,19 +645,19 @@ export function CaffeineCurve({ data, isLoading }: Props) {
                 onPress={handleRepeat}
                 onLongPress={() => setShowLog(true)}
                 disabled={isPending}
-                className="bg-zinc-800 px-3 py-1.5 rounded-xl flex-row items-center"
+                className="bg-surface-raised px-3 py-1.5 rounded-xl flex-row items-center"
                 style={{ opacity: isPending ? 0.5 : 1 }}
               >
-                <Text className="text-white text-xs font-semibold">+ {last.label}</Text>
-                <Text className="text-zinc-500 text-xs ml-1.5">{last.caffeine_mg}mg</Text>
+                <Text className="text-text text-xs font-semibold">+ {last.label}</Text>
+                <Text className="text-text-subtle text-xs ml-1.5">{last.caffeine_mg}mg</Text>
               </TouchableOpacity>
             ) : null}
             <TouchableOpacity
               onPress={() => setShowLog(true)}
-              className="bg-zinc-800 w-8 h-8 rounded-xl items-center justify-center"
+              className="bg-surface-raised w-8 h-8 rounded-xl items-center justify-center"
               hitSlop={6}
             >
-              <Text className="text-zinc-400 text-base">{last ? '⋯' : '+'}</Text>
+              <Text className="text-text-muted text-base">{last ? '⋯' : '+'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -666,7 +667,7 @@ export function CaffeineCurve({ data, isLoading }: Props) {
           <CaffeineChart curve={curve} colour={colour} />
         ) : (
           <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
-            <Text className="text-zinc-600 text-sm">No caffeine logged today</Text>
+            <Text className="text-text-subtle text-sm">No caffeine logged today</Text>
           </View>
         )}
 
@@ -677,35 +678,35 @@ export function CaffeineCurve({ data, isLoading }: Props) {
         {/* Today's entries — swipe to delete once the undo toast is gone. */}
         <TouchableOpacity
           onPress={() => setShowEntries((v: boolean) => !v)}
-          className="mt-3 pt-3 border-t border-zinc-800"
+          className="mt-3 pt-3 border-t border-divider"
           accessibilityRole="button"
           accessibilityState={{ expanded: showEntries }}
         >
-          <Text className="text-zinc-500 text-xs">
+          <Text className="text-text-subtle text-xs">
             {showEntries ? 'Hide today’s log ▾' : 'Today’s log ▸'}
           </Text>
         </TouchableOpacity>
 
         {showEntries && (
-          <View className="mt-2 rounded-xl overflow-hidden border border-zinc-800">
+          <View className="mt-2 rounded-xl overflow-hidden border border-divider">
             {(entriesQ.data ?? []).length === 0 ? (
-              <Text className="text-zinc-600 text-xs px-3 py-3">
+              <Text className="text-text-subtle text-xs px-3 py-3">
                 {entriesQ.isLoading ? 'Loading…' : 'No caffeine logged today.'}
               </Text>
             ) : (
               (entriesQ.data ?? []).map((e, i, arr) => (
                 <SwipeableRow key={e.id} onDelete={() => removeEntry.mutate(e.id)}>
                   <View
-                    className="flex-row items-center justify-between bg-zinc-900 px-3 py-2.5"
+                    className="flex-row items-center justify-between bg-surface px-3 py-2.5"
                     style={{
                       borderBottomWidth: i === arr.length - 1 ? 0 : 1,
-                      borderBottomColor: '#27272a',
+                      borderBottomColor: colors.divider,
                     }}
                   >
-                    <Text className="text-zinc-300 text-xs">
+                    <Text className="text-text-muted text-xs">
                       {e.substance.replace(/_/g, ' ')} · {e.caffeine_mg}mg
                     </Text>
-                    <Text className="text-zinc-600 text-xs">
+                    <Text className="text-text-subtle text-xs">
                       {new Date(e.logged_at).toLocaleTimeString(undefined, {
                         hour: 'numeric',
                         minute: '2-digit',

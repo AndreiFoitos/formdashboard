@@ -15,6 +15,7 @@ import type { RecapCrewMember } from '../../app/weekly-recap'
 import { SusFace } from '../icons/SusFace'
 import { TrustedShield } from '../icons/TrustedShield'
 import { colorForUser, formatKg, RACE_DURATION_MS } from './recapShared'
+import { colors } from '../../theme/tokens'
 
 // ─── Animation contract ─────────────────────────────────────────────────────
 // `progress` is a shared value that travels 0 → 7 across RACE_DURATION_MS.
@@ -155,7 +156,7 @@ function ChartFrame({
             x2={PAD.left + chartW}
             y1={y}
             y2={y}
-            stroke="#27272a"
+            stroke={colors.divider}
             strokeWidth={1}
             strokeDasharray={t === 0 ? undefined : '2 4'}
           />
@@ -169,7 +170,7 @@ function ChartFrame({
             x={PAD.left - 6}
             y={y + 3}
             fontSize={10}
-            fill="#71717a"
+            fill={colors['text-subtle']}
             textAnchor="end"
           >
             {formatKg(t)}
@@ -330,7 +331,7 @@ function CrewMarker({
             borderRadius: HEAD_SIZE / 2,
             borderWidth: 2,
             borderColor: color,
-            backgroundColor: '#18181b',
+            backgroundColor: colors.surface,
             marginRight: 4,
           }}
         />
@@ -347,10 +348,10 @@ function CrewMarker({
       )}
       <Text
         style={{
-          color: '#fafafa',
+          color: colors.text,
           fontSize: 11,
           fontWeight: '600',
-          textShadowColor: '#000',
+          textShadowColor: colors.bg,
           textShadowRadius: 4,
         }}
         numberOfLines={1}
@@ -407,11 +408,14 @@ function DayLabel({
   progress: SharedValue<number>
 }) {
   const x = (day / 6) * chartW
+  // Plain strings so the worklet captures values, not the tokens module.
+  const activeColor = colors.text
+  const idleColor = colors['text-subtle']
   const style = useAnimatedStyle(() => {
     const current = Math.min(6, Math.max(0, Math.floor(progress.value)))
     const isCurrent = current === day
     return {
-      color: isCurrent ? '#fafafa' : '#52525b',
+      color: isCurrent ? activeColor : idleColor,
     } as any
   })
   return (

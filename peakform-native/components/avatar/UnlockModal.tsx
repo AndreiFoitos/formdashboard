@@ -6,6 +6,7 @@ import { useMyAvatar, useSaveAvatar } from '../../hooks/useMyAvatar'
 import { useMarkRewardsSeen } from '../../hooks/useRewards'
 import { ITEMS, itemName, RARITY_COLOR, type RewardNew } from '../../lib/avatar/rewards'
 import { emoteName } from '../../lib/avatar/emotes'
+import { colors } from '../../theme/tokens'
 
 /** Celebrates newly earned combos/milestones, with one-tap equip. */
 export function UnlockModal({ items }: { items: RewardNew[] }) {
@@ -36,10 +37,10 @@ export function UnlockModal({ items }: { items: RewardNew[] }) {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onShow={hapticSuccess} onRequestClose={() => close()}>
-      <View className="flex-1 items-center justify-center px-6" style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}>
-        <View className="w-full rounded-3xl bg-zinc-950 border border-zinc-800 p-5" style={{ maxHeight: '80%' }}>
-          <Text className="text-zinc-500 text-[10px] uppercase tracking-[3px] text-center">Avatar unlock</Text>
-          <Text className="text-white text-2xl font-bold text-center mt-1">
+      <View className="flex-1 items-center justify-center px-6" style={{ backgroundColor: `${colors.bg}bf` }}>
+        <View className="w-full rounded-3xl bg-surface border border-divider p-5" style={{ maxHeight: '80%' }}>
+          <Text className="text-text-subtle text-[10px] uppercase tracking-[3px] text-center">Avatar unlock</Text>
+          <Text className="text-text text-2xl font-bold text-center mt-1">
             {items.length === 1 ? 'You unlocked something' : `You unlocked ${items.length} things`}
           </Text>
 
@@ -49,9 +50,9 @@ export function UnlockModal({ items }: { items: RewardNew[] }) {
               const canEquip = !!n.reward && !!ITEMS[n.reward]?.slot
               const isEquipped = !!n.reward && equipped.includes(n.reward)
               return (
-                <View key={n.key + (n.golden ? ':gold' : '')} className="rounded-2xl p-3.5 border" style={{ borderColor: color, backgroundColor: '#18181b' }}>
+                <View key={n.key + (n.golden ? ':gold' : '')} className="rounded-2xl p-3.5 border" style={{ borderColor: color, backgroundColor: colors['surface-raised'] }}>
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-white text-base font-bold flex-1">
+                    <Text className="text-text text-base font-bold flex-1">
                       {n.golden ? '✨ Golden ' : ''}
                       {n.name}
                     </Text>
@@ -59,24 +60,24 @@ export function UnlockModal({ items }: { items: RewardNew[] }) {
                       {n.golden ? 'golden' : n.rarity}
                     </Text>
                   </View>
-                  <Text className="text-zinc-400 text-xs mt-1">
-                    Reward: <Text className="text-zinc-200">{itemName(n.reward)}</Text>
+                  <Text className="text-text-muted text-xs mt-1">
+                    Reward: <Text className="text-text">{itemName(n.reward)}</Text>
                     {!n.has_art ? '  ·  3D art coming soon — it’s saved to your account' : ''}
                   </Text>
                   {n.emotes?.map((e) => {
                     const on = equipped.includes(e)
                     return (
                       <View key={e} className="flex-row items-center justify-between mt-2">
-                        <Text className="text-zinc-300 text-xs">
-                          + Emote: <Text className="text-white font-semibold">{emoteName(e)}</Text>
+                        <Text className="text-text-muted text-xs">
+                          + Emote: <Text className="text-text font-semibold">{emoteName(e)}</Text>
                         </Text>
                         <TouchableOpacity
                           onPress={() => equip(e, true)}
                           disabled={on || save.isPending}
                           className="px-3 py-1.5 rounded-lg"
-                          style={{ backgroundColor: on ? '#27272a' : color }}
+                          style={{ backgroundColor: on ? colors.border : color }}
                         >
-                          <Text className="text-xs font-semibold" style={{ color: on ? '#a1a1aa' : '#000' }}>
+                          <Text className="text-xs font-semibold" style={{ color: on ? colors['text-muted'] : colors.bg }}>
                             {on ? 'Equipped' : 'Use on podium'}
                           </Text>
                         </TouchableOpacity>
@@ -88,9 +89,9 @@ export function UnlockModal({ items }: { items: RewardNew[] }) {
                       onPress={() => equip(n.reward!)}
                       disabled={isEquipped || save.isPending}
                       className="mt-3 py-2 rounded-xl items-center"
-                      style={{ backgroundColor: isEquipped ? '#27272a' : color }}
+                      style={{ backgroundColor: isEquipped ? colors.border : color }}
                     >
-                      <Text className="text-sm font-semibold" style={{ color: isEquipped ? '#a1a1aa' : '#000' }}>
+                      <Text className="text-sm font-semibold" style={{ color: isEquipped ? colors['text-muted'] : colors.bg }}>
                         {isEquipped ? 'Equipped' : 'Equip'}
                       </Text>
                     </TouchableOpacity>
@@ -103,12 +104,12 @@ export function UnlockModal({ items }: { items: RewardNew[] }) {
           <View className="flex-row mt-4" style={{ gap: 8 }}>
             <TouchableOpacity
               onPress={() => close(() => router.push('/combo-dex'))}
-              className="flex-1 py-3 rounded-xl items-center border border-zinc-700"
+              className="flex-1 py-3 rounded-xl items-center border border-border"
             >
-              <Text className="text-zinc-200 text-sm font-semibold">Combo Dex</Text>
+              <Text className="text-text text-sm font-semibold">Combo Dex</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => close()} className="flex-1 py-3 rounded-xl items-center bg-white">
-              <Text className="text-black text-sm font-bold">Nice</Text>
+            <TouchableOpacity onPress={() => close()} className="flex-1 py-3 rounded-xl items-center bg-accent">
+              <Text className="text-on-accent text-sm font-bold">Nice</Text>
             </TouchableOpacity>
           </View>
         </View>

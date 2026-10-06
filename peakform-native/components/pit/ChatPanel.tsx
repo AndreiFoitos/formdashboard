@@ -14,6 +14,7 @@ import { Check, RotateCcw } from 'lucide-react-native'
 import { handleLimitError, openPaywall, usePlan, useSetPlan } from '../../hooks/usePlan'
 import { PREFERENCES_KEY } from '../../hooks/usePreferences'
 import { useKeyboardOverlap } from '../../hooks/useKeyboardOverlap'
+import { colors } from '../../theme/tokens'
 
 interface Action {
   type: string
@@ -163,7 +164,7 @@ export function ChatPanel() {
       <View className="flex-row items-center justify-between px-4 pb-2" style={{ minHeight: 24 }}>
         {asksLeft ? (
           <TouchableOpacity onPress={() => openPaywall('ask')} hitSlop={10}>
-            <Text className="text-zinc-500 text-xs">
+            <Text className="text-text-subtle text-xs">
               {asksLeft.remaining}/{asksLeft.limit} questions left today
             </Text>
           </TouchableOpacity>
@@ -172,7 +173,7 @@ export function ChatPanel() {
         )}
         {turns.length > 0 && (
           <TouchableOpacity onPress={confirmClear} disabled={ask.isPending || clear.isPending} hitSlop={10}>
-            <Text className="text-zinc-300 text-xs font-medium">New chat</Text>
+            <Text className="text-text-muted text-xs font-medium">New chat</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -184,10 +185,10 @@ export function ChatPanel() {
         keyboardShouldPersistTaps="handled"
       >
         {!loaded && saved.isLoading ? (
-          <ActivityIndicator color="#71717a" style={{ marginTop: 24 }} />
+          <ActivityIndicator color={colors['text-subtle']} style={{ marginTop: 24 }} />
         ) : turns.length === 0 ? (
           <View style={{ gap: 10, marginTop: 8 }}>
-            <Text className="text-zinc-500 text-sm leading-6 mb-1">
+            <Text className="text-text-subtle text-sm leading-6 mb-1">
               Ask anything about your training, nutrition, body, or Form Score over the
               last {plan?.history_days ?? 30} days, or ask your crew to change your plan.
             </Text>
@@ -195,9 +196,9 @@ export function ChatPanel() {
               <TouchableOpacity
                 key={s}
                 onPress={() => send(s)}
-                className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3"
+                className="bg-surface border border-divider rounded-2xl px-4 py-3"
               >
-                <Text className="text-zinc-300 text-sm">{s}</Text>
+                <Text className="text-text-muted text-sm">{s}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -209,14 +210,14 @@ export function ChatPanel() {
                   className="rounded-2xl px-4 py-3"
                   style={{
                     maxWidth: '85%',
-                    backgroundColor: t.role === 'user' ? '#ffffff' : '#18181b',
+                    backgroundColor: t.role === 'user' ? colors.text : colors.surface,
                     borderWidth: t.role === 'user' ? 0 : 1,
-                    borderColor: '#27272a',
+                    borderColor: colors.divider,
                   }}
                 >
                   <Text
                     className="text-sm leading-6"
-                    style={{ color: t.role === 'user' ? 'black' : '#e4e4e7' }}
+                    style={{ color: t.role === 'user' ? colors.bg : colors.text }}
                   >
                     {t.content}
                   </Text>
@@ -225,10 +226,10 @@ export function ChatPanel() {
                   <View className="mt-1.5" style={{ gap: 4, maxWidth: '85%' }}>
                     {t.actions.map((a, j) => (
                       <View key={j} className="flex-row items-start" style={{ gap: 6 }}>
-                        <Check size={13} color={a.undone ? '#52525b' : '#a3e635'} strokeWidth={3} style={{ marginTop: 2 }} />
+                        <Check size={13} color={a.undone ? colors['text-subtle'] : colors.success} strokeWidth={3} style={{ marginTop: 2 }} />
                         <Text
                           className="text-xs flex-1"
-                          style={{ color: a.undone ? '#52525b' : '#a1a1aa', textDecorationLine: a.undone ? 'line-through' : 'none' }}
+                          style={{ color: a.undone ? colors['text-subtle'] : colors['text-muted'], textDecorationLine: a.undone ? 'line-through' : 'none' }}
                         >
                           {a.summary}
                         </Text>
@@ -239,15 +240,15 @@ export function ChatPanel() {
                         onPress={() => undo.mutate(t.id!)}
                         disabled={undo.isPending}
                         hitSlop={8}
-                        className="flex-row items-center self-start mt-1 px-3 py-1.5 rounded-full bg-zinc-900 border border-zinc-800"
+                        className="flex-row items-center self-start mt-1 px-3 py-1.5 rounded-full bg-surface border border-divider"
                         style={{ gap: 6 }}
                       >
                         {undo.isPending ? (
-                          <ActivityIndicator size="small" color="#e4e4e7" />
+                          <ActivityIndicator size="small" color={colors.text} />
                         ) : (
-                          <RotateCcw size={12} color="#e4e4e7" />
+                          <RotateCcw size={12} color={colors.text} />
                         )}
-                        <Text className="text-zinc-200 text-xs font-medium">Undo</Text>
+                        <Text className="text-text text-xs font-medium">Undo</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -256,8 +257,8 @@ export function ChatPanel() {
             ))}
             {ask.isPending && (
               <View className="items-start">
-                <View className="rounded-2xl px-4 py-3 bg-zinc-900 border border-zinc-800">
-                  <ActivityIndicator color="#a1a1aa" />
+                <View className="rounded-2xl px-4 py-3 bg-surface border border-divider">
+                  <ActivityIndicator color={colors['text-muted']} />
                 </View>
               </View>
             )}
@@ -265,23 +266,23 @@ export function ChatPanel() {
         )}
       </ScrollView>
 
-      <View className="flex-row items-end gap-2 px-4 pb-3 pt-2 border-t border-zinc-900">
+      <View className="flex-row items-end gap-2 px-4 pb-3 pt-2 border-t border-divider">
         <TextInput
           value={input}
           onChangeText={setInput}
           placeholder="Ask your crew…"
-          placeholderTextColor="#52525b"
+          placeholderTextColor={colors['text-subtle']}
           multiline
-          className="flex-1 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-sm"
+          className="flex-1 bg-surface-raised border border-border rounded-2xl px-4 py-3 text-text text-sm"
           style={{ maxHeight: 120 }}
         />
         <TouchableOpacity
           onPress={() => send(input)}
           disabled={!input.trim() || ask.isPending}
-          className="bg-white rounded-2xl px-4 py-3 items-center justify-center"
+          className="bg-accent rounded-2xl px-4 py-3 items-center justify-center"
           style={{ opacity: !input.trim() || ask.isPending ? 0.4 : 1 }}
         >
-          <Text className="text-black font-semibold text-sm">Send</Text>
+          <Text className="text-on-accent font-semibold text-sm">Send</Text>
         </TouchableOpacity>
       </View>
     </View>

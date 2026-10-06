@@ -52,31 +52,31 @@ export function PolicyUpdateNotice() {
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={dismiss}>
-      <View className="flex-1 bg-black/70 items-center justify-center px-6">
-        <View className="w-full bg-zinc-900 border border-zinc-800 rounded-3xl p-6">
-          <Text className="text-white text-lg font-bold">We've updated our Privacy Policy and Terms</Text>
-          <Text className="text-zinc-500 text-xs mt-1">Effective {POLICY_VERSION}</Text>
+      <View className="flex-1 bg-bg/70 items-center justify-center px-6">
+        <View className="w-full bg-surface border border-divider rounded-3xl p-6">
+          <Text className="text-text text-lg font-bold">We've updated our Privacy Policy and Terms</Text>
+          <Text className="text-text-subtle text-xs mt-1">Effective {POLICY_VERSION}</Text>
           <View className="mt-4" style={{ gap: 10 }}>
             {POINTS.map((p) => (
               <View key={p} className="flex-row" style={{ gap: 8 }}>
-                <Text className="text-zinc-500 text-sm">•</Text>
-                <Text className="text-zinc-300 text-sm leading-5 flex-1">{p}</Text>
+                <Text className="text-text-subtle text-sm">•</Text>
+                <Text className="text-text-muted text-sm leading-5 flex-1">{p}</Text>
               </View>
             ))}
           </View>
-          <Text className="text-zinc-500 text-xs leading-5 mt-4">
+          <Text className="text-text-subtle text-xs leading-5 mt-4">
             Health answers are optional, and you can change or clear them under Settings → Training & food.
           </Text>
           <View className="flex-row mt-4" style={{ gap: 16 }}>
             <TouchableOpacity onPress={() => WebBrowser.openBrowserAsync(PRIVACY_POLICY_URL)} hitSlop={8}>
-              <Text className="text-white text-sm font-medium underline">Privacy Policy</Text>
+              <Text className="text-text text-sm font-medium underline">Privacy Policy</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => WebBrowser.openBrowserAsync(TERMS_OF_SERVICE_URL)} hitSlop={8}>
-              <Text className="text-white text-sm font-medium underline">Terms</Text>
+              <Text className="text-text text-sm font-medium underline">Terms</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={dismiss} className="bg-white rounded-2xl py-3.5 items-center mt-6">
-            <Text className="text-black font-semibold text-base">Got it</Text>
+          <TouchableOpacity onPress={dismiss} className="bg-accent rounded-2xl py-3.5 items-center mt-6">
+            <Text className="text-on-accent font-semibold text-base">Got it</Text>
           </TouchableOpacity>
         </View>
       </View>

@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs'
 import { TAB_ICONS } from './TabIcons'
 import { hapticSelection } from '../lib/haptics'
+import { colors } from '../theme/tokens'
 
 const LABELS: Record<string, string> = {
   index: 'Today',
@@ -20,8 +21,8 @@ const LABELS: Record<string, string> = {
 }
 
 const INDICATOR_WIDTH = 32
-const ACTIVE = '#ffffff'
-const INACTIVE = '#71717a'
+const ACTIVE = colors.text
+const INACTIVE = colors['text-subtle']
 
 /**
  * Bottom tab bar rendered by the material-top-tabs navigator. Pages swipe
@@ -58,7 +59,7 @@ export function BottomNav({ state, navigation }: MaterialTopTabBarProps) {
     <View
       onLayout={onLayout}
       style={{ paddingBottom: Math.max(insets.bottom, 10) }}
-      className="bg-zinc-950 border-t border-zinc-900 flex-row pt-3"
+      className="bg-surface border-t border-divider flex-row pt-3"
     >
       {/* Sliding active indicator */}
       {width > 0 && (

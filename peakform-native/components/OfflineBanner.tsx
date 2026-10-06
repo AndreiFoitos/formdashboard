@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Text } from 'react-native'
+import { Text, View } from 'react-native'
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -7,6 +7,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import NetInfo from '@react-native-community/netinfo'
+import { colors } from '../theme/tokens'
 
 /**
  * Slides a thin banner down from the top whenever the device loses
@@ -49,14 +50,17 @@ export function OfflineBanner() {
           right: 0,
           paddingTop: insets.top + 6,
           paddingBottom: 8,
+          flexDirection: 'row',
           alignItems: 'center',
-          backgroundColor: '#7f1d1d',
+          justifyContent: 'center',
+          backgroundColor: colors['surface-raised'],
           zIndex: 50,
         },
         animatedStyle,
       ]}
     >
-      <Text className="text-red-100 text-xs font-medium">No connection</Text>
+      <View className="w-2 h-2 rounded-full bg-warning mr-2" />
+      <Text className="text-text text-xs font-medium">No connection</Text>
     </Animated.View>
   )
 }

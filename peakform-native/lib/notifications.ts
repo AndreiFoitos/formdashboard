@@ -2,6 +2,7 @@ import { Platform } from 'react-native'
 import Constants, { ExecutionEnvironment } from 'expo-constants'
 import { api } from '../api/client'
 import { router } from 'expo-router'
+import { colors } from '../theme/tokens'
 
 // Same lazy-load pattern as healthkit.ts: importing expo-notifications at the
 // top level is fine, but `getExpoPushTokenAsync` no longer works in Expo Go
@@ -84,7 +85,7 @@ export async function registerPushTokenWithBackend(): Promise<{ token: string } 
       name: 'default',
       importance: Notifications.AndroidImportance.DEFAULT,
       vibrationPattern: [0, 200, 200, 200],
-      lightColor: '#FFFFFF',
+      lightColor: colors.text,
     })
   }
 

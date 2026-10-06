@@ -3,14 +3,16 @@
 // on a member's color and that the canvas animation matches the screen's
 // phase clock.
 
-// Deterministic palette — same friend → same color every week.
+import { colors } from '../../theme/tokens'
+
+// Deterministic palette — same friend → same color every week. Order matters.
 export const PALETTE = [
-  '#38BDF8', // sky
-  '#34D399', // emerald
-  '#FBBF24', // amber
-  '#F472B6', // rose
-  '#A78BFA', // violet
-  '#FB7185', // coral
+  colors.racer.sky,
+  colors.racer.emerald,
+  colors.racer.amber,
+  colors.racer.rose,
+  colors.racer.violet,
+  colors.racer.coral,
 ] as const
 
 export function colorForUser(userId: string): string {

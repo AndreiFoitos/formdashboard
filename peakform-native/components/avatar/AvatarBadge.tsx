@@ -6,6 +6,7 @@ import { NO_EFFECTS, toState } from '../../lib/avatar/config'
 import { extrasFor, frameColor } from '../../lib/avatar/rewards'
 import type { DailyEffects } from '../../lib/avatar/bodyParams'
 import { AvatarCanvas } from './AvatarCanvas'
+import { colors } from '../../theme/tokens'
 
 const NO_COMBOS: string[] = []
 
@@ -36,7 +37,7 @@ export function AvatarBadge({
   const initial = (user?.name ?? user?.username ?? '?').trim().charAt(0).toUpperCase()
 
   // An equipped frame wins; otherwise the ring hints at today's state.
-  const ring = frameColor(config.equipped?.frame) ?? (effects.glow ? '#22c55e' : effects.pump ? '#f59e0b' : '#3f3f46')
+  const ring = frameColor(config.equipped?.frame) ?? (effects.glow ? colors.success : effects.pump ? colors.warning : colors.border)
   const goldFrame = !!config.equipped?.frame?.endsWith('_gold')
 
   return (
@@ -53,7 +54,7 @@ export function AvatarBadge({
           height: size,
           borderRadius: size / 2,
           overflow: 'hidden',
-          backgroundColor: '#27272a',
+          backgroundColor: colors['surface-raised'],
           borderWidth: goldFrame ? 3 : 2,
           borderColor: ring,
         }}
@@ -67,7 +68,7 @@ export function AvatarBadge({
           style={{ flex: 1 }}
           errorFallback={
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: '#d4d4d8', fontWeight: '700', fontSize: size * 0.4 }}>{initial}</Text>
+              <Text style={{ color: colors.text, fontWeight: '700', fontSize: size * 0.4 }}>{initial}</Text>
             </View>
           }
         />
@@ -91,14 +92,14 @@ export function AvatarBadge({
             height: 18,
             borderRadius: 9,
             paddingHorizontal: 4,
-            backgroundColor: '#22c55e',
+            backgroundColor: colors.success,
             borderWidth: 2,
-            borderColor: '#000',
+            borderColor: colors.bg,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text style={{ color: '#000', fontSize: 10, fontWeight: '800' }}>↑</Text>
+          <Text style={{ color: colors.bg, fontSize: 10, fontWeight: '800' }}>↑</Text>
         </View>
       )}
     </TouchableOpacity>

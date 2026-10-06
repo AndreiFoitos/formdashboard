@@ -9,6 +9,7 @@ import type {
   HealthFlag,
   Preferences,
 } from '../../hooks/usePreferences'
+import { colors } from '../../theme/tokens'
 
 // The Training and Food answers Pit Crew builds plans from. Shared by the
 // onboarding steps and the Settings → Training & food screen, so both edit
@@ -21,8 +22,8 @@ type Patch = (patch: Partial<Preferences>) => void
 function Label({ children, hint }: { children: string; hint?: string }) {
   return (
     <View className="mb-2">
-      <Text className="text-zinc-400 text-xs uppercase tracking-widest">{children}</Text>
-      {hint && <Text className="text-zinc-600 text-xs mt-1">{hint}</Text>}
+      <Text className="text-text-muted text-xs uppercase tracking-widest">{children}</Text>
+      {hint && <Text className="text-text-subtle text-xs mt-1">{hint}</Text>}
     </View>
   )
 }
@@ -41,11 +42,11 @@ function Chip({
       onPress={onPress}
       className="px-4 py-3 rounded-2xl border"
       style={{
-        backgroundColor: selected ? 'white' : '#18181b',
-        borderColor: selected ? 'white' : '#3f3f46',
+        backgroundColor: selected ? colors.text : colors.surface,
+        borderColor: selected ? colors.text : colors.border,
       }}
     >
-      <Text className="text-sm font-medium" style={{ color: selected ? 'black' : '#a1a1aa' }}>
+      <Text className="text-sm font-medium" style={{ color: selected ? colors.bg : colors['text-muted'] }}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -122,12 +123,12 @@ function MultiChoice({
                 <TouchableOpacity
                   key={v}
                   onPress={() => toggle(v)}
-                  className="flex-row items-center px-3 py-2 rounded-full bg-white"
+                  className="flex-row items-center px-3 py-2 rounded-full bg-text"
                   style={{ gap: 6 }}
                   hitSlop={6}
                 >
-                  <Text className="text-black text-sm font-medium">{v}</Text>
-                  <X size={14} color="black" strokeWidth={2.5} />
+                  <Text className="text-bg text-sm font-medium">{v}</Text>
+                  <X size={14} color={colors.bg} strokeWidth={2.5} />
                 </TouchableOpacity>
               ))}
             </View>
@@ -138,10 +139,10 @@ function MultiChoice({
             onSubmitEditing={add}
             onBlur={add}
             placeholder={addPlaceholder}
-            placeholderTextColor="#52525b"
+            placeholderTextColor={colors['text-subtle']}
             returnKeyType="done"
             maxLength={40}
-            className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 text-white text-sm mt-2"
+            className="bg-surface-raised border border-border rounded-2xl px-4 py-3 text-text text-sm mt-2"
           />
         </>
       )}
@@ -297,7 +298,7 @@ export function FoodPrefsFields({ value, onChange }: { value: Preferences; onCha
             onPress={() => onChange({ health_flags: [] })}
           />
         </View>
-        <Text className="text-zinc-600 text-xs mt-3 leading-5">
+        <Text className="text-text-subtle text-xs mt-3 leading-5">
           Pit Crew gives general fitness guidance, not medical advice. If you have a medical condition, check with
           your doctor before changing how you eat or train.
         </Text>
