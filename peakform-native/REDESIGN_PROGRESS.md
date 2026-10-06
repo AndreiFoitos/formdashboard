@@ -98,3 +98,11 @@ Training Find friends + range chips min 44 · 5 accent ✓ · 6 dark ✓ (app.js
 7 labels ✓ · 8 sentence case ✓ · 9 accent text ✓ (only tab labels, system-sized) · 10 on-accent ✓ ·
 11 SDK 54 ✓. Radius roles: 6 inputs and 11 buttons moved from rounded-xl to rounded-md.
 Not verifiable here: on-device rendering (Windows host, no simulator; no web target).
+
+Commit: 98b7f91
+
+## Phase 6 — build
+In progress: eas build --profile production --platform ios --auto-submit --non-interactive (local iOS bundle export passed first).
+Result: the build was created and queued on EAS (build e46f22c3, build number 12, commit 98b7f91), but
+--auto-submit failed non-interactively: "Set ascAppId in the submit profile (eas.json) or re-run this
+command in interactive mode." Stopped here per the run rules; submit needs the user (see final report).
