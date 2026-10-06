@@ -57,7 +57,7 @@ export function PodiumCanvas({ crew, runId, heads, avatars }: Props) {
     [crew],
   )
 
-  const colW = Math.min(120, (width - 40 - 20) / 3)
+  const colW = Math.min(120, (width - 40 - 24) / 3) // px-5 each side, two gap-3
   const barW = Math.min(88, colW * 0.66)
 
   // Everything that rides ON TOP of the bar — medal, avatar, name, stats —
@@ -67,7 +67,7 @@ export function PodiumCanvas({ crew, runId, heads, avatars }: Props) {
   // Size the avatar to the viewport first, then give the bar whatever is left.
   const avatarH = Math.min(170, Math.max(96, height * 0.2))
   const MEDAL_STACK = 26 + 8 // medal icon + its gap
-  const LABEL_STACK = 46 // name + stats lines under the avatar
+  const LABEL_STACK = 4 + 20 + 4 + 16 + 16 // mt-1 + footnote name, mt-1 + two caption stat lines
   const contentH = MEDAL_STACK + avatarH + LABEL_STACK
   const maxBarH = Math.max(56, Math.min(220, height * 0.74 - contentH))
   const rowH = maxBarH + contentH
@@ -83,16 +83,8 @@ export function PodiumCanvas({ crew, runId, heads, avatars }: Props) {
   )
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 20 }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'flex-end',
-          justifyContent: 'center',
-          gap: 10,
-          height: rowH,
-        }}
-      >
+    <View className="flex-1 justify-center px-5">
+      <View className="flex-row items-end justify-center gap-3" style={{ height: rowH }}>
         {stands.map((s) => (
           <Stand
             key={s.rank}
@@ -191,94 +183,70 @@ function Stand({
   const headImage = head ? (
     <Image
       source={{ uri: head }}
+      className="rounded-full border-2 bg-surface mt-1"
       style={{
         width: rank === 1 ? 52 : 42,
         height: rank === 1 ? 52 : 42,
-        borderRadius: 999,
-        borderWidth: 2,
         borderColor: medalColor,
-        backgroundColor: colors.surface,
-        marginTop: 4,
       }}
     />
   ) : null
 
   return (
     <View style={{ width: colW, alignItems: 'center', justifyContent: 'flex-end' }}>
-      <Animated.View
-        style={[{ alignItems: 'center', marginBottom: 8, paddingHorizontal: 2 }, contentStyle]}
-      >
-        <Animated.View style={medalStyle}>
-          <Icon size={26} color={medalColor} strokeWidth={2} />
-        </Animated.View>
-        {avatar ? (
-          // Full-body avatar doing its emote; falls back to the face image if 3D fails.
-          <AvatarCanvas
-            base={avatar.base}
-            state={avatar.state}
-            emote={avatar.emote}
-            interactive={false}
-            style={{ width: colW, height: avatarH }}
-            errorFallback={headImage}
-          />
-        ) : (
-          headImage
-        )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 }}>
-          <Text
-            numberOfLines={1}
-            style={{ color: colors.text, fontSize: 13, fontWeight: '700', maxWidth: colW - 24 }}
-          >
-            @{member.username ?? member.name}
-          </Text>
-          {member.is_trusted ? (
-            <TrustedShield size={13} />
-          ) : member.is_sus ? (
-            <SusFace size={13} />
-          ) : null}
-        </View>
-        <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600', marginTop: 2 }}>
-          {member.total_kg.toLocaleString()} kg
-        </Text>
-        <Text style={{ color: colors['text-subtle'], fontSize: 10, marginTop: 1 }}>
-          {member.days_trained} {member.days_trained === 1 ? 'day' : 'days'}
-        </Text>
-        {isMe && (
-          <View
-            style={{
-              marginTop: 4,
-              backgroundColor: color,
-              borderRadius: 999,
-              paddingHorizontal: 7,
-              paddingVertical: 1,
-            }}
-          >
-            <Text style={{ color: colors.bg, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>
-              YOU
+      <Animated.View style={[{ alignItems: 'center' }, contentStyle]}>
+        <View className="items-center mb-2">
+          <Animated.View style={medalStyle}>
+            <Icon size={26} color={medalColor} strokeWidth={2} />
+          </Animated.View>
+          {avatar ? (
+            // Full-body avatar doing its emote; falls back to the face image if 3D fails.
+            <AvatarCanvas
+              base={avatar.base}
+              state={avatar.state}
+              emote={avatar.emote}
+              interactive={false}
+              style={{ width: colW, height: avatarH }}
+              errorFallback={headImage}
+            />
+          ) : (
+            headImage
+          )}
+          <View className="flex-row items-center gap-1 mt-1">
+            <Text
+              numberOfLines={1}
+              className="text-text text-footnote font-bold"
+              style={{ maxWidth: colW - 24 }}
+            >
+              @{member.username ?? member.name}
             </Text>
+            {member.is_trusted ? (
+              <TrustedShield size={13} />
+            ) : member.is_sus ? (
+              <SusFace size={13} />
+            ) : null}
           </View>
-        )}
+          <Text className="text-text text-caption font-semibold mt-1">
+            {member.total_kg.toLocaleString()} kg
+          </Text>
+          <Text className="text-text-subtle text-caption">
+            {member.days_trained} {member.days_trained === 1 ? 'day' : 'days'}
+          </Text>
+          {isMe && (
+            <View className="mt-1 rounded-full px-2" style={{ borderCurve: 'continuous', backgroundColor: color }}>
+              <Text className="text-bg text-caption font-extrabold">You</Text>
+            </View>
+          )}
+        </View>
       </Animated.View>
 
-      <Animated.View
-        style={[
-          {
-            width: barW,
-            backgroundColor: color,
-            borderTopLeftRadius: 8,
-            borderTopRightRadius: 8,
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            overflow: 'hidden',
-            borderWidth: isMe ? 2 : 0,
-            borderColor: colors.text,
-          },
-          barStyle,
-        ]}
-      >
-        <Text style={{ color: `${colors.bg}8c`, fontSize: 22, fontWeight: '900', marginBottom: 6 }}>
-          {rank}
-        </Text>
+      <Animated.View style={[{ width: barW, overflow: 'hidden' }, barStyle]}>
+        <View
+          className={`flex-1 rounded-t-md items-center justify-end overflow-hidden border-text ${isMe ? 'border-2' : ''}`}
+          style={{ borderCurve: 'continuous', backgroundColor: color }}
+        >
+          <Text className="text-bg/55 text-title font-black mb-2">{rank}</Text>
+        </View>
       </Animated.View>
     </View>
   )
@@ -304,51 +272,39 @@ function TailList({ tail, runId }: { tail: RecapCrewMember[]; runId: number }) {
   }))
 
   return (
-    <Animated.View style={[{ marginTop: 16, gap: 6 }, style]}>
-      {tail.map((m, i) => (
-        <View
-          key={m.user_id}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingVertical: 6,
-            paddingHorizontal: 12,
-            borderRadius: 10,
-            backgroundColor: m.is_me ? colors.surface : 'transparent',
-          }}
-        >
-          <Text style={{ color: colors['text-subtle'], fontSize: 12, fontWeight: '700', width: 22 }}>
-            {i + 4}
-          </Text>
+    <Animated.View style={style}>
+      <View className="mt-4 gap-2">
+        {tail.map((m, i) => (
           <View
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: colorForUser(m.user_id),
-              marginRight: 8,
-            }}
-          />
-          <Text
-            numberOfLines={1}
-            style={{ color: colors.text, fontSize: 13, fontWeight: '600', flex: 1 }}
+            key={m.user_id}
+            className={`flex-row items-center py-2 px-3 rounded-md ${m.is_me ? 'bg-surface' : ''}`}
+            style={{ borderCurve: 'continuous' }}
           >
-            @{m.username ?? m.name}
-          </Text>
-          {m.is_trusted ? (
-            <View style={{ marginLeft: 6 }}>
-              <TrustedShield size={13} />
-            </View>
-          ) : m.is_sus ? (
-            <View style={{ marginLeft: 6 }}>
-              <SusFace size={13} />
-            </View>
-          ) : null}
-          <Text style={{ color: colors['text-muted'], fontSize: 12, marginLeft: 8 }}>
-            {m.total_kg.toLocaleString()} kg
-          </Text>
-        </View>
-      ))}
+            <Text className="text-text-subtle text-caption font-bold" style={{ width: 22 }}>
+              {i + 4}
+            </Text>
+            <View
+              className="w-2 h-2 rounded-full mr-2"
+              style={{ borderCurve: 'continuous', backgroundColor: colorForUser(m.user_id) }}
+            />
+            <Text numberOfLines={1} className="text-text text-footnote font-semibold flex-1">
+              @{m.username ?? m.name}
+            </Text>
+            {m.is_trusted ? (
+              <View className="ml-2">
+                <TrustedShield size={13} />
+              </View>
+            ) : m.is_sus ? (
+              <View className="ml-2">
+                <SusFace size={13} />
+              </View>
+            ) : null}
+            <Text className="text-text-muted text-caption ml-2">
+              {m.total_kg.toLocaleString()} kg
+            </Text>
+          </View>
+        ))}
+      </View>
     </Animated.View>
   )
 }

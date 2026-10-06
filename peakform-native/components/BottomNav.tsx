@@ -71,12 +71,12 @@ export function BottomNav({ state, navigation }: MaterialTopTabBarProps) {
               left: 0,
               width: INDICATOR_WIDTH,
               height: 2.5,
-              borderRadius: 2,
-              backgroundColor: ACTIVE,
             },
             indicatorStyle,
           ]}
-        />
+        >
+          <View className="flex-1 rounded-full" style={{ borderCurve: 'continuous', backgroundColor: ACTIVE }} />
+        </Animated.View>
       )}
 
       {state.routes.map((route, index) => {
@@ -101,11 +101,11 @@ export function BottomNav({ state, navigation }: MaterialTopTabBarProps) {
           <Pressable
             key={route.key}
             onPress={onPress}
-            className="flex-1 items-center justify-center"
-            style={{ minHeight: 56, gap: 5 }}
+            className="flex-1 items-center justify-center gap-1"
+            style={{ minHeight: 56 }}
           >
             {Icon ? <Icon color={color} size={26} /> : null}
-            <Text style={{ color, fontSize: 12, fontWeight: focused ? '600' : '500' }}>
+            <Text className={`text-caption ${focused ? 'font-semibold' : 'font-medium'}`} style={{ color }}>
               {label}
             </Text>
           </Pressable>

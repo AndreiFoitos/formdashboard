@@ -283,6 +283,7 @@ function LabSlider({
     })
   }, [])
 
+  const THUMB = 22
   const pct = ((value - min) / (max - min)) * 100
   return (
     <View>
@@ -307,9 +308,9 @@ function LabSlider({
             borderCurve: 'continuous',
             position: 'absolute',
             left: `${pct}%`,
-            marginLeft: -11,
-            width: 22,
-            height: 22,
+            marginLeft: -THUMB / 2, // centre the thumb on the value
+            width: THUMB,
+            height: THUMB,
             backgroundColor: colors.text,
           }}
         />

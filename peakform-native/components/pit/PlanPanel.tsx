@@ -30,12 +30,12 @@ const SLOT_LABEL = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', s
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <View className={`bg-surface border border-divider rounded-2xl overflow-hidden ${className}`}>{children}</View>
+    <View className={`bg-surface border border-divider rounded-xl overflow-hidden ${className}`} style={{ borderCurve: 'continuous' }}>{children}</View>
   )
 }
 
 function SectionLabel({ children }: { children: string }) {
-  return <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">{children}</Text>
+  return <Text className="text-text-subtle text-caption mb-2">{children}</Text>
 }
 
 function quotaLabel(u?: ScanUsage): string | null {
@@ -76,18 +76,18 @@ function BuildButton({ label, rebuild }: { label: string; rebuild?: boolean }) {
       <TouchableOpacity
         onPress={start}
         disabled={build.isPending}
-        className={`w-full rounded-2xl py-4 items-center ${rebuild ? 'bg-surface border border-divider' : 'bg-accent'}`}
-        style={{ opacity: build.isPending ? 0.5 : 1 }}
+        className={`w-full rounded-md py-4 items-center ${rebuild ? 'bg-surface border border-divider' : 'bg-accent'}`}
+        style={{ borderCurve: 'continuous', opacity: build.isPending ? 0.5 : 1 }}
       >
         {build.isPending ? (
           <ActivityIndicator color={rebuild ? colors.text : colors['on-accent']} />
         ) : (
-          <Text className={`font-semibold text-base ${rebuild ? 'text-text' : 'text-on-accent'}`}>
+          <Text className={`font-semibold text-body ${rebuild ? 'text-text' : 'text-on-accent'}`}>
             {out ? 'Upgrade for more plans' : label}
           </Text>
         )}
       </TouchableOpacity>
-      {quotaLabel(usage) && <Text className="text-text-subtle text-xs mt-2">{quotaLabel(usage)}</Text>}
+      {quotaLabel(usage) && <Text className="text-text-subtle text-caption mt-2">{quotaLabel(usage)}</Text>}
     </View>
   )
 }
@@ -96,18 +96,20 @@ function Intro() {
   const { data: prefs } = usePreferences()
   const missing = prefs && (!prefs.equipment || !prefs.experience || prefs.health_flags === null)
   return (
-    <View style={{ gap: 16 }}>
+    <View className="gap-4">
       <Card className="p-5">
-        <Text className="text-text text-xl font-bold">Your week, built by your crew</Text>
-        <View style={{ gap: 10 }} className="mt-4">
+        <Text className="text-text text-title font-bold">Your week, built by your crew</Text>
+        <View className="mt-4 gap-3">
           {[
             'Training from your lifts, equipment and injuries',
             'Meals from foods you already eat, at your calorie target',
             'Weights that go up as you hit your reps',
           ].map((t) => (
-            <View key={t} className="flex-row items-start" style={{ gap: 10 }}>
-              <Check size={16} color={colors.success} strokeWidth={3} style={{ marginTop: 2 }} />
-              <Text className="text-text-muted text-sm flex-1">{t}</Text>
+            <View key={t} className="flex-row items-start gap-3">
+              <View className="h-5 justify-center">
+                <Check size={16} color={colors.success} strokeWidth={3} />
+              </View>
+              <Text className="text-text-muted text-footnote flex-1">{t}</Text>
             </View>
           ))}
         </View>
@@ -116,8 +118,8 @@ function Intro() {
         <TouchableOpacity onPress={() => router.push('/preferences')}>
           <Card className="p-4 flex-row items-center">
             <View className="flex-1 pr-3">
-              <Text className="text-text text-sm font-medium">Tell your crew about you first</Text>
-              <Text className="text-text-subtle text-xs mt-0.5">Equipment, experience, diet and allergies. About a minute.</Text>
+              <Text className="text-text text-footnote font-medium">Tell your crew about you first</Text>
+              <Text className="text-text-subtle text-caption mt-1">Equipment, experience, diet and allergies. About a minute.</Text>
             </View>
             <ChevronRight size={18} color={colors['text-subtle']} />
           </Card>
@@ -132,8 +134,8 @@ function Building() {
   return (
     <Card className="p-5 items-center">
       <ActivityIndicator color={colors.text} />
-      <Text className="text-text text-base font-semibold mt-3">Your crew is building your plan</Text>
-      <Text className="text-text-subtle text-sm text-center mt-1">
+      <Text className="text-text text-body font-semibold mt-3">Your crew is building your plan</Text>
+      <Text className="text-text-subtle text-footnote text-center mt-1">
         Usually a minute or two. You'll get a notification when it's ready.
       </Text>
     </Card>
@@ -162,20 +164,20 @@ function ExerciseRow({
       style={{ borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.divider }}
     >
       <View className="flex-1 pr-3">
-        <Text className={`text-sm font-medium ${done ? 'text-text-subtle' : 'text-text'}`}>{name}</Text>
-        <Text className="text-text-subtle text-xs mt-0.5">
+        <Text className={`text-footnote font-medium ${done ? 'text-text-subtle' : 'text-text'}`}>{name}</Text>
+        <Text className="text-text-subtle text-caption mt-1">
           {ex.sets} × {ex.reps_min === ex.reps_max ? ex.reps_max : `${ex.reps_min}–${ex.reps_max}`}
           {w != null ? ` · ${w} kg` : ex.basis === 'bodyweight' ? ' · bodyweight' : ''}
         </Text>
       </View>
       {done ? (
-        <View className="flex-row items-center" style={{ gap: 4 }}>
+        <View className="flex-row items-center gap-1">
           <Check size={16} color={colors.success} strokeWidth={3} />
-          <Text className="text-success text-xs font-medium">{ex.logged_today.length} sets</Text>
+          <Text className="text-success text-caption font-medium">{ex.logged_today.length} sets</Text>
         </View>
       ) : (
-        <View className="bg-accent rounded-full px-3 py-1.5">
-          <Text className="text-on-accent text-xs font-semibold">Log</Text>
+        <View className="bg-accent rounded-full px-3 py-2" style={{ borderCurve: 'continuous' }}>
+          <Text className="text-on-accent text-caption font-semibold">Log</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -202,10 +204,10 @@ function MealRow({ meal, last }: { meal: Today['meals'][number]; last: boolean }
     <View style={{ borderBottomWidth: last ? 0 : 1, borderBottomColor: colors.divider }}>
       <View className="px-4 py-3 flex-row items-center">
         <TouchableOpacity className="flex-1 pr-3" onPress={() => setOpen((o) => !o)}>
-          <Text className="text-text-subtle text-[11px] uppercase tracking-wider">{SLOT_LABEL[meal.slot]}</Text>
-          <Text className={`text-sm font-medium mt-0.5 ${meal.logged ? 'text-text-subtle' : 'text-text'}`}>{meal.name}</Text>
-          <View className="flex-row items-center mt-0.5" style={{ gap: 4 }}>
-            <Text className="text-text-subtle text-xs">
+          <Text className="text-text-subtle text-caption">{SLOT_LABEL[meal.slot]}</Text>
+          <Text className={`text-footnote font-medium mt-1 ${meal.logged ? 'text-text-subtle' : 'text-text'}`}>{meal.name}</Text>
+          <View className="flex-row items-center mt-1 gap-1">
+            <Text className="text-text-subtle text-caption">
               {meal.totals.calories} kcal · {Math.round(meal.totals.protein_g)} g protein
             </Text>
             {open ? <ChevronUp size={12} color={colors['text-subtle']} /> : <ChevronDown size={12} color={colors['text-subtle']} />}
@@ -215,29 +217,29 @@ function MealRow({ meal, last }: { meal: Today['meals'][number]; last: boolean }
           onPress={toggleLogged}
           disabled={log.isPending}
           hitSlop={8}
-          className={`rounded-full px-3 py-1.5 ${meal.logged ? 'bg-surface-raised' : 'bg-accent'}`}
+          className={`rounded-full px-3 py-2 ${meal.logged ? 'bg-surface-raised' : 'bg-accent'}`} style={{ borderCurve: 'continuous' }}
         >
           {log.isPending ? (
             <ActivityIndicator size="small" color={meal.logged ? colors.text : colors['on-accent']} />
           ) : meal.logged ? (
-            <View className="flex-row items-center" style={{ gap: 4 }}>
+            <View className="flex-row items-center gap-1">
               <Check size={14} color={colors.success} strokeWidth={3} />
-              <Text className="text-success text-xs font-semibold">Logged</Text>
+              <Text className="text-success text-caption font-semibold">Logged</Text>
             </View>
           ) : (
-            <Text className="text-on-accent text-xs font-semibold">Log</Text>
+            <Text className="text-on-accent text-caption font-semibold">Log</Text>
           )}
         </TouchableOpacity>
       </View>
       {open && (
-        <View className="px-4 pb-3" style={{ gap: 4 }}>
-          {!!meal.prep && <Text className="text-text-muted text-xs leading-5 mb-1">{meal.prep}</Text>}
+        <View className="px-4 pb-3 gap-1">
+          {!!meal.prep && <Text className="text-text-muted text-caption mb-1">{meal.prep}</Text>}
           {meal.items.map((i) => (
             <View key={i.food} className="flex-row justify-between">
-              <Text className="text-text-muted text-xs flex-1 pr-2">
+              <Text className="text-text-muted text-caption flex-1 pr-2">
                 {i.food} · {i.grams} g
               </Text>
-              <Text className="text-text-subtle text-xs">{i.calories} kcal</Text>
+              <Text className="text-text-subtle text-caption">{i.calories} kcal</Text>
             </View>
           ))}
         </View>
@@ -253,14 +255,14 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
   const loggedKcal = today.meals.filter((m) => m.logged).reduce((n, m) => n + m.totals.calories, 0)
 
   return (
-    <View style={{ gap: 16 }}>
+    <View className="gap-4">
       <View>
         <SectionLabel>{`Today · ${WEEKDAYS[today.weekday]}`}</SectionLabel>
         {w ? (
           <Card>
             <View className="px-4 pt-4 pb-3 border-b border-divider">
-              <Text className="text-text text-base font-semibold">{w.name}</Text>
-              {!!w.focus && <Text className="text-text-subtle text-xs mt-0.5">{w.focus}</Text>}
+              <Text className="text-text text-body font-semibold">{w.name}</Text>
+              {!!w.focus && <Text className="text-text-subtle text-caption mt-1">{w.focus}</Text>}
             </View>
             {w.exercises.map((ex, i) => (
               <ExerciseRow
@@ -274,9 +276,9 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
           </Card>
         ) : (
           <Card className="p-4">
-            <Text className="text-text text-base font-semibold">Rest day</Text>
+            <Text className="text-text text-body font-semibold">Rest day</Text>
             {today.next_workout && (
-              <Text className="text-text-subtle text-sm mt-1">
+              <Text className="text-text-subtle text-footnote mt-1">
                 Next: {today.next_workout.name} on {WEEKDAYS[today.next_workout.weekday]}.
               </Text>
             )}
@@ -287,8 +289,8 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
       {today.meals.length > 0 && today.targets && (
         <View>
           <View className="flex-row items-end justify-between mb-2">
-            <Text className="text-text-subtle text-xs uppercase tracking-widest">Meals</Text>
-            <Text className="text-text-subtle text-xs">
+            <Text className="text-text-subtle text-caption">Meals</Text>
+            <Text className="text-text-subtle text-caption">
               {loggedKcal} / {today.targets.kcal} kcal logged from plan
             </Text>
           </View>
@@ -302,7 +304,7 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
 
       {!plan.meal_plan_enabled && (
         <Card className="p-4">
-          <Text className="text-text-muted text-sm">
+          <Text className="text-text-muted text-footnote">
             Meal plans are off because of one of your health answers. Food changes are best made with your doctor
             or a dietitian, so your crew plans your training only.
           </Text>
@@ -324,23 +326,23 @@ function WhyCard({ plan }: { plan: Plan }) {
   return (
     <Card>
       <TouchableOpacity onPress={() => setOpen((o) => !o)} className="px-4 py-4 flex-row items-center justify-between">
-        <Text className="text-text text-sm font-medium">Why this plan?</Text>
+        <Text className="text-text text-footnote font-medium">Why this plan?</Text>
         {open ? <ChevronUp size={18} color={colors['text-subtle']} /> : <ChevronDown size={18} color={colors['text-subtle']} />}
       </TouchableOpacity>
       {open && (
-        <View className="px-4 pb-4" style={{ gap: 10 }}>
-          <Text className="text-text-muted text-sm leading-6">{plan.rationale}</Text>
+        <View className="px-4 pb-4 gap-3">
+          <Text className="text-text-muted text-footnote">{plan.rationale}</Text>
           {plan.meal_plan_enabled && (
-            <Text className="text-text-subtle text-xs leading-5">
+            <Text className="text-text-subtle text-caption">
               Daily target {t.kcal} kcal, {t.protein_g} g protein, {t.carbs_g} g carbs, {t.fat_g} g fat
               {t.tdee ? `. Estimated maintenance ${t.tdee} kcal (${t.tdee_source === 'measured' ? 'from your logs and weigh-ins' : 'from a formula'}).` : '.'}
             </Text>
           )}
           {[...t.notes, ...t.warnings].map((n) => (
-            <Text key={n} className="text-warning text-xs">{n}</Text>
+            <Text key={n} className="text-warning text-caption">{n}</Text>
           ))}
           <TouchableOpacity onPress={() => router.push('/methodology/plans')} hitSlop={8}>
-            <Text className="text-text-muted text-xs font-medium">How plans are built, with sources ›</Text>
+            <Text className="text-text-muted text-caption font-medium">How plans are built, with sources ›</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -370,17 +372,17 @@ export function PlanPanel() {
   return (
     <ScrollView
       className="flex-1 px-4"
-      contentContainerStyle={{ paddingBottom: 40, gap: 16 }}
+      contentContainerClassName="pb-12 gap-4"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors['text-subtle']} />}
     >
       {state.isLoading ? (
-        <ActivityIndicator color={colors['text-subtle']} style={{ marginTop: 40 }} />
+        <ActivityIndicator color={colors['text-subtle']} className="mt-12" />
       ) : (
         <>
           {state.data?.building && <Building />}
           {state.data?.last_error && (
             <Card className="p-4 border-danger/40">
-              <Text className="text-danger text-sm">{state.data.last_error}</Text>
+              <Text className="text-danger text-footnote">{state.data.last_error}</Text>
             </Card>
           )}
           {!plan && !state.data?.building && <Intro />}
@@ -390,13 +392,13 @@ export function PlanPanel() {
               {today.data ? (
                 <TodayCard today={today.data} plan={plan} />
               ) : (
-                <ActivityIndicator color={colors['text-subtle']} style={{ marginTop: 24 }} />
+                <ActivityIndicator color={colors['text-subtle']} className="mt-6" />
               )}
               <TouchableOpacity onPress={() => router.push('/plan-week')}>
                 <Card className="px-4 py-4 flex-row items-center justify-between">
                   <View>
-                    <Text className="text-text text-sm font-medium">This week</Text>
-                    <Text className="text-text-subtle text-xs mt-0.5">
+                    <Text className="text-text text-footnote font-medium">This week</Text>
+                    <Text className="text-text-subtle text-caption mt-1">
                       {plan.plan.days_per_week} training days{plan.meal_plan_enabled ? ' and every meal' : ''}
                     </Text>
                   </View>
@@ -407,8 +409,8 @@ export function PlanPanel() {
                 <TouchableOpacity onPress={() => router.push('/shopping-list')}>
                   <Card className="px-4 py-4 flex-row items-center justify-between">
                     <View>
-                      <Text className="text-text text-sm font-medium">Shopping list</Text>
-                      <Text className="text-text-subtle text-xs mt-0.5">Everything for the next 7 days, by aisle</Text>
+                      <Text className="text-text text-footnote font-medium">Shopping list</Text>
+                      <Text className="text-text-subtle text-caption mt-1">Everything for the next 7 days, by aisle</Text>
                     </View>
                     <ChevronRight size={18} color={colors['text-subtle']} />
                   </Card>
@@ -418,7 +420,7 @@ export function PlanPanel() {
               {!state.data?.building && <BuildButton label="Build a new plan" rebuild />}
             </>
           )}
-          <Text className="text-text-subtle text-[11px] leading-4 text-center px-2">
+          <Text className="text-text-subtle text-caption text-center px-2">
             Pit Crew plans are general fitness guidance, not medical advice. Talk to a doctor before big changes to
             how you eat or train, especially with a health condition.{' '}
             <Text className="text-text-muted" onPress={() => router.push('/methodology/plans')}>

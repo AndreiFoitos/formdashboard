@@ -22,8 +22,8 @@ type Patch = (patch: Partial<Preferences>) => void
 function Label({ children, hint }: { children: string; hint?: string }) {
   return (
     <View className="mb-2">
-      <Text className="text-text-muted text-xs uppercase tracking-widest">{children}</Text>
-      {hint && <Text className="text-text-subtle text-xs mt-1">{hint}</Text>}
+      <Text className="text-text-muted text-caption">{children}</Text>
+      {hint && <Text className="text-text-subtle text-caption mt-1">{hint}</Text>}
     </View>
   )
 }
@@ -40,13 +40,13 @@ function Chip({
   return (
     <TouchableOpacity
       onPress={onPress}
-      className="px-4 py-3 rounded-2xl border"
+      className="px-4 py-3 rounded-full border"
       style={{
-        backgroundColor: selected ? colors.text : colors.surface,
+        borderCurve: 'continuous', backgroundColor: selected ? colors.text : colors.surface,
         borderColor: selected ? colors.text : colors.border,
       }}
     >
-      <Text className="text-sm font-medium" style={{ color: selected ? colors.bg : colors['text-muted'] }}>
+      <Text className="text-footnote font-medium" style={{ color: selected ? colors.bg : colors['text-muted'] }}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -123,11 +123,11 @@ function MultiChoice({
                 <TouchableOpacity
                   key={v}
                   onPress={() => toggle(v)}
-                  className="flex-row items-center px-3 py-2 rounded-full bg-text"
-                  style={{ gap: 6 }}
+                  className="flex-row items-center px-3 py-2 rounded-full bg-text gap-2"
+                  style={{ borderCurve: 'continuous' }}
                   hitSlop={6}
                 >
-                  <Text className="text-bg text-sm font-medium">{v}</Text>
+                  <Text className="text-bg text-footnote font-medium">{v}</Text>
                   <X size={14} color={colors.bg} strokeWidth={2.5} />
                 </TouchableOpacity>
               ))}
@@ -142,7 +142,7 @@ function MultiChoice({
             placeholderTextColor={colors['text-subtle']}
             returnKeyType="done"
             maxLength={40}
-            className="bg-surface-raised border border-border rounded-2xl px-4 py-3 text-text text-sm mt-2"
+            className="bg-surface-raised border border-border rounded-md px-4 py-3 text-text text-footnote mt-2" style={{ borderCurve: 'continuous' }}
           />
         </>
       )}
@@ -182,7 +182,7 @@ const INJURIES = [
 
 export function TrainingPrefsFields({ value, onChange }: { value: Preferences; onChange: Patch }) {
   return (
-    <View style={{ gap: 24 }}>
+    <View className="gap-6">
       <View>
         <Label>Where you train</Label>
         <SingleChoice options={EQUIPMENT} value={value.equipment} onChange={(v) => onChange({ equipment: v })} />
@@ -256,7 +256,7 @@ export function FoodPrefsFields({ value, onChange }: { value: Preferences; onCha
   }
 
   return (
-    <View style={{ gap: 24 }}>
+    <View className="gap-6">
       <View>
         <Label>How you eat</Label>
         <SingleChoice options={DIET} value={value.diet_style} onChange={(v) => onChange({ diet_style: v })} />
@@ -288,7 +288,7 @@ export function FoodPrefsFields({ value, onChange }: { value: Preferences; onCha
         <Label hint="If one applies, Pit Crew plans your training but leaves food to a doctor or dietitian.">
           Do any of these apply?
         </Label>
-        <View style={{ gap: 8 }}>
+        <View className="gap-2">
           {HEALTH.map((h) => (
             <Chip key={h.key} label={h.label} selected={!!flags?.includes(h.key)} onPress={() => toggleFlag(h.key)} />
           ))}
@@ -298,7 +298,7 @@ export function FoodPrefsFields({ value, onChange }: { value: Preferences; onCha
             onPress={() => onChange({ health_flags: [] })}
           />
         </View>
-        <Text className="text-text-subtle text-xs mt-3 leading-5">
+        <Text className="text-text-subtle text-caption mt-3">
           Pit Crew gives general fitness guidance, not medical advice. If you have a medical condition, check with
           your doctor before changing how you eat or train.
         </Text>

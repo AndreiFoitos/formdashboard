@@ -57,3 +57,6 @@ export const fontSize = {
   display: ['32px', { lineHeight: '38px', fontWeight: '700' }],
   hero: ['48px', { lineHeight: '52px', fontWeight: '800' }],
 } as const;
+
+/** Raw pixel size of a type step, for places that can't take a class (SVG text). */
+export const fontPx = (size: keyof typeof fontSize) => parseInt(fontSize[size][0], 10);

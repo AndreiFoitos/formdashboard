@@ -48,19 +48,17 @@ export function OfflineBanner() {
           top: 0,
           left: 0,
           right: 0,
-          paddingTop: insets.top + 6,
-          paddingBottom: 8,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
+          paddingTop: insets.top,
           backgroundColor: colors['surface-raised'],
           zIndex: 50,
         },
         animatedStyle,
       ]}
     >
-      <View className="w-2 h-2 rounded-full bg-warning mr-2" />
-      <Text className="text-text text-xs font-medium">No connection</Text>
+      <View className="flex-row items-center justify-center py-2">
+        <View className="w-2 h-2 rounded-full bg-warning mr-2" style={{ borderCurve: 'continuous' }} />
+        <Text className="text-text text-caption font-medium">No connection</Text>
+      </View>
     </Animated.View>
   )
 }

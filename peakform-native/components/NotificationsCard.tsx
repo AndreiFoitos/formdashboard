@@ -78,32 +78,32 @@ export function NotificationsCard() {
   if (state === 'hidden') return null
 
   return (
-    <View className="bg-surface border border-divider rounded-2xl p-4 mb-4">
-      <View className="flex-row items-center" style={{ gap: 10 }}>
+    <View className="bg-surface border border-divider rounded-xl p-4 mb-4" style={{ borderCurve: 'continuous' }}>
+      <View className="flex-row items-center gap-3">
         <Bell size={18} color={colors.accent} />
-        <Text className="text-text text-base font-semibold flex-1">Turn on notifications</Text>
+        <Text className="text-text text-body font-semibold flex-1">Turn on notifications</Text>
       </View>
-      <View className="mt-3" style={{ gap: 6 }}>
+      <View className="mt-3 gap-2">
         {NOTIFICATION_REASONS.map((r) => (
-          <Text key={r} className="text-text-muted text-xs leading-5">• {r}</Text>
+          <Text key={r} className="text-text-muted text-caption">• {r}</Text>
         ))}
       </View>
-      <View className="flex-row mt-4" style={{ gap: 8 }}>
-        <TouchableOpacity onPress={turnOn} disabled={busy} className="bg-accent rounded-full px-4 py-2">
+      <View className="flex-row mt-4 gap-2">
+        <TouchableOpacity onPress={turnOn} disabled={busy} className="bg-accent rounded-full px-4 py-2" style={{ borderCurve: 'continuous' }}>
           {busy ? (
             <ActivityIndicator size="small" color={colors['on-accent']} />
           ) : (
-            <Text className="text-on-accent text-sm font-semibold">
+            <Text className="text-on-accent text-footnote font-semibold">
               {state === 'settings' ? 'Open Settings' : 'Turn on'}
             </Text>
           )}
         </TouchableOpacity>
-        <TouchableOpacity onPress={notNow} className="rounded-full px-4 py-2 border border-border">
-          <Text className="text-text-muted text-sm font-semibold">Not now</Text>
+        <TouchableOpacity onPress={notNow} className="rounded-full px-4 py-2 border border-border" style={{ borderCurve: 'continuous' }}>
+          <Text className="text-text-muted text-footnote font-semibold">Not now</Text>
         </TouchableOpacity>
       </View>
       {state === 'settings' && (
-        <Text className="text-text-subtle text-xs mt-3">
+        <Text className="text-text-subtle text-caption mt-3">
           Notifications were turned off for GainRace. Allow them under Settings → GainRace → Notifications.
         </Text>
       )}

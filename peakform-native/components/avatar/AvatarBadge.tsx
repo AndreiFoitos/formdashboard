@@ -68,7 +68,7 @@ export function AvatarBadge({
           style={{ flex: 1 }}
           errorFallback={
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ color: colors.text, fontWeight: '700', fontSize: size * 0.4 }}>{initial}</Text>
+              <Text className="text-text text-headline font-bold">{initial}</Text>
             </View>
           }
         />
@@ -77,29 +77,18 @@ export function AvatarBadge({
         <Text
           pointerEvents="none"
           accessibilityLabel="Weekly race champion"
-          style={{ position: 'absolute', top: -Math.round(size * 0.32), alignSelf: 'center', fontSize: Math.round(size * 0.42) }}
+          className="text-headline"
+          style={{ position: 'absolute', top: -Math.round(size * 0.32), alignSelf: 'center' }}
         >
           👑
         </Text>
       )}
       {body.levelUpAvailable && (
         <View
-          style={{
-            position: 'absolute',
-            right: -2,
-            top: -2,
-            minWidth: 18,
-            height: 18,
-            borderRadius: 9,
-            paddingHorizontal: 4,
-            backgroundColor: colors.success,
-            borderWidth: 2,
-            borderColor: colors.bg,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          className="absolute -right-1 -top-1 min-w-5 h-5 px-1 rounded-full bg-success border-2 border-bg items-center justify-center"
+          style={{ borderCurve: 'continuous' }}
         >
-          <Text style={{ color: colors.bg, fontSize: 10, fontWeight: '800' }}>↑</Text>
+          <Text className="text-bg text-caption font-extrabold">↑</Text>
         </View>
       )}
     </TouchableOpacity>

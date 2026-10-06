@@ -37,7 +37,7 @@ export function SkeletonBlock({ width = '100%', height = 16, radius = 8, style }
   return (
     <Animated.View
       style={[
-        { width, height, borderRadius: radius, backgroundColor: colors['surface-raised'] },
+        { width, height, borderRadius: radius, borderCurve: 'continuous', backgroundColor: colors['surface-raised'] },
         animatedStyle,
         style,
       ]}
@@ -48,16 +48,7 @@ export function SkeletonBlock({ width = '100%', height = 16, radius = 8, style }
 /** A card-shaped skeleton used while a screen's primary data loads. */
 export function SkeletonCard({ height = 96 }: { height?: number }) {
   return (
-    <View
-      style={{
-        backgroundColor: colors.surface,
-        borderColor: colors.divider,
-        borderWidth: 1,
-        borderRadius: 16,
-        padding: 16,
-        gap: 12,
-      }}
-    >
+    <View className="bg-surface border border-divider rounded-xl p-4 gap-3" style={{ borderCurve: 'continuous' }}>
       <SkeletonBlock width="40%" height={10} />
       <SkeletonBlock width="70%" height={height >= 96 ? 22 : 16} />
       <SkeletonBlock width="100%" height={6} />

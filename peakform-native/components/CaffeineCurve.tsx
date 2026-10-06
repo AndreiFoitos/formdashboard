@@ -24,7 +24,7 @@ import { api } from '../api/client'
 import { SwipeableRow } from './SwipeableRow'
 import { showUndo } from '../store/undo'
 import { hapticLight, hapticSuccess } from '../lib/haptics'
-import { colors } from '../theme/tokens'
+import { colors, fontPx } from '../theme/tokens'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,7 +81,7 @@ function BedtimeImpact({ data }: { data: CurveData }) {
 
   if (!style || data.caffeine_at_bedtime <= 0) {
     return (
-      <Text className="text-text-subtle text-xs leading-5 mt-2">
+      <Text className="text-text-subtle text-caption mt-2">
         {data.sleep_impact}
         {data.caffeine_at_bedtime > 0 && (
           <Text className="text-text-subtle">
@@ -94,17 +94,17 @@ function BedtimeImpact({ data }: { data: CurveData }) {
 
   return (
     <View
-      className="flex-row items-start rounded-xl border px-3 py-2.5 mt-3"
-      style={{ backgroundColor: style.bg, borderColor: style.border, gap: 8 }}
+      className="flex-row items-start rounded-xl border px-3 py-3 mt-3 gap-2"
+      style={{ borderCurve: 'continuous', backgroundColor: style.bg, borderColor: style.border }}
       accessibilityRole="alert"
     >
-      <Text style={{ color: style.text, fontSize: 13, lineHeight: 18 }}>{style.icon}</Text>
+      <Text className="text-footnote" style={{ color: style.text }}>{style.icon}</Text>
       <View className="flex-1">
-        <Text style={{ color: style.text, fontSize: 13, fontWeight: '600', lineHeight: 18 }}>
+        <Text className="text-footnote font-semibold" style={{ color: style.text }}>
           {Math.round(data.caffeine_at_bedtime)}mg still in your system at{' '}
           {hour12(data.bedtime_hour)}
         </Text>
-        <Text className="text-xs mt-0.5" style={{ color: style.text, opacity: 0.8 }}>
+        <Text className="text-caption mt-1" style={{ color: style.text, opacity: 0.8 }}>
           {data.sleep_impact}
         </Text>
       </View>
@@ -231,8 +231,8 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
         <SvgText
           key={`y-${v}`}
           x={paddingLeft - 6}
-          y={toY(v) + 3}
-          fontSize={9}
+          y={toY(v) + 4}
+          fontSize={fontPx('caption')}
           fill={colors['text-subtle']}
           textAnchor="end"
         >
@@ -273,7 +273,7 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
           key={`x-${i}`}
           x={toX(i)}
           y={paddingTop + plotH + 14}
-          fontSize={9}
+          fontSize={fontPx('caption')}
           fill={colors['text-subtle']}
           textAnchor={i === 0 ? 'start' : 'middle'}
         >
@@ -388,15 +388,15 @@ function LogModal({ onClose }: { onClose: () => void }) {
     >
       <View className="flex-1 bg-surface">
         <View className="items-center pt-3 pb-2">
-          <View className="w-10 h-1 bg-border rounded-full" />
+          <View className="w-10 h-1 bg-border rounded-full" style={{ borderCurve: 'continuous' }} />
         </View>
 
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
-          <Text className="text-text font-semibold">Log Stimulant</Text>
+          <Text className="text-text font-semibold">Log stimulant</Text>
           <TouchableOpacity
             onPress={onClose}
             hitSlop={12}
-            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center"
+            className="w-10 h-10 -mr-1 rounded-full bg-surface-raised border border-border items-center justify-center" style={{ borderCurve: 'continuous' }}
           >
             <X size={20} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
@@ -408,21 +408,21 @@ function LogModal({ onClose }: { onClose: () => void }) {
               <TouchableOpacity
                 key={s.key}
                 onPress={() => selectSubstance(s.key)}
-                className="px-4 py-3 rounded-2xl border"
+                className="px-4 py-3 rounded-full border"
                 style={{
-                  backgroundColor: selected === s.key ? colors.text : colors['surface-raised'],
+                  borderCurve: 'continuous', backgroundColor: selected === s.key ? colors.text : colors['surface-raised'],
                   borderColor: selected === s.key ? colors.text : colors.border,
                   width: '47%',
                 }}
               >
                 <Text
-                  className="text-sm font-medium"
+                  className="text-footnote font-medium"
                   style={{ color: selected === s.key ? colors.bg : colors.text }}
                 >
                   {s.label}
                 </Text>
                 <Text
-                  className="text-xs mt-0.5"
+                  className="text-caption mt-1"
                   style={{ color: colors['text-subtle'] }}
                 >
                   {s.caffeine_mg}mg · {s.calories} kcal
@@ -432,21 +432,21 @@ function LogModal({ onClose }: { onClose: () => void }) {
 
             <TouchableOpacity
               onPress={() => selectSubstance('custom')}
-              className="px-4 py-3 rounded-2xl border"
+              className="px-4 py-3 rounded-full border"
               style={{
-                backgroundColor: selected === 'custom' ? colors.text : colors['surface-raised'],
+                borderCurve: 'continuous', backgroundColor: selected === 'custom' ? colors.text : colors['surface-raised'],
                 borderColor: selected === 'custom' ? colors.text : colors.border,
                 width: '47%',
               }}
             >
               <Text
-                className="text-sm font-medium"
+                className="text-footnote font-medium"
                 style={{ color: selected === 'custom' ? colors.bg : colors.text }}
               >
                 Custom
               </Text>
               <Text
-                className="text-xs mt-0.5"
+                className="text-caption mt-1"
                 style={{ color: colors['text-subtle'] }}
               >
                 Enter mg manually
@@ -456,7 +456,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
 
           {selected === 'custom' && (
             <View className="mb-4">
-              <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1.5">
+              <Text className="text-text-subtle text-caption mb-2">
                 Caffeine (mg)
               </Text>
               <View>
@@ -466,19 +466,19 @@ function LogModal({ onClose }: { onClose: () => void }) {
                   placeholder="e.g. 150"
                   placeholderTextColor={colors['text-subtle']}
                   keyboardType="number-pad"
-                  className="bg-surface-raised border border-border rounded-2xl px-4 py-4 text-text text-sm"
+                  className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
                 />
-                <Text className="absolute right-4 top-4 text-text-subtle text-sm">mg</Text>
+                <Text className="absolute right-4 top-4 text-text-subtle text-footnote">mg</Text>
               </View>
             </View>
           )}
 
           {showAdditions && additions.length > 0 && (
             <View className="mb-4">
-              <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
+              <Text className="text-text-subtle text-caption mb-2">
                 Add-ons
               </Text>
-              <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+              <View className="flex-row flex-wrap gap-2">
                 {additions.map((a) => {
                   const active = pickedAdditions.includes(a.key)
                   return (
@@ -487,12 +487,12 @@ function LogModal({ onClose }: { onClose: () => void }) {
                       onPress={() => toggleAddition(a.key)}
                       className="px-3 py-2 rounded-full border"
                       style={{
-                        backgroundColor: active ? colors.text : colors['surface-raised'],
+                        borderCurve: 'continuous', backgroundColor: active ? colors.text : colors['surface-raised'],
                         borderColor: active ? colors.text : colors.border,
                       }}
                     >
                       <Text
-                        className="text-xs font-medium"
+                        className="text-caption font-medium"
                         style={{ color: active ? colors.bg : colors['text-muted'] }}
                       >
                         {active ? '✓ ' : '+ '}{a.label} · {a.calories} kcal
@@ -505,13 +505,13 @@ function LogModal({ onClose }: { onClose: () => void }) {
           )}
 
           {selectedSubstance && selected !== 'custom' && liveTotals && (
-            <View className="bg-surface-raised border border-border rounded-2xl px-4 py-3 mb-4">
-              <Text className="text-text-subtle text-xs mb-1">
+            <View className="bg-surface-raised border border-border rounded-xl px-4 py-3 mb-4" style={{ borderCurve: 'continuous' }}>
+              <Text className="text-text-subtle text-caption mb-1">
                 {selectedSubstance.caffeine_mg}mg caffeine · half-life {selectedSubstance.half_life}h · {selectedSubstance.serving}
               </Text>
-              <Text className="text-text text-sm font-semibold">
+              <Text className="text-text text-footnote font-semibold">
                 {liveTotals.calories} kcal
-                <Text className="text-text-subtle text-xs font-normal">
+                <Text className="text-text-subtle text-caption font-normal">
                   {'  '}· {liveTotals.protein_g.toFixed(1)}p · {liveTotals.carbs_g.toFixed(1)}c · {liveTotals.fat_g.toFixed(1)}f
                 </Text>
               </Text>
@@ -521,15 +521,15 @@ function LogModal({ onClose }: { onClose: () => void }) {
           <TouchableOpacity
             onPress={handleLog}
             disabled={!selected || isPending || (selected === 'custom' && !customMg)}
-            className="bg-accent rounded-2xl py-4 items-center mb-10"
+            className="bg-accent rounded-md py-4 items-center mb-12"
             style={{
-              opacity: !selected || isPending || (selected === 'custom' && !customMg) ? 0.4 : 1,
+              borderCurve: 'continuous', opacity: !selected || isPending || (selected === 'custom' && !customMg) ? 0.4 : 1,
             }}
           >
             {isPending ? (
               <ActivityIndicator color={colors['on-accent']} />
             ) : (
-              <Text className="text-on-accent font-semibold text-base">Log</Text>
+              <Text className="text-on-accent font-semibold text-body">Log</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -577,8 +577,8 @@ export function CaffeineCurve({ data, isLoading }: Props) {
 
   if (isLoading) {
     return (
-      <View className="bg-surface border border-divider rounded-3xl p-5">
-        <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">Caffeine</Text>
+      <View className="bg-surface border border-divider rounded-xl p-5" style={{ borderCurve: 'continuous' }}>
+        <Text className="text-text-subtle text-caption mb-2">Caffeine</Text>
         <View style={{ height: 100, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={colors['text-subtle']} />
         </View>
@@ -616,21 +616,21 @@ export function CaffeineCurve({ data, isLoading }: Props) {
 
   return (
     <>
-      <View className="bg-surface border border-divider rounded-3xl p-5">
+      <View className="bg-surface border border-divider rounded-xl p-5" style={{ borderCurve: 'continuous' }}>
         {/* Header */}
         <View className="flex-row items-start justify-between mb-3">
           <View className="flex-1">
-            <Text className="text-text-subtle text-xs uppercase tracking-widest mb-1">
+            <Text className="text-text-subtle text-caption mb-1">
               Caffeine
             </Text>
             <View className="flex-row items-baseline gap-2">
-              <Text className="text-text text-3xl font-bold">{currentMg}</Text>
-              <Text className="text-text-subtle text-sm">mg active</Text>
+              <Text className="text-text text-display font-bold">{currentMg}</Text>
+              <Text className="text-text-subtle text-footnote">mg active</Text>
               <View
-                className="px-1.5 py-0.5 rounded-full ml-1"
-                style={{ backgroundColor: `${colour}20` }}
+                className="px-2 py-1 rounded-full ml-1"
+                style={{ borderCurve: 'continuous', backgroundColor: `${colour}20` }}
               >
-                <Text className="text-xs font-medium" style={{ color: colour }}>
+                <Text className="text-caption font-medium" style={{ color: colour }}>
                   {zoneLabel(currentMg)}
                 </Text>
               </View>
@@ -645,19 +645,19 @@ export function CaffeineCurve({ data, isLoading }: Props) {
                 onPress={handleRepeat}
                 onLongPress={() => setShowLog(true)}
                 disabled={isPending}
-                className="bg-surface-raised px-3 py-1.5 rounded-xl flex-row items-center"
-                style={{ opacity: isPending ? 0.5 : 1 }}
+                className="bg-surface-raised px-3 py-2 rounded-md flex-row items-center"
+                style={{ borderCurve: 'continuous', opacity: isPending ? 0.5 : 1 }}
               >
-                <Text className="text-text text-xs font-semibold">+ {last.label}</Text>
-                <Text className="text-text-subtle text-xs ml-1.5">{last.caffeine_mg}mg</Text>
+                <Text className="text-text text-caption font-semibold">+ {last.label}</Text>
+                <Text className="text-text-subtle text-caption ml-2">{last.caffeine_mg}mg</Text>
               </TouchableOpacity>
             ) : null}
             <TouchableOpacity
               onPress={() => setShowLog(true)}
-              className="bg-surface-raised w-8 h-8 rounded-xl items-center justify-center"
+              className="bg-surface-raised w-8 h-8 rounded-md items-center justify-center" style={{ borderCurve: 'continuous' }}
               hitSlop={6}
             >
-              <Text className="text-text-muted text-base">{last ? '⋯' : '+'}</Text>
+              <Text className="text-text-muted text-body">{last ? '⋯' : '+'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -667,7 +667,7 @@ export function CaffeineCurve({ data, isLoading }: Props) {
           <CaffeineChart curve={curve} colour={colour} />
         ) : (
           <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
-            <Text className="text-text-subtle text-sm">No caffeine logged today</Text>
+            <Text className="text-text-subtle text-footnote">No caffeine logged today</Text>
           </View>
         )}
 
@@ -682,31 +682,31 @@ export function CaffeineCurve({ data, isLoading }: Props) {
           accessibilityRole="button"
           accessibilityState={{ expanded: showEntries }}
         >
-          <Text className="text-text-subtle text-xs">
+          <Text className="text-text-subtle text-caption">
             {showEntries ? 'Hide today’s log ▾' : 'Today’s log ▸'}
           </Text>
         </TouchableOpacity>
 
         {showEntries && (
-          <View className="mt-2 rounded-xl overflow-hidden border border-divider">
+          <View className="mt-2 rounded-xl overflow-hidden border border-divider" style={{ borderCurve: 'continuous' }}>
             {(entriesQ.data ?? []).length === 0 ? (
-              <Text className="text-text-subtle text-xs px-3 py-3">
+              <Text className="text-text-subtle text-caption px-3 py-3">
                 {entriesQ.isLoading ? 'Loading…' : 'No caffeine logged today.'}
               </Text>
             ) : (
               (entriesQ.data ?? []).map((e, i, arr) => (
                 <SwipeableRow key={e.id} onDelete={() => removeEntry.mutate(e.id)}>
                   <View
-                    className="flex-row items-center justify-between bg-surface px-3 py-2.5"
+                    className="flex-row items-center justify-between bg-surface px-3 py-3"
                     style={{
                       borderBottomWidth: i === arr.length - 1 ? 0 : 1,
                       borderBottomColor: colors.divider,
                     }}
                   >
-                    <Text className="text-text-muted text-xs">
+                    <Text className="text-text-muted text-caption">
                       {e.substance.replace(/_/g, ' ')} · {e.caffeine_mg}mg
                     </Text>
-                    <Text className="text-text-subtle text-xs">
+                    <Text className="text-text-subtle text-caption">
                       {new Date(e.logged_at).toLocaleTimeString(undefined, {
                         hour: 'numeric',
                         minute: '2-digit',

@@ -8,7 +8,6 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useUndoStore } from '../store/undo'
 import { hapticLight } from '../lib/haptics'
-import { colors } from '../theme/tokens'
 
 export function UndoToast() {
   const insets = useSafeAreaInsets()
@@ -58,20 +57,14 @@ export function UndoToast() {
       ]}
     >
       <View
-        className="flex-row items-center justify-between bg-surface-raised border border-border rounded-2xl px-4 py-3"
-        style={{
-          shadowColor: colors.bg,
-          shadowOpacity: 0.3,
-          shadowOffset: { width: 0, height: 6 },
-          shadowRadius: 10,
-          elevation: 6,
-        }}
+        className="flex-row items-center justify-between bg-surface-raised border border-border rounded-xl px-4 py-3"
+        style={{ borderCurve: 'continuous' }}
       >
-        <Text className="text-text text-sm flex-1" numberOfLines={1}>
+        <Text className="text-text text-footnote flex-1" numberOfLines={1}>
           {current.label}
         </Text>
         <TouchableOpacity onPress={handleUndo} hitSlop={8} className="ml-3">
-          <Text className="text-text text-sm font-semibold uppercase tracking-wider">
+          <Text className="text-text text-footnote font-semibold">
             Undo
           </Text>
         </TouchableOpacity>

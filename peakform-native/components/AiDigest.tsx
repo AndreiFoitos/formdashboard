@@ -18,10 +18,10 @@ export function AiDigest() {
 
   return (
     <View className="border-t border-divider mt-4 pt-4">
-      <Text className="text-text-subtle text-xs uppercase tracking-widest mb-2">
-        Morning Briefing
+      <Text className="text-text-subtle text-caption mb-2">
+        Morning briefing
       </Text>
-      <Text className="text-text text-sm leading-6">{data}</Text>
+      <Text className="text-text text-footnote">{data}</Text>
     </View>
   )
 }

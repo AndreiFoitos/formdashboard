@@ -164,7 +164,7 @@ export function ChatPanel() {
       <View className="flex-row items-center justify-between px-4 pb-2" style={{ minHeight: 24 }}>
         {asksLeft ? (
           <TouchableOpacity onPress={() => openPaywall('ask')} hitSlop={10}>
-            <Text className="text-text-subtle text-xs">
+            <Text className="text-text-subtle text-caption">
               {asksLeft.remaining}/{asksLeft.limit} questions left today
             </Text>
           </TouchableOpacity>
@@ -173,7 +173,7 @@ export function ChatPanel() {
         )}
         {turns.length > 0 && (
           <TouchableOpacity onPress={confirmClear} disabled={ask.isPending || clear.isPending} hitSlop={10}>
-            <Text className="text-text-muted text-xs font-medium">New chat</Text>
+            <Text className="text-text-muted text-caption font-medium">New chat</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -181,14 +181,14 @@ export function ChatPanel() {
       <ScrollView
         ref={scrollRef}
         className="flex-1 px-4"
-        contentContainerStyle={{ paddingBottom: 16 }}
+        contentContainerClassName="pb-4"
         keyboardShouldPersistTaps="handled"
       >
         {!loaded && saved.isLoading ? (
-          <ActivityIndicator color={colors['text-subtle']} style={{ marginTop: 24 }} />
+          <ActivityIndicator color={colors['text-subtle']} className="mt-6" />
         ) : turns.length === 0 ? (
-          <View style={{ gap: 10, marginTop: 8 }}>
-            <Text className="text-text-subtle text-sm leading-6 mb-1">
+          <View className="gap-3 mt-2">
+            <Text className="text-text-subtle text-footnote mb-1">
               Ask anything about your training, nutrition, body, or Form Score over the
               last {plan?.history_days ?? 30} days, or ask your crew to change your plan.
             </Text>
@@ -196,39 +196,41 @@ export function ChatPanel() {
               <TouchableOpacity
                 key={s}
                 onPress={() => send(s)}
-                className="bg-surface border border-divider rounded-2xl px-4 py-3"
+                className="bg-surface border border-divider rounded-xl px-4 py-3" style={{ borderCurve: 'continuous' }}
               >
-                <Text className="text-text-muted text-sm">{s}</Text>
+                <Text className="text-text-muted text-footnote">{s}</Text>
               </TouchableOpacity>
             ))}
           </View>
         ) : (
-          <View style={{ gap: 10 }}>
+          <View className="gap-3">
             {turns.map((t, i) => (
               <View key={i} className={t.role === 'user' ? 'items-end' : 'items-start'}>
                 <View
-                  className="rounded-2xl px-4 py-3"
+                  className="rounded-xl px-4 py-3"
                   style={{
-                    maxWidth: '85%',
+                    borderCurve: 'continuous', maxWidth: '85%',
                     backgroundColor: t.role === 'user' ? colors.text : colors.surface,
                     borderWidth: t.role === 'user' ? 0 : 1,
                     borderColor: colors.divider,
                   }}
                 >
                   <Text
-                    className="text-sm leading-6"
+                    className="text-footnote"
                     style={{ color: t.role === 'user' ? colors.bg : colors.text }}
                   >
                     {t.content}
                   </Text>
                 </View>
                 {!!t.actions?.length && (
-                  <View className="mt-1.5" style={{ gap: 4, maxWidth: '85%' }}>
+                  <View className="mt-2 gap-1" style={{ maxWidth: '85%' }}>
                     {t.actions.map((a, j) => (
-                      <View key={j} className="flex-row items-start" style={{ gap: 6 }}>
-                        <Check size={13} color={a.undone ? colors['text-subtle'] : colors.success} strokeWidth={3} style={{ marginTop: 2 }} />
+                      <View key={j} className="flex-row items-start gap-2">
+                        <View className="h-4 justify-center">
+                          <Check size={13} color={a.undone ? colors['text-subtle'] : colors.success} strokeWidth={3} />
+                        </View>
                         <Text
-                          className="text-xs flex-1"
+                          className="text-caption flex-1"
                           style={{ color: a.undone ? colors['text-subtle'] : colors['text-muted'], textDecorationLine: a.undone ? 'line-through' : 'none' }}
                         >
                           {a.summary}
@@ -240,15 +242,15 @@ export function ChatPanel() {
                         onPress={() => undo.mutate(t.id!)}
                         disabled={undo.isPending}
                         hitSlop={8}
-                        className="flex-row items-center self-start mt-1 px-3 py-1.5 rounded-full bg-surface border border-divider"
-                        style={{ gap: 6 }}
+                        className="flex-row items-center self-start mt-1 px-3 py-2 rounded-full bg-surface border border-divider gap-2"
+                        style={{ borderCurve: 'continuous' }}
                       >
                         {undo.isPending ? (
                           <ActivityIndicator size="small" color={colors.text} />
                         ) : (
                           <RotateCcw size={12} color={colors.text} />
                         )}
-                        <Text className="text-text text-xs font-medium">Undo</Text>
+                        <Text className="text-text text-caption font-medium">Undo</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -257,7 +259,7 @@ export function ChatPanel() {
             ))}
             {ask.isPending && (
               <View className="items-start">
-                <View className="rounded-2xl px-4 py-3 bg-surface border border-divider">
+                <View className="rounded-xl px-4 py-3 bg-surface border border-divider" style={{ borderCurve: 'continuous' }}>
                   <ActivityIndicator color={colors['text-muted']} />
                 </View>
               </View>
@@ -273,16 +275,16 @@ export function ChatPanel() {
           placeholder="Ask your crew…"
           placeholderTextColor={colors['text-subtle']}
           multiline
-          className="flex-1 bg-surface-raised border border-border rounded-2xl px-4 py-3 text-text text-sm"
-          style={{ maxHeight: 120 }}
+          className="flex-1 bg-surface-raised border border-border rounded-md px-4 py-3 text-text text-footnote"
+          style={{ borderCurve: 'continuous', maxHeight: 120 }}
         />
         <TouchableOpacity
           onPress={() => send(input)}
           disabled={!input.trim() || ask.isPending}
-          className="bg-accent rounded-2xl px-4 py-3 items-center justify-center"
-          style={{ opacity: !input.trim() || ask.isPending ? 0.4 : 1 }}
+          className="bg-accent rounded-md px-4 py-3 items-center justify-center"
+          style={{ borderCurve: 'continuous', opacity: !input.trim() || ask.isPending ? 0.4 : 1 }}
         >
-          <Text className="text-on-accent font-semibold text-sm">Send</Text>
+          <Text className="text-on-accent font-semibold text-footnote">Send</Text>
         </TouchableOpacity>
       </View>
     </View>

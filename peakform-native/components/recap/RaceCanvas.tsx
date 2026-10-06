@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { Image, Text, View } from 'react-native'
+import { Image, StyleSheet, Text, View } from 'react-native'
 import Svg, { Line, Path, Text as SvgText } from 'react-native-svg'
 import Animated, {
   cancelAnimation,
@@ -15,7 +15,7 @@ import type { RecapCrewMember } from '../../app/weekly-recap'
 import { SusFace } from '../icons/SusFace'
 import { TrustedShield } from '../icons/TrustedShield'
 import { colorForUser, formatKg, RACE_DURATION_MS } from './recapShared'
-import { colors } from '../../theme/tokens'
+import { colors, fontPx } from '../../theme/tokens'
 
 // ─── Animation contract ─────────────────────────────────────────────────────
 // `progress` is a shared value that travels 0 → 7 across RACE_DURATION_MS.
@@ -168,8 +168,8 @@ function ChartFrame({
           <SvgText
             key={`tick-${i}`}
             x={PAD.left - 6}
-            y={y + 3}
-            fontSize={10}
+            y={y + 4}
+            fontSize={fontPx('caption')}
             fill={colors['text-subtle']}
             textAnchor="end"
           >
@@ -325,43 +325,25 @@ function CrewMarker({
       {head ? (
         <Image
           source={{ uri: head }}
-          style={{
-            width: HEAD_SIZE,
-            height: HEAD_SIZE,
-            borderRadius: HEAD_SIZE / 2,
-            borderWidth: 2,
-            borderColor: color,
-            backgroundColor: colors.surface,
-            marginRight: 4,
-          }}
+          className="rounded-full border-2 bg-surface mr-1"
+          style={{ width: HEAD_SIZE, height: HEAD_SIZE, borderColor: color }}
         />
       ) : (
-        <View
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: color,
-            marginRight: 4,
-          }}
-        />
+        <View className="w-2 h-2 rounded-full mr-1" style={{ borderCurve: 'continuous', backgroundColor: color }} />
       )}
       <Text
-        style={{
-          color: colors.text,
-          fontSize: 11,
-          fontWeight: '600',
-          textShadowColor: colors.bg,
-          textShadowRadius: 4,
-        }}
+        className="text-text text-caption font-semibold"
+        style={{ textShadowColor: colors.bg, textShadowRadius: 4 }}
         numberOfLines={1}
       >
         {label}
       </Text>
       {(showTrusted || showSus) && (
-        <Animated.View style={[{ marginLeft: 4 }, badgeStyle]}>
-          {showTrusted ? <TrustedShield size={12} /> : <SusFace size={12} />}
-        </Animated.View>
+        <View className="ml-1">
+          <Animated.View style={badgeStyle}>
+            {showTrusted ? <TrustedShield size={12} /> : <SusFace size={12} />}
+          </Animated.View>
+        </View>
       )}
     </Animated.View>
   )
@@ -408,32 +390,18 @@ function DayLabel({
   progress: SharedValue<number>
 }) {
   const x = (day / 6) * chartW
-  // Plain strings so the worklet captures values, not the tokens module.
-  const activeColor = colors.text
-  const idleColor = colors['text-subtle']
-  const style = useAnimatedStyle(() => {
+  // The current day's label fades in over the idle one, so both keep their type classes.
+  const activeStyle = useAnimatedStyle(() => {
     const current = Math.min(6, Math.max(0, Math.floor(progress.value)))
-    const isCurrent = current === day
-    return {
-      color: isCurrent ? activeColor : idleColor,
-    } as any
+    return { opacity: current === day ? 1 : 0 }
   })
   return (
-    <Animated.Text
-      style={[
-        {
-          position: 'absolute',
-          left: x - 6,
-          width: 12,
-          textAlign: 'center',
-          fontSize: 11,
-          fontWeight: '600',
-        },
-        style,
-      ]}
-    >
-      {label}
-    </Animated.Text>
+    <View style={{ position: 'absolute', left: x - 8, width: 16 }}>
+      <Text className="text-text-subtle text-caption font-semibold text-center">{label}</Text>
+      <Animated.View style={[StyleSheet.absoluteFill, activeStyle]}>
+        <Text className="text-text text-caption font-semibold text-center">{label}</Text>
+      </Animated.View>
+    </View>
   )
 }
 

@@ -23,7 +23,7 @@ import { SkeletonCard } from '../../components/Skeleton'
 import { SwipeableRow } from '../../components/SwipeableRow'
 import { PressableScale } from '../../components/PressableScale'
 import { hapticSuccess, hapticSelection } from '../../lib/haptics'
-import { colors } from '../../theme/tokens'
+import { colors, fontPx } from '../../theme/tokens'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -172,7 +172,7 @@ function MetricChart({
             key={i}
             x={paddingLeft - 4}
             y={toY(v) + 4}
-            fontSize={8}
+            fontSize={fontPx('caption')}
             fill={colors['text-subtle']}
             textAnchor="end"
           >
@@ -208,7 +208,7 @@ function MetricChart({
             key={i}
             x={toX(i)}
             y={chartHeight - 4}
-            fontSize={8}
+            fontSize={fontPx('caption')}
             fill={colors['text-subtle']}
             textAnchor="middle"
           >
@@ -329,7 +329,7 @@ function LogModal({
         </View>
 
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
-          <Text className="text-text font-semibold">Log Body Metrics</Text>
+          <Text className="text-text font-semibold">Log body metrics</Text>
           <TouchableOpacity
             onPress={onClose}
             hitSlop={12}

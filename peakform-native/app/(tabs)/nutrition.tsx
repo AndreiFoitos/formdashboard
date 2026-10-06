@@ -946,7 +946,7 @@ function LogModal({
         </View>
 
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
-          <Text className="text-text font-semibold">Log Meal</Text>
+          <Text className="text-text font-semibold">Log meal</Text>
           <TouchableOpacity
             onPress={onClose}
             hitSlop={12}

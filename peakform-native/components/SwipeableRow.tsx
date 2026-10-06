@@ -37,7 +37,7 @@ function RightAction({
             justifyContent: 'center',
           }}
         >
-          <Text className="text-text text-xs font-semibold">{label}</Text>
+          <Text className="text-text text-caption font-semibold">{label}</Text>
         </Pressable>
       </Reanimated.View>
     </View>
@@ -72,7 +72,7 @@ function LeftAction({
             justifyContent: 'center',
           }}
         >
-          <Text className="text-text text-xs font-semibold">{label}</Text>
+          <Text className="text-text text-caption font-semibold">{label}</Text>
         </Pressable>
       </Reanimated.View>
     </View>

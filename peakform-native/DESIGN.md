@@ -312,3 +312,20 @@ Agreed, not implemented yet. Each item still follows §1–§8.
 - Pit header: title "Pit" with the date line above it, like the other tabs.
 - Macro tiles: consistent — all with target bars, or all compact.
 - Food names: capitalize the first letter on display.
+
+---
+
+## 10. Decision log
+
+One line per decision made during the autonomous redesign run (2026-10-06).
+
+- Phase 0: the uncommitted components/ sweep was audited as complete (0 grep hits, tsc clean) and kept on `redesign`.
+- Exception: chart marks keep inline `borderRadius: 4` and `gap-px` (nutrition macro bar, training volume bars) — §4 allows radius 2-4 and 1px gaps on chart marks.
+- Exception: SVG `<Text fontSize={fontPx('caption')}>` in charts — SVG text can't take classes; `fontPx` reads the §3 scale.
+- Exception: `fontSize: 160` self-timer countdown in `body-comp-snap.tsx` (named in §3).
+- Exception: `letterSpacing` on invite tokens (`friends.tsx`) and barcode input (`nutrition-barcode.tsx`) — codes, allowed by §4.
+- Exception: "DOTS" (powerlifting score acronym) and the typed "DELETE" account-deletion confirmation stay upper case; they are an acronym and a literal string, not labels.
+- Exception: RN `<Image>` style has no `borderCurve`; circular avatar heads in recap canvases go without it (no visual effect on full circles).
+- Kept as proper names in title case: "Combo Dex" (feature name), "Open Settings" (iOS Settings app), "Hide My Email" (Apple feature), exercise names (data).
+- UndoToast drops its shadow (§4: no shadows on black); it already separates with `surface-raised` + `border`.
+- Scroll content inside pageSheet modals ends with `mb-12` (48 ≥ home-indicator inset); not edge-fixed, so no inset math.
