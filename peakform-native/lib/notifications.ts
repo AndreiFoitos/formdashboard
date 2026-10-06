@@ -154,9 +154,9 @@ export async function registerIfGranted(): Promise<void> {
 }
 
 /** Full enable flow — permission → token → backend register. Idempotent.
- *  On failure, `detail` carries the underlying error so Settings → Send test
- *  notification can show why (it used to be swallowed, which is how no device
- *  ever registered without anyone noticing). */
+ *  On failure, `detail` carries the underlying error (it used to be
+ *  swallowed, which is how no device ever registered without anyone
+ *  noticing). */
 export async function enablePredictiveNudges(): Promise<{ enabled: boolean; reason?: string; detail?: string }> {
   try {
     await setupNotificationHandlers()
@@ -173,70 +173,6 @@ export async function enablePredictiveNudges(): Promise<{ enabled: boolean; reas
       ? `Server said ${status}: ${JSON.stringify(e.response.data?.detail ?? e.response.data)}`
       : String(e?.message ?? e)
     return { enabled: false, reason: 'error', detail }
-  }
-}
-
-export interface PushTestResult {
-  devices: number
-  error?: string
-  results: {
-    device: string
-    accepted: boolean
-    delivered: boolean | null
-    error: string | null
-    message: string | null
-  }[]
-}
-
-const PUSH_ERRORS: Record<string, string> = {
-  InvalidCredentials:
-    "Apple push credentials aren't set up for this app in Expo, so Apple refuses the message. This is fixed on the developer side (eas credentials), not on your phone.",
-  DeviceNotRegistered: "This phone's notification token is out of date. Close and reopen the app, then try again.",
-  MessageRateExceeded: 'Too many notifications to this phone at once. Wait a minute and try again.',
-}
-
-/** Settings → "Send test notification": make sure this phone is registered,
- *  send a push through the server, and explain the outcome in words. */
-export async function sendTestNotification(): Promise<{ ok: boolean; title: string; body: string; openSettings?: boolean }> {
-  const reg = await enablePredictiveNudges()
-  if (!reg.enabled) {
-    if (reg.reason === 'permission_denied') {
-      return {
-        ok: false,
-        title: 'Notifications are off',
-        body: 'GainRace is not allowed to send notifications. Turn them on in iPhone Settings → GainRace → Notifications, then try again.',
-        openSettings: true,
-      }
-    }
-    if (reg.reason === 'no_project_id') {
-      return { ok: false, title: "This build can't register", body: 'The app build is missing its Expo project id.' }
-    }
-    return { ok: false, title: "Couldn't register this phone", body: reg.detail ?? 'Unknown error.' }
-  }
-  if (reg.reason === 'expo_go_local_only') {
-    return { ok: false, title: 'Not in Expo Go', body: 'Push notifications need a TestFlight or development build.' }
-  }
-  const { data } = await api.post<PushTestResult>('/notifications/test', {}, { timeout: 30_000 })
-  if (data.error) return { ok: false, title: "Couldn't send", body: data.error }
-  if (data.devices === 0) {
-    return { ok: false, title: 'No device registered', body: 'The phone registered but the server has no token for it. Try again in a moment.' }
-  }
-  const failed = data.results.find((r) => !r.accepted || r.delivered === false)
-  if (failed) {
-    const why = (failed.error && PUSH_ERRORS[failed.error]) ?? failed.message ?? 'Unknown error.'
-    return {
-      ok: false,
-      title: 'Apple or Expo refused it',
-      body: failed.error ? `${why}\n\n(${failed.error})` : why,
-    }
-  }
-  const confirmed = data.results.every((r) => r.delivered)
-  return {
-    ok: true,
-    title: 'Sent',
-    body: confirmed
-      ? "It should appear within a few seconds. If it doesn't, check that notifications for GainRace are allowed in iPhone Settings."
-      : "Expo accepted it but Apple hasn't confirmed delivery yet. If nothing arrives within a minute, try again.",
   }
 }
 

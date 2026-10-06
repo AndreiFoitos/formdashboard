@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
 
 from core.database import get_db
-from core.redis import get_redis, incr_with_ttl
+from core.redis import get_redis
 from middleware.auth import get_current_user
 from models.hydration_log import HydrationLog
 from models.push_token import PushToken
@@ -72,23 +72,6 @@ async def register_token(
         ))
     await db.commit()
     return {"status": "ok"}
-
-
-@notif_router.post("/test")
-async def send_test_notification(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Settings → "Send test notification": push to this user's devices and
-    return what Expo / Apple answered, so a broken setup shows its reason."""
-    from datetime import date
-
-    from services.push import send_test
-
-    n = await incr_with_ttl(f"push_test:{current_user.id}:{date.today().isoformat()}", 86400)
-    if n > 20:
-        raise HTTPException(429, "Too many test notifications today")
-    return await send_test(current_user.id, db)
 
 
 @notif_router.delete("/token", status_code=204)
