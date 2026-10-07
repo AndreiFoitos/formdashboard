@@ -1,10 +1,15 @@
 from __future__ import annotations
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
+from typing import Literal
 import uuid
 
 from schemas.avatar import AvatarConfig
 
+
+# Display units. The API always stores and returns metric; this only tells
+# the app how to show values.
+Units = Literal["metric", "imperial"]
 
 # Reusable constraint so the regex stays in one place.
 USERNAME_PATTERN = r"^[a-z0-9_]{3,24}$"
@@ -40,6 +45,7 @@ class UserOut(BaseModel):
     sex: str | None
     timezone: str
     sleep_hour: int
+    units: Units = "metric"
     onboarding_complete: bool
     protein_target_g: float | None
     water_target_ml: int | None
@@ -59,6 +65,8 @@ class UserUpdate(BaseModel):
     sex: str | None = Field(None, pattern=r"^(male|female)$")
     timezone: str | None = None
     sleep_hour: int | None = Field(None, ge=0, le=23)
+    # Optional: older app builds don't send it, and an omitted field is left alone.
+    units: Units | None = None
     onboarding_complete: bool | None = None
     protein_target_g: float | None = None
     water_target_ml: int | None = None

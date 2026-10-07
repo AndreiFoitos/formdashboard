@@ -53,6 +53,9 @@ async def update_me(
     db: AsyncSession = Depends(get_db),
 ):
     updates = body.model_dump(exclude_unset=True)
+    # units is NOT NULL: an explicit null means "no change", not "clear it".
+    if updates.get("units", "") is None:
+        del updates["units"]
 
     # Username uniqueness — Pydantic enforces shape; DB unique handles races,
     # but we pre-check so the user sees a clean 409 instead of a 500.

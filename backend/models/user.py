@@ -29,6 +29,8 @@ class User(Base):
     sex: Mapped[str | None] = mapped_column(String, nullable=True)
     timezone: Mapped[str] = mapped_column(String, default="UTC")
     sleep_hour: Mapped[int] = mapped_column(default=23, server_default="23")  # local bedtime hour, for caffeine-at-bedtime calc
+    # Display units only ("metric" | "imperial"); everything stored stays metric.
+    units: Mapped[str] = mapped_column(String(8), default="metric", server_default="metric", nullable=False)
     onboarding_complete: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
