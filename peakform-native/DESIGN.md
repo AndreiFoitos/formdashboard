@@ -125,7 +125,15 @@ Elevation: no shadows on black. Separate layers with `surface` vs `bg`, and hair
 ## 5. Navigation
 
 ### Tab bar
-Five tabs (Apple's maximum). Use **native tabs** (expo-router native tabs) so iOS renders the real system tab bar. **Remove swipe-between-tabs** and the material-top-tabs + custom `BottomNav` setup.
+Five tabs (Apple's maximum). A **custom bottom bar** (`components/BottomNav`) on material-top-tabs, with **swipe between tabs** — chosen after on-device review over native tabs (2026-10-07): swiping between tabs is core to how the app feels, and native tabs can't swipe.
+
+Bar spec, tokens only:
+- Background `bg`, top hairline in `divider`.
+- Icon + `text-caption` label per tab. Active = `accent`, inactive = `text-subtle`.
+- A 2pt `accent` line above the active tab that follows the pager's live position while swiping.
+- Row height 49pt (`TAB_BAR_HEIGHT`) + bottom padding `Math.max(insets.bottom, 8)`; every tab is a ≥44pt target.
+- Light haptic on tab press.
+- Horizontal gestures inside a tab (swipe-to-delete rows, horizontal scrollers) win over tab swiping: they take a lock on touch-down (`useTabSwipeLock` in `store/tabSwipe.ts`) and tab swiping is off while any lock is held.
 
 | # | Label | Icon idea | Content |
 |---|---|---|---|
@@ -147,7 +155,7 @@ Five tabs (Apple's maximum). Use **native tabs** (expo-router native tabs) so iO
 - Wrap the app in React Navigation's `ThemeProvider` pinned to `DarkTheme`, with colors from `theme/tokens.ts`, so native headers and sheets render dark.
 - Pushed screens use standard header titles via `options={{ title }}`, not large titles. Tab roots stay headerless with a `text-title` heading.
 - Root stack stays above the tabs (pushed screens cover the tab bar).
-- Native tabs on SDK 54: `expo-router/unstable-native-tabs` with `Icon`/`Label` children, SF Symbols + Android `md` fallback. Move `OfflineBanner` and `PolicyUpdateNotice` out of the tabs layout.
+- Tabs: material-top-tabs (`tabBarPosition="bottom"`, custom `BottomNav`, `swipeEnabled` gated by the swipe lock). `OfflineBanner` and `PolicyUpdateNotice` live in the root layout, not the tabs layout.
 - Tasks: presentation `'modal'`. Short choices: presentation `'formSheet'` with detents and background color = `surface` (no transparent/glass).
 - Do not use `@expo/ui` on SDK 54; build settings with our own components and the RN `Switch` colored from tokens.
 
@@ -293,7 +301,7 @@ Do these as separate commits/PRs, verify on device/simulator after each.
 3. Sweep colors file-by-file to tokens (screens first, then components). Screenshot before/after.
 4. Sweep type sizes and spacing to the scales. Add the borderRadius override (md 8px, xl 16px) here; it changes existing rounded-md/rounded-xl usages, so review corners on device.
 5. Build reusable `SettingsGroup`, `SettingsRow` (chevron / value / switch / destructive variants). Rebuild Settings per §6. Add Profile and Units screens.
-6. Switch to native tabs; remove swipe tabs and custom BottomNav. Add native headers to pushed screens.
+6. Add native headers to pushed screens. (Native tabs were tried here and reverted after device review; see §5 and §10.)
 7. Rename user-facing jargon in settings ("Pit Crew" → Training / Nutrition preferences, remove Labs). The Pit tab keeps its name.
 8. Final pass: every screen against §1 rules; run a grep for `#[0-9a-fA-F]{3,6}` and `fontSize:` in app/ and components/ — target zero.
 
@@ -355,3 +363,7 @@ One line per decision made during the autonomous redesign run (2026-10-06).
 - Phase 5: Undersized buttons get `hitSlop={10}` to reach 44pt rather than growing their visual size.
 - Phase 5: Native tab labels use `accent` at the system tab-label size — the system tab bar's own tint behavior, accepted as a rule 9 exception (rule 5 names the active tab as an accent use).
 - Phase 5: Inputs and buttons moved to `rounded-md`; multi-line selectable cards and list rows in pickers stay `rounded-xl` (§4).
+- 2026-10-07: Native tabs reverted to a custom swipeable bar on material-top-tabs after on-device review (swipe between tabs matters more than the system bar). Kept from Phase 3: native headers, ThemeProvider/DarkTheme, OfflineBanner/PolicyUpdateNotice in the root layout. `@expo/vector-icons` removed (only the native tabs used it); `expo-font` stays.
+- 2026-10-07: `expo install` resolved material-top-tabs ^7.8.0, which lifts `@react-navigation/native` to 7.5.0 — one deduped copy, inside expo-router 6's `^7.1.8` range; expo-doctor passes.
+- 2026-10-07: Swipe conflict: horizontal gestures inside tabs lock tab swiping on touch-down (`useTabSwipeLock`, ref-counted, released on touch end/cancel/unmount), because the pager is a native scroll view that RNGH gestures can't express relations with. Touch-down (not swipe-start) is used so the lock lands before the pager's pan recognizer moves. Trade-off: a horizontal swipe that starts on a swipeable row swipes the row, not the tab. SwipeableRow uses it; no horizontal scrollers live inside tab pages today.
+- 2026-10-07: `tabBarClearance` is 0 now: the custom bar takes layout space below the pages.

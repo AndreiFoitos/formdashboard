@@ -7,6 +7,7 @@ import Reanimated, {
   useAnimatedStyle,
   type SharedValue,
 } from 'react-native-reanimated'
+import { useTabSwipeLock } from '../store/tabSwipe'
 import { hapticMedium, hapticSuccess, hapticWarning } from '../lib/haptics'
 import { colors } from '../theme/tokens'
 
@@ -106,8 +107,11 @@ export function SwipeableRow({
 }: Props) {
   const ref = useRef<SwipeableMethods>(null)
   const opened = useRef(false)
+  // Touching a row pauses tab swiping so the row's own swipe wins (store/tabSwipe).
+  const swipeLock = useTabSwipeLock()
 
   return (
+    <View {...swipeLock}>
     <ReanimatedSwipeable
       ref={ref}
       friction={2}
@@ -149,5 +153,6 @@ export function SwipeableRow({
     >
       {children}
     </ReanimatedSwipeable>
+    </View>
   )
 }
