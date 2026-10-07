@@ -49,12 +49,23 @@ export const recapOverlayClearance = (insets: Pick<EdgeInsets, 'top' | 'bottom'>
 // takes layout space below the pages, so tab screens already end at its top
 // edge: content pinned to a tab's bottom needs no extra clearance.
 
-/** Tab bar row height: the iOS standard 49pt (every tab is a ≥44pt target). */
-export const TAB_BAR_HEIGHT = 49
+// Tab bar sizing (components/BottomNav). Tune here; the bar reads only these.
+/** Tab row height, excluding the safe-area inset. Every tab is a ≥44pt target. */
+export const TAB_BAR_HEIGHT = 56
+/** Tab icon size. */
+export const TAB_ICON_SIZE = 26
+/** Gap between a tab's icon and its label. */
+export const TAB_LABEL_GAP = 4
+/** The accent line above the active tab; radius 'full' = height / 2. */
+export const TAB_INDICATOR = { height: 3, width: 24, radius: 'full' } as const
 
 /** Bottom padding under the tab row: the home-indicator inset, or 8 without one. */
 export const tabBarBottomPadding = (bottomInset: number) => Math.max(bottomInset, 8)
 
+/** The bar's full on-screen height: tab row + bottom padding. */
+export const tabBarTotalHeight = (bottomInset: number) => TAB_BAR_HEIGHT + tabBarBottomPadding(bottomInset)
+
 /** Bottom clearance for content pinned to the bottom of a tab screen. The bar
- *  sits below the page, so this is 0; kept so call sites stay explicit. */
+ *  takes layout space below the pages (tabBarTotalHeight), so pages already end
+ *  at its top edge and this is 0; kept so call sites stay explicit. */
 export const tabBarClearance = (_bottomInset: number) => 0

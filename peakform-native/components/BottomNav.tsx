@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs'
 import { TAB_ICONS } from './TabIcons'
 import { hapticLight } from '../lib/haptics'
-import { TAB_BAR_HEIGHT, tabBarBottomPadding } from '../theme/layout'
+import { TAB_BAR_HEIGHT, TAB_ICON_SIZE, TAB_INDICATOR, TAB_LABEL_GAP, tabBarBottomPadding } from '../theme/layout'
 import { colors } from '../theme/tokens'
 
 // The tab bar (DESIGN.md §5): a custom bottom bar on material-top-tabs so pages
@@ -18,9 +18,6 @@ const LABELS: Record<string, string> = {
   body: 'Body',
   ask: 'Pit',
 }
-
-const INDICATOR_WIDTH = 32
-const INDICATOR_HEIGHT = 2
 
 export function BottomNav({ state, navigation, position }: MaterialTopTabBarProps) {
   const insets = useSafeAreaInsets()
@@ -36,7 +33,7 @@ export function BottomNav({ state, navigation, position }: MaterialTopTabBarProp
     count > 1 && width > 0
       ? position.interpolate({
           inputRange: indices,
-          outputRange: indices.map((i) => i * tabWidth + (tabWidth - INDICATOR_WIDTH) / 2),
+          outputRange: indices.map((i) => i * tabWidth + (tabWidth - TAB_INDICATOR.width) / 2),
           extrapolate: 'clamp',
         })
       : 0
@@ -63,8 +60,10 @@ export function BottomNav({ state, navigation, position }: MaterialTopTabBarProp
             position: 'absolute',
             top: 0,
             left: 0,
-            width: INDICATOR_WIDTH,
-            height: INDICATOR_HEIGHT,
+            width: TAB_INDICATOR.width,
+            height: TAB_INDICATOR.height,
+            borderRadius: TAB_INDICATOR.height / 2, // radius 'full'
+            borderCurve: 'continuous',
             backgroundColor: colors.accent,
             transform: [{ translateX }],
           }}
@@ -91,11 +90,11 @@ export function BottomNav({ state, navigation, position }: MaterialTopTabBarProp
             accessibilityRole="tab"
             accessibilityState={{ selected: focused }}
             accessibilityLabel={label}
-            className="flex-1 items-center justify-center gap-1"
-            style={{ height: TAB_BAR_HEIGHT }}
+            className="flex-1 items-center justify-center"
+            style={{ height: TAB_BAR_HEIGHT, gap: TAB_LABEL_GAP }}
           >
-            {Icon ? <Icon color={color} size={24} /> : null}
-            <Text className={`text-caption ${focused ? 'font-semibold' : 'font-medium'}`} style={{ color }}>
+            {Icon ? <Icon color={color} size={TAB_ICON_SIZE} /> : null}
+            <Text className={`text-caption ${focused ? 'font-semibold' : 'font-normal'}`} style={{ color }}>
               {label}
             </Text>
           </Pressable>
