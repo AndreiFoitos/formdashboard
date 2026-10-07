@@ -321,7 +321,6 @@ Agreed, not implemented yet. Each item still follows §1–§8.
 - Pit header: title "Pit" with the date line above it, like the other tabs.
 - Macro tiles: consistent — all with target bars, or all compact.
 - Food names: capitalize the first letter on display.
-- Android adaptive icon: `android-icon-foreground.png` (1024×535), `-background.png` and `-monochrome.png` (1024×559) aren't square, so expo-doctor fails the app.json schema check. Re-export all three at 1024×1024. Affects Android builds only.
 
 ---
 
@@ -370,3 +369,4 @@ One line per decision made during the autonomous redesign run (2026-10-06).
 - 2026-10-07: `tabBarClearance` is 0 now: the custom bar takes layout space below the pages.
 - 2026-10-07: Tab bar enlarged to 56pt / 26pt icons after device review; tune via theme/layout.ts constants. (Was 49pt row, 24pt icons, 4pt label gap, 2×32pt square indicator; now `TAB_BAR_HEIGHT` 56, `TAB_ICON_SIZE` 26, `TAB_LABEL_GAP` 4, `TAB_INDICATOR` 3×24pt fully rounded. Inactive labels regular, active semibold.)
 - 2026-10-07: `tabBarTotalHeight(inset)` = `TAB_BAR_HEIGHT` + bottom padding is the bar's real height. `tabBarClearance` stays 0: the custom bar takes layout space, so tab pages (Pit chat input, undo toast, scroll content) already end at its top edge; adding the bar height there would leave a gap of the bar's height.
+- 2026-10-07: Android adaptive icon is a 1024×1024 transparent foreground keyed out of `assets/icon.png` (logo inside the 66dp safe circle), on `backgroundColor` = `bg`; no background image. Monochrome is the same silhouette in white. Regenerate both from icon.png if the logo changes.
