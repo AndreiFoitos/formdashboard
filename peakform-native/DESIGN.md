@@ -312,6 +312,7 @@ Agreed, not implemented yet. Each item still follows §1–§8.
 - Pit header: title "Pit" with the date line above it, like the other tabs.
 - Macro tiles: consistent — all with target bars, or all compact.
 - Food names: capitalize the first letter on display.
+- Android adaptive icon: `android-icon-foreground.png` (1024×535), `-background.png` and `-monochrome.png` (1024×559) aren't square, so expo-doctor fails the app.json schema check. Re-export all three at 1024×1024. Affects Android builds only.
 
 ---
 

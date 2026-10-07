@@ -173,7 +173,8 @@
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "router": {},
