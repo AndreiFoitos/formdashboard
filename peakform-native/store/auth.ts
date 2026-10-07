@@ -12,6 +12,8 @@ export interface User {
   sex: 'male' | 'female' | null
   timezone: string
   sleep_hour: number
+  /** Display units; missing on backends older than this field. */
+  units?: 'metric' | 'imperial'
   onboarding_complete: boolean
   protein_target_g: number | null
   water_target_ml: number | null

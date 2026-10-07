@@ -19,7 +19,7 @@ import {
 import { syncPurchasesUser } from '../lib/purchases'
 import { colors } from '../theme/tokens'
 import { formSheet, modalHeader, pushedHeader } from '../theme/navigation'
-import { loadUnits } from '../lib/units'
+import { loadUnits, syncUnits } from '../lib/units'
 import { OfflineBanner } from '../components/OfflineBanner'
 import { PolicyUpdateNotice } from '../components/PolicyUpdateNotice'
 
@@ -89,6 +89,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!hydrated) return
     syncPurchasesUser(user?.id ?? null).catch(() => {})
+  }, [hydrated, user?.id])
+
+  // Units follow the profile: reconcile the device cache with the server once
+  // per sign-in / app start.
+  useEffect(() => {
+    if (!hydrated || !user) return
+    syncUnits(useAuthStore.getState().user?.units)
   }, [hydrated, user?.id])
 
   // Once a user is authed, re-register the push token if notifications are
