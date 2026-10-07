@@ -91,7 +91,7 @@ function ComboCard({ combo: c }: { combo: DexCombo }) {
           {c.reward ? (
             <>
               Reward: <Text className="text-text-muted">{c.found || !c.secret ? itemName(c.reward) : '???'}</Text>
-              {!c.has_art && (c.found || !c.secret) ? ' · art coming soon' : ''}
+              {!c.has_art && (c.found || !c.secret) ? ' · badge' : ''}
             </>
           ) : (
             'Warning only — no reward'
@@ -125,7 +125,7 @@ function MilestoneCard({ milestone: m }: { milestone: DexMilestone }) {
       <EmoteLine emote={m.emote} golden={m.emote_golden} />
       <Text className="text-text-subtle text-caption mt-1">
         Reward: <Text className="text-text-muted">{itemName(m.reward)}</Text>
-        {!m.has_art ? ' · art coming soon' : ''}
+        {!m.has_art ? ' · badge' : ''}
       </Text>
       {m.evaluated ? (
         <>

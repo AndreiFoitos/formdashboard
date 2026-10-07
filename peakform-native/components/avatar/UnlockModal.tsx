@@ -62,7 +62,7 @@ export function UnlockModal({ items }: { items: RewardNew[] }) {
                   </View>
                   <Text className="text-text-muted text-caption mt-1">
                     Reward: <Text className="text-text">{itemName(n.reward)}</Text>
-                    {!n.has_art ? '  ·  3D art coming soon — it’s saved to your account' : ''}
+                    {!n.has_art ? '  ·  Badge, saved to your Combo Dex' : ''}
                   </Text>
                   {n.emotes?.map((e) => {
                     const on = equipped.includes(e)
