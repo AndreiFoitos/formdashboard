@@ -130,7 +130,7 @@ export default function AvatarEditScreen() {
         </Text>
       </View>
 
-      <ScrollView className="flex-1 px-4" contentContainerClassName="pt-4 pb-12 gap-5">
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4" contentContainerClassName="pt-4 pb-12 gap-5">
         {body.levelUpAvailable && (
           <View className="rounded-xl p-4 border bg-success/15 border-success/40" style={{ borderCurve: 'continuous' }}>
             <Text className="text-success text-body font-bold">Your avatar leveled up ↑</Text>
@@ -155,7 +155,7 @@ export default function AvatarEditScreen() {
         {SECTIONS.map((section) => (
           <View key={section.key}>
             <Text className="text-text-muted text-caption mb-2">{section.label}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3">
+            <ScrollView showsVerticalScrollIndicator={false} horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-3">
               {[...PALETTE[section.key], ...exclusiveFor(section.key, owned)].map((color) => {
                 const selected = look[section.key] === color
                 return (

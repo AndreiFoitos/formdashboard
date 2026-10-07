@@ -219,7 +219,7 @@ function SusVouchSheet({
           </TouchableOpacity>
         </View>
 
-        <ScrollView
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
           className="flex-1 px-4 pt-4"
           contentContainerClassName="pb-8"
           keyboardShouldPersistTaps="handled"
@@ -446,7 +446,7 @@ function LeaderboardTab() {
   const maxVol = Math.max(1, ...rows.map(r => r.total_volume_kg))
 
   return (
-    <ScrollView
+    <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
       className="flex-1"
       contentContainerClassName="p-4 pb-8"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.text} />}
@@ -723,7 +723,7 @@ function FriendsTab() {
   })
 
   return (
-    <ScrollView
+    <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
       className="flex-1"
       contentContainerClassName="p-4 pb-8"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.text} />}
@@ -975,7 +975,7 @@ function ExercisePickerSheet({
             <Text className="text-text-muted text-footnote">All</Text>
           </TouchableOpacity>
         </View>
-        <ScrollView className="px-4 pt-3" contentContainerClassName="pb-4">
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="px-4 pt-3" contentContainerClassName="pb-4">
           <View className="gap-2">
             {EXERCISES.map(e => (
               <TouchableOpacity

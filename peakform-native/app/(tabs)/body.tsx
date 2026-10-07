@@ -473,7 +473,7 @@ export default function BodyScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
         className="flex-1"
         contentContainerClassName="px-4 pb-6"
         refreshControl={

@@ -51,7 +51,7 @@ export function AutosavePreferences({
   }
 
   return (
-    <ScrollView
+    <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
       className="flex-1 bg-bg"
       contentContainerClassName="px-4 pt-4 pb-12"
       contentInsetAdjustmentBehavior="automatic"

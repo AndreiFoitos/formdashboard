@@ -83,7 +83,7 @@ export function ExerciseLogSheet({
           </TouchableOpacity>
         </View>
 
-        <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
           <View className="bg-surface-raised border border-border rounded-xl p-3 mb-4" style={{ borderCurve: 'continuous' }}>
             <Text className="text-text-subtle text-caption mb-2">Today's target</Text>
             <Text className="text-text text-footnote">{suggestion.reason}</Text>

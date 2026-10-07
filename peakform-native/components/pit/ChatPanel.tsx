@@ -183,7 +183,7 @@ export function ChatPanel() {
         )}
       </View>
 
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
         ref={scrollRef}
         className="flex-1 px-4"
         contentContainerClassName="pb-4"

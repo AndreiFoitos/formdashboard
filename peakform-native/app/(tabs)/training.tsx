@@ -375,7 +375,7 @@ function ExercisePickerModal({
             <X size={20} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
-        <ScrollView
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
           className="flex-1 px-4 pt-4"
           contentContainerClassName="pb-6"
           keyboardShouldPersistTaps="handled"
@@ -402,7 +402,7 @@ function ExercisePickerModal({
                 maxLength={80}
                 className="bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote mb-2" style={{ borderCurve: 'continuous' }}
               />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
+              <ScrollView showsVerticalScrollIndicator={false} horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
                 {GROUPS.map((g) => {
                   const active = newGroup === g.name
                   return (
@@ -696,7 +696,7 @@ function LogExerciseModal({
           </TouchableOpacity>
         </View>
 
-        <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
           {/* Progressive overload target */}
           {target && target.kind !== 'first' && (
             <View className="bg-surface-raised border border-border rounded-xl p-3 mb-3" style={{ borderCurve: 'continuous' }}>
@@ -1576,7 +1576,7 @@ export default function TrainingScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
         className="flex-1"
         contentContainerClassName="px-4 pb-6"
         refreshControl={

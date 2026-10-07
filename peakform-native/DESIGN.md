@@ -21,6 +21,7 @@ addition to this file first — do not invent one-off values.
 9. Accent (#2c66fb) on bg is 4.40:1: use it only for icons, text >= 18pt, or semibold text >= 14pt. Small links/labels on black use text, not accent.
 10. Button text on accent is white, >= 16pt or semibold.
 11. Project is on Expo SDK 54 / expo-router 6. Skills may describe SDK 56 APIs; always use the SDK 54 equivalent. Do not upgrade the SDK during the redesign.
+12. No scroll indicators. Every `ScrollView`, `FlatList` and `SectionList` sets `showsVerticalScrollIndicator={false}` and `showsHorizontalScrollIndicator={false}`.
 
 ---
 

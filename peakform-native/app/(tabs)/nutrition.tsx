@@ -394,7 +394,7 @@ function BuildMealModal({
           </TouchableOpacity>
         </View>
 
-        <ScrollView
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
           className="flex-1"
           keyboardShouldPersistTaps="handled"
           // The keyboard used to sit on top of "Log manually", so the button
@@ -968,7 +968,7 @@ function LogModal({
           </View>
         </View>
 
-        <ScrollView
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
           className="flex-1"
           keyboardShouldPersistTaps="handled"
           contentContainerClassName="pb-8"
@@ -1321,7 +1321,7 @@ export default function NutritionScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
         className="flex-1"
         contentContainerClassName="px-4 pb-6"
         refreshControl={

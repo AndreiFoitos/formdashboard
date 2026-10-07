@@ -103,7 +103,7 @@ function AvatarLab() {
         )}
       </View>
 
-      <ScrollView className="flex-1 px-4" contentContainerClassName="pt-4 pb-12 gap-4">
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4" contentContainerClassName="pt-4 pb-12 gap-4">
         <Chips label="Model" options={['glb', 'placeholder'] as const} value={source} onChange={setSource} />
         <Chips label="Base" options={['male', 'female'] as const} value={base} onChange={setBase} />
 

@@ -10,7 +10,7 @@ import { colors } from '../../theme/tokens'
 export default function MethodologyHubScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
         className="flex-1 px-4"
         contentContainerClassName="pt-1 pb-12"
       >

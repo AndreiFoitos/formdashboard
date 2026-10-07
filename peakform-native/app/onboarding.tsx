@@ -952,7 +952,7 @@ export default function OnboardingScreen() {
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
           className="flex-1 px-6"
           keyboardShouldPersistTaps="handled"
           contentContainerClassName="pb-12"

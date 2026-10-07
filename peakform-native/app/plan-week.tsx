@@ -49,7 +49,7 @@ export default function PlanWeekScreen() {
         })}
       </View>
 
-      <ScrollView className="flex-1 px-4" contentContainerClassName="pb-12 gap-4">
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4" contentContainerClassName="pb-12 gap-4">
         {!plan ? (
           <Text className="text-text-subtle text-footnote">No plan yet.</Text>
         ) : (

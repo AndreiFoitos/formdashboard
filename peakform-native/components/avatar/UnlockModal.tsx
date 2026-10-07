@@ -44,7 +44,7 @@ export function UnlockModal({ items }: { items: RewardNew[] }) {
             {items.length === 1 ? 'You unlocked something' : `You unlocked ${items.length} things`}
           </Text>
 
-          <ScrollView className="mt-4" contentContainerClassName="gap-3">
+          <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="mt-4" contentContainerClassName="gap-3">
             {items.map((n) => {
               const color = n.golden ? RARITY_COLOR.legendary : RARITY_COLOR[n.rarity]
               const canEquip = !!n.reward && !!ITEMS[n.reward]?.slot

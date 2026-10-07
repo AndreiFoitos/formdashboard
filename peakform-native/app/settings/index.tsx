@@ -441,7 +441,7 @@ export default function SettingsScreen() {
 
   return (
     <KeyboardAvoidingView className="flex-1 bg-bg" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
         className="flex-1"
         contentContainerClassName="px-4 pt-4 pb-12"
         contentInsetAdjustmentBehavior="automatic"

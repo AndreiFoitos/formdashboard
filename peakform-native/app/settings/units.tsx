@@ -13,7 +13,7 @@ export default function UnitsScreen() {
   const system = useUnitsStore((s) => s.system)
   const setSystem = useUnitsStore((s) => s.setSystem)
   return (
-    <ScrollView className="flex-1 bg-bg" contentContainerClassName="px-4 pt-4 pb-12" contentInsetAdjustmentBehavior="automatic">
+    <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 bg-bg" contentContainerClassName="px-4 pt-4 pb-12" contentInsetAdjustmentBehavior="automatic">
       <SettingsGroup first footer="Food macros stay in grams in both systems.">
         {OPTIONS.map((o) => (
           <SettingsRow

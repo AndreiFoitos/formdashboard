@@ -261,7 +261,7 @@ function EstimateView({
         <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView className="flex-1 px-4 pt-5" contentContainerStyle={{ paddingBottom: footerClearance(insets.bottom) }}>
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4 pt-5" contentContainerStyle={{ paddingBottom: footerClearance(insets.bottom) }}>
         {hasNumber ? (
           <View className="items-center pb-3">
             <Text className="text-text-subtle text-caption mb-1">

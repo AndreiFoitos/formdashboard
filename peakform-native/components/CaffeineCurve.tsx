@@ -403,7 +403,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
           </TouchableOpacity>
         </View>
 
-        <ScrollView className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
           <View className="flex-row flex-wrap gap-2 mb-4">
             {presets.map((s) => (
               <TouchableOpacity

@@ -166,7 +166,7 @@ export default function TrendsScreen() {
         })}
       </View>
 
-      <ScrollView className="flex-1 px-4" contentContainerClassName="pt-4 pb-12 gap-4">
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4" contentContainerClassName="pt-4 pb-12 gap-4">
         {isLoading || !data ? (
           <ActivityIndicator color={colors.text} className="mt-12" />
         ) : (

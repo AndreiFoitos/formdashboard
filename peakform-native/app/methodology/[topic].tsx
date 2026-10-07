@@ -33,7 +33,7 @@ export default function MethodologyTopicScreen() {
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
       <Stack.Screen options={{ title: data.title }} />
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
         className="flex-1 px-4"
         contentContainerClassName="pt-1 pb-12"
       >

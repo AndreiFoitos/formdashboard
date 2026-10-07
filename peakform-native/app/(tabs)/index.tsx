@@ -628,7 +628,7 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
         className="flex-1"
         contentContainerClassName="px-4 pb-6"
         // Pull-to-refresh — not available in the web version but expected on mobile

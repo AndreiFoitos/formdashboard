@@ -162,7 +162,7 @@ export default function PaywallScreen() {
         }}
       />
 
-      <ScrollView className="flex-1 px-5" contentContainerClassName="pb-6">
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-5" contentContainerClassName="pb-6">
         <Text className="text-text text-title font-bold mt-4">{head.title}</Text>
         <Text className="text-text-muted text-body mt-2">{head.sub}</Text>
 

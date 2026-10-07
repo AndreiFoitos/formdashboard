@@ -281,7 +281,7 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
         <View style={{ width: 70 }} />
       </View>
 
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
         className="flex-1"
         contentContainerClassName="p-4 pb-12 gap-5"
         keyboardShouldPersistTaps="handled"

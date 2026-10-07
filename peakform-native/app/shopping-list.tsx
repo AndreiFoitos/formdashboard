@@ -60,7 +60,7 @@ export default function ShoppingListScreen() {
         </Text>
       )}
 
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
         className="flex-1 px-4"
         contentContainerClassName="pb-12 gap-4"
         refreshControl={<RefreshControl refreshing={list.isRefetching} onRefresh={() => list.refetch()} tintColor={colors['text-subtle']} />}

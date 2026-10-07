@@ -103,7 +103,7 @@ export default function ChooseScreen() {
       {field === 'bedtime' && <Stack.Screen options={{ sheetAllowedDetents: [0.6, 1] }} />}
       <View className={field === 'bedtime' ? 'flex-1 bg-surface' : 'bg-surface'}>
         <Text className="text-text text-headline text-center pt-6 pb-2">{TITLES[field] ?? ''}</Text>
-        <ScrollView
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
           className={field === 'bedtime' ? 'flex-1' : undefined}
           scrollEnabled={field === 'bedtime'}
           contentContainerClassName="px-4 pb-8"

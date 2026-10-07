@@ -373,7 +373,7 @@ export function PlanPanel() {
   }
 
   return (
-    <ScrollView
+    <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
       className="flex-1 px-4"
       contentContainerClassName="pb-12 gap-4"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors['text-subtle']} />}

@@ -24,7 +24,7 @@ export default function ComboDexScreen() {
           <ActivityIndicator color={colors['text-muted']} />
         </View>
       ) : (
-        <ScrollView
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
           className="flex-1 px-4"
           contentContainerClassName="pt-2 pb-12 gap-3"
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.text} />}

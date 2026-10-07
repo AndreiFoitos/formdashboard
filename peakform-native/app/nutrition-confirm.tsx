@@ -222,7 +222,7 @@ function ConfirmContent({ raw }: { raw: string }) {
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={['top']}>
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
         className="flex-1"
         contentContainerStyle={{ paddingBottom: totalsFooterClearance(insets.bottom) }}
         keyboardShouldPersistTaps="handled"
