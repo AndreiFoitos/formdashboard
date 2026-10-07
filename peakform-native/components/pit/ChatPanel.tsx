@@ -10,7 +10,7 @@ import {
 } from 'react-native'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import { Check, RotateCcw } from 'lucide-react-native'
+import { Check, RotateCcw, SquarePen } from 'lucide-react-native'
 import { handleLimitError, openPaywall, usePlan, useSetPlan } from '../../hooks/usePlan'
 import { PREFERENCES_KEY } from '../../hooks/usePreferences'
 import { useKeyboardOverlap } from '../../hooks/useKeyboardOverlap'
@@ -133,6 +133,9 @@ export function ChatPanel() {
     onError: () => Alert.alert("Couldn't start a new chat", 'Please try again.'),
   })
 
+  // Nothing to clear in an empty chat; also wait out a reply in flight.
+  const newChatDisabled = turns.length === 0 || ask.isPending || clear.isPending
+
   function confirmClear() {
     Alert.alert('Start a new chat?', 'This conversation will be deleted.', [
       { text: 'Cancel', style: 'cancel' },
@@ -166,7 +169,8 @@ export function ChatPanel() {
 
   return (
     <View ref={rootRef} className="flex-1" style={{ paddingBottom: bottomPad }}>
-      <View className="flex-row items-center justify-between px-4 pb-2" style={{ minHeight: 24 }}>
+      {/* Directly under the Plan/Chat toggle, Chat only (this panel). */}
+      <View className="flex-row items-center justify-between px-4 pb-3">
         {asksLeft ? (
           <TouchableOpacity onPress={() => openPaywall('ask')} hitSlop={10}>
             <Text className="text-text-subtle text-caption">
@@ -176,11 +180,24 @@ export function ChatPanel() {
         ) : (
           <View />
         )}
-        {turns.length > 0 && (
-          <TouchableOpacity onPress={confirmClear} disabled={ask.isPending || clear.isPending} hitSlop={10}>
-            <Text className="text-text-muted text-caption font-medium">New chat</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          onPress={confirmClear}
+          disabled={newChatDisabled}
+          accessibilityRole="button"
+          accessibilityLabel="New chat"
+          accessibilityState={{ disabled: newChatDisabled }}
+          className="flex-row items-center gap-2 px-3 rounded-md bg-surface-raised"
+          style={{ borderCurve: 'continuous', minHeight: 44 }}
+        >
+          {clear.isPending ? (
+            <ActivityIndicator color={colors['text-subtle']} />
+          ) : (
+            <SquarePen size={16} color={newChatDisabled ? colors['text-subtle'] : colors.text} strokeWidth={2} />
+          )}
+          <Text className={`text-footnote font-semibold ${newChatDisabled ? 'text-text-subtle' : 'text-text'}`}>
+            New chat
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
