@@ -92,3 +92,19 @@ def test_new_account_records_provider_verification():
     db = FakeDB([])
     user = sign_in(db, email="new@test.com")
     assert user.email == "new@test.com" and user.email_verified is True
+
+
+def test_hidden_email_username_comes_from_name():
+    db = FakeDB([])
+    user = asyncio.run(_find_or_create_oauth_user(
+        provider="apple", sub="apple-9", email="x7k2m9abcd@privaterelay.appleid.com",
+        email_verified=True, name="Andrei Foitos", db=db,
+    ))
+    assert user.username == "andreifoitos"
+    assert user.email == "x7k2m9abcd@privaterelay.appleid.com"
+
+
+def test_regular_email_username_comes_from_email():
+    db = FakeDB([])
+    user = sign_in(db, email="lifter.dan@test.com")
+    assert user.username == "lifterdan"

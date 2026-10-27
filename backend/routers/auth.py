@@ -95,6 +95,10 @@ async def _generate_username(seed: str | None, db: AsyncSession) -> str:
     return f"user_{secrets.token_hex(4)}"
 
 
+def _is_relay_email(email: str) -> bool:
+    return email.lower().endswith("@privaterelay.appleid.com")
+
+
 async def _issue_tokens_for_user(user: User) -> TokenResponse:
     return TokenResponse(
         access_token=create_access_token(str(user.id)),
@@ -156,7 +160,10 @@ async def _find_or_create_oauth_user(
         # Unverified provider email that another account already uses: don't
         # link, and don't take the address. They can add one from Settings.
         email = None
-    username = await _generate_username((email.split("@")[0] if email else None) or name, db)
+    # A "Hide My Email" relay address has a random local part, which would make
+    # a gibberish handle; their name (sent on first Apple auth) reads better.
+    local_part = email.split("@")[0] if email and not _is_relay_email(email) else None
+    username = await _generate_username(local_part or name, db)
     user = User(
         email=email,
         email_verified=bool(email and email_verified),
