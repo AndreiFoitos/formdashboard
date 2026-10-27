@@ -99,6 +99,7 @@ def _profile(user: User, prefs: UserPreference | None, freq: str | None) -> list
         ("experience", prefs.experience),
         ("session length", f"{prefs.session_minutes} min" if prefs.session_minutes else None),
         ("training days/week", prefs.training_days),
+        ("chosen split (session cycle)", " -> ".join(prefs.split) if prefs.split else None),
         ("injuries", ", ".join(prefs.injuries) if prefs.injuries else None),
         ("diet", prefs.diet_style),
         ("allergies (never suggest)", ", ".join(prefs.allergies) if prefs.allergies else None),

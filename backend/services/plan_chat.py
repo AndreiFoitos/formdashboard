@@ -42,6 +42,7 @@ from services.plan_builder import (
     _sum,
     allowed_exercises,
     best_one_rms,
+    clean_split,
     compute_targets,
     food_conflicts,
     meal_plan_allowed,
@@ -66,7 +67,8 @@ When to use tools:
 - Allergies and injuries: save only what the user says about themselves. Never infer one. Save injuries as the body part only ("left elbow"), allergies as the food ("peanuts").
 - Ate something off-plan: adjust_today with your best macro estimate. Set log_it only if they asked you to log it.
 - "Eat less / more": change_targets. It enforces safe limits; if it reports a clamp, tell them.
-- A whole new plan: don't try. Tell them to tap "Build a new plan" on the Plan tab.
+- They describe their split or how many days they train ("I do chest/back, arms/shoulders, legs", "I train 6 days"): set_training_setup. A split is the session cycle in order, as short labels ("Chest + Back", "Arms + Shoulders", "Legs"); it repeats across their training days, so a 3-session cycle on 6 days runs twice. If they train with no fixed rest days and skip one when life gets in the way, count the days they actually train.
+- A whole new plan: don't build it here. Tell them to tap "Build a new plan" on the Plan side of the Pit tab ("Build my plan" before their first one). It uses their days, split, session length, equipment, experience and injuries. All of these can also be changed in Settings > Training preferences.
 - swap_meal foods: one plain ingredient each, with its state ("chicken thighs, cooked"), and your per_100g estimate. Match the old meal's slot and roughly its calories; the app rescales grams.
 
 After tools: reply in 1-2 sentences saying what changed. The app shows an Undo button, so don't ask for confirmation first.
@@ -164,6 +166,18 @@ def tools(exercise_keys: list[str]) -> list[dict]:
             }),
         },
         {
+            "name": "set_training_setup",
+            "description": "Save how many days a week the user trains and/or their own split. The next plan build follows them; the current plan doesn't change.",
+            "strict": True,
+            "input_schema": _obj({
+                "days_per_week": {**_nullable("integer"), "description": "1-7, or null to leave it as is."},
+                "split": {
+                    "anyOf": [{"type": "array", "items": {"type": "string"}}, {"type": "null"}],
+                    "description": "Session labels in cycle order, e.g. ['Push', 'Pull', 'Legs']. [] lets Pit Crew choose; null leaves it as is.",
+                },
+            }),
+        },
+        {
             "name": "change_targets",
             "description": "Change the user's daily calorie and/or protein target. Enforces safe limits and rescales the meal plan.",
             "strict": True,
@@ -242,6 +256,26 @@ class Turn:
         if not remove and kind == "injury":
             msg += " If the plan has exercises that load it, swap them."
         return msg
+
+    async def set_training_setup(self, days_per_week: int | None, split: list[str] | None) -> str:
+        if days_per_week is None and split is None:
+            raise ToolError("Give days_per_week and/or split.")
+        if days_per_week is not None and not 1 <= days_per_week <= 7:
+            raise ToolError("days_per_week must be 1-7.")
+        if self.prefs is None:
+            self.prefs = UserPreference(user_id=self.user.id)
+            self.db.add(self.prefs)
+        before = {"training_days": self.prefs.training_days, "split": self.prefs.split}
+        bits = []
+        if days_per_week is not None:
+            self.prefs.training_days = days_per_week
+            bits.append(f"{days_per_week} days a week")
+        if split is not None:
+            self.prefs.split = clean_split(split)
+            bits.append("split " + (" / ".join(self.prefs.split) if self.prefs.split else "left to Pit Crew"))
+        self.record("set_training_setup", "Saved " + ", ".join(bits), {"prefs": before})
+        return (f"Saved: {', '.join(bits)}. The current plan is unchanged; "
+                "tell them to tap \"Build a new plan\" on the Plan side to get a week built on it.")
 
     async def swap_meal(self, meal_id: str, weekday: str, name: str, items: list[dict], prep: str = "") -> str:
         n = self.need_meals()
@@ -496,6 +530,9 @@ async def undo_actions(user: User, msg: AiMessage, db: AsyncSession) -> None:
             row.targets = u["targets"]
         if "field" in u and prefs is not None:
             setattr(prefs, u["field"], u["value"])
+        for field, value in (u.get("prefs") or {}).items():
+            if prefs is not None:
+                setattr(prefs, field, value)
         if "user" in u:
             user.calorie_target = u["user"]["calorie_target"]
             user.protein_target_g = u["user"]["protein_target_g"]

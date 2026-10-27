@@ -25,7 +25,7 @@ from models.user_preference import UserPreference
 from routers.nutrition import BatchLogRequest, LogNutritionRequest, delete_nutrition, log_nutrition_batch
 from services.ai_client import AINotConfigured
 from services.ai_features import chat_history
-from services.plan_builder import expire_stale, run_build
+from services.plan_builder import clean_split, expire_stale, run_build
 from services.plan_chat import ToolError, chat_turn, undo_actions
 from services.plan_checkin import apply_suggestion, generate as generate_checkin, week_to_review
 from services.plan_shopping import build_list
@@ -46,7 +46,7 @@ MAX_ITEM_LEN = 40
 
 FREE_TEXT_LISTS = ("injuries", "allergies", "dislikes", "notes")
 FIELDS = (
-    "goal", "equipment", "experience", "session_minutes", "training_days",
+    "goal", "equipment", "experience", "session_minutes", "training_days", "split",
     "injuries", "diet_style", "allergies", "dislikes", "cooking", "health_flags", "notes",
 )
 
@@ -71,6 +71,8 @@ class PreferencesIn(BaseModel):
     experience: Experience | None = None
     session_minutes: int | None = Field(default=None, ge=15, le=180)
     training_days: int | None = Field(default=None, ge=1, le=7)
+    # Session focuses in cycle order; null or [] lets Pit Crew choose.
+    split: list[str] | None = None
     injuries: list[str] | None = None
     diet_style: DietStyle | None = None
     allergies: list[str] | None = None
@@ -83,6 +85,11 @@ class PreferencesIn(BaseModel):
     @classmethod
     def _lists(cls, v: list[str] | None) -> list[str] | None:
         return None if v is None else _clean_list(v)
+
+    @field_validator("split")
+    @classmethod
+    def _split(cls, v: list[str] | None) -> list[str] | None:
+        return None if v is None else clean_split(v)
 
     @field_validator("health_flags")
     @classmethod

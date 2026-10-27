@@ -89,6 +89,7 @@ open it.
 | experience | String(12) | `new` / `some` / `experienced` |
 | session_minutes | SmallInteger | |
 | training_days | SmallInteger | derived from `training_frequency` if not set |
+| split | JSONB list[str] | the user's own session cycle, e.g. `["Push", "Pull", "Legs"]`, repeated across their training days; null = the builder picks. The builder must follow it (checked in code, one retry) |
 | injuries | JSONB list[str] | |
 | diet_style | String(16) | |
 | allergies | JSONB list[str] | **hard constraint** |

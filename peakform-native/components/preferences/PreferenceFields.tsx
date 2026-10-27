@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, TouchableOpacity, TextInput } from 'react-native'
-import { X } from 'lucide-react-native'
+import { Plus, X } from 'lucide-react-native'
 import type {
   Cooking,
   DietStyle,
@@ -12,7 +12,7 @@ import type {
 import { colors } from '../../theme/tokens'
 
 // The Training and Food answers Pit Crew builds plans from. Shared by the
-// onboarding steps and the Settings → Training & food screen, so both edit
+// onboarding steps and the Settings → Training / Nutrition screens, so both edit
 // exactly the same fields. See docs/ai-plans-design.md §3.
 
 type Patch = (patch: Partial<Preferences>) => void
@@ -171,6 +171,112 @@ const SESSION: { key: number; label: string }[] = [
   { key: 90, label: '90 min' },
 ]
 
+const DAYS: { key: number; label: string }[] = [1, 2, 3, 4, 5, 6, 7].map((d) => ({ key: d, label: String(d) }))
+
+// Each preset is the session cycle the backend stores (plan_builder.py
+// clean_split); null leaves the split to Pit Crew.
+const SPLITS: { key: string; label: string; split: string[] | null }[] = [
+  { key: 'auto', label: 'Pit Crew picks', split: null },
+  { key: 'full', label: 'Full body', split: ['Full body'] },
+  { key: 'upper_lower', label: 'Upper / Lower', split: ['Upper', 'Lower'] },
+  { key: 'ppl', label: 'Push / Pull / Legs', split: ['Push', 'Pull', 'Legs'] },
+  { key: 'bro', label: 'One muscle a day', split: ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms'] },
+]
+const SPLIT_MAX = 7
+
+const tidy = (split: string[]) => split.map((v) => v.trim().replace(/\s+/g, ' ')).filter(Boolean)
+
+function presetFor(split: string[] | null): string | null {
+  const s = split ?? []
+  const hit = SPLITS.find((p) => (p.split ?? []).join('|').toLowerCase() === s.join('|').toLowerCase())
+  return hit ? hit.key : null
+}
+
+/** Presets, or your own sessions in order. Custom labels save when a field
+ *  loses focus, not on every keystroke. */
+function SplitField({ value, onChange }: { value: string[] | null; onChange: (v: string[] | null) => void }) {
+  const preset = presetFor(value)
+  const [custom, setCustom] = useState(preset === null)
+  const [draft, setDraft] = useState<string[]>(value ?? [])
+
+  const saved = (value ?? []).join('|')
+  // Follow the saved value, but keep a draft that already matches it so an
+  // empty row just added doesn't vanish when a save comes back.
+  useEffect(() => {
+    setDraft((d) => (tidy(d).join('|') === saved ? d : (value ?? [])))
+    if (presetFor(value) === null) setCustom(true)
+  }, [saved])
+
+  const commit = (next: string[]) => {
+    const clean = tidy(next)
+    if (clean.join('|') !== saved) onChange(clean.length ? clean : null)
+  }
+
+  return (
+    <View>
+      <View className="flex-row flex-wrap gap-2">
+        {SPLITS.map((p) => (
+          <Chip
+            key={p.key}
+            label={p.label}
+            selected={!custom && preset === p.key}
+            onPress={() => {
+              setCustom(false)
+              onChange(p.split)
+            }}
+          />
+        ))}
+        <Chip
+          label="My own"
+          selected={custom}
+          onPress={() => {
+            setCustom(true)
+            if (!draft.length) setDraft([''])
+          }}
+        />
+      </View>
+      {custom && (
+        <View className="gap-2 mt-3">
+          {draft.map((v, i) => (
+            <View key={i} className="flex-row items-center gap-2">
+              <Text className="text-text-subtle text-caption w-12">Day {i + 1}</Text>
+              <TextInput
+                value={v}
+                onChangeText={(t) => setDraft(draft.map((x, j) => (j === i ? t : x)))}
+                onBlur={() => commit(draft)}
+                onSubmitEditing={() => commit(draft)}
+                placeholder={['Chest + Back', 'Arms + Shoulders', 'Legs'][i] ?? 'Session'}
+                placeholderTextColor={colors['text-subtle']}
+                returnKeyType="done"
+                maxLength={40}
+                className="flex-1 bg-surface-raised border border-border rounded-md px-4 py-3 text-text text-footnote"
+                style={{ borderCurve: 'continuous' }}
+              />
+              <TouchableOpacity
+                onPress={() => {
+                  const next = draft.filter((_, j) => j !== i)
+                  setDraft(next)
+                  commit(next)
+                }}
+                hitSlop={13}
+                accessibilityLabel={`Remove day ${i + 1}`}
+              >
+                <X size={18} color={colors['text-subtle']} />
+              </TouchableOpacity>
+            </View>
+          ))}
+          {draft.length < SPLIT_MAX && (
+            <TouchableOpacity onPress={() => setDraft([...draft, ''])} className="flex-row items-center gap-2 min-h-11">
+              <Plus size={16} color={colors['text-muted']} />
+              <Text className="text-text-muted text-footnote font-medium">Add a session</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  )
+}
+
 const INJURIES = [
   { key: 'shoulder', label: 'Shoulder' },
   { key: 'knee', label: 'Knee' },
@@ -190,6 +296,14 @@ export function TrainingPrefsFields({ value, onChange }: { value: Preferences; o
       <View>
         <Label>Lifting experience</Label>
         <SingleChoice options={EXPERIENCE} value={value.experience} onChange={(v) => onChange({ experience: v })} />
+      </View>
+      <View>
+        <Label hint="The days you actually train. If you skip one most weeks, count the rest.">Days a week</Label>
+        <SingleChoice options={DAYS} value={value.training_days} onChange={(v) => onChange({ training_days: v })} />
+      </View>
+      <View>
+        <Label hint="Sessions in the order you rotate them. They repeat across your training days.">Your split</Label>
+        <SplitField value={value.split} onChange={(v) => onChange({ split: v })} />
       </View>
       <View>
         <Label>Time per session</Label>

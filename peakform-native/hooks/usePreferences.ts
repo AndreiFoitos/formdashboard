@@ -17,6 +17,9 @@ export interface Preferences {
   experience: Experience | null
   session_minutes: number | null
   training_days: number | null
+  /** The user's own split: session labels in the order they cycle, repeated
+   *  across their training days. Null = Pit Crew chooses. */
+  split: string[] | null
   injuries: string[]
   diet_style: DietStyle | null
   allergies: string[]
@@ -33,6 +36,7 @@ export const EMPTY_PREFERENCES: Preferences = {
   experience: null,
   session_minutes: null,
   training_days: null,
+  split: null,
   injuries: [],
   diet_style: null,
   allergies: [],

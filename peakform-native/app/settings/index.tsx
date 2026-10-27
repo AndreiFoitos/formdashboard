@@ -453,7 +453,7 @@ export default function SettingsScreen() {
         <SettingsGroup header="Preferences">
           <SettingsRow
             title="Training preferences"
-            detail="Equipment, experience, session length, injuries"
+            detail="Days, split, equipment, session length, injuries"
             onPress={() => router.push('/settings/training')}
           />
           <SettingsRow

@@ -34,6 +34,10 @@ class UserPreference(Base):
     # Explicit days per week. When null, plans fall back to the onboarding
     # training_frequency bucket.
     training_days: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
+    # The user's own split: the session focuses in the order they cycle, e.g.
+    # ["Chest + Back", "Arms + Shoulders", "Legs"], repeated across their
+    # training days. Null or [] lets the plan builder choose.
+    split: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     injuries: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     # anything / vegetarian / vegan / pescatarian / halal / kosher
     diet_style: Mapped[str | None] = mapped_column(String(16), nullable=True)

@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native'
 import { formatNumber } from '../lib/format'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ChevronLeft } from 'lucide-react-native'
@@ -27,7 +27,7 @@ import { NOTIFICATION_REASONS } from '../components/NotificationsCard'
 import { enablePredictiveNudges } from '../lib/notifications'
 import { Bell } from 'lucide-react-native'
 import { colors } from '../theme/tokens'
-import { DEFICIT_KCAL, SURPLUS_KCAL, tdee, type Sex, type TrainingFreq } from '../lib/targets'
+import { DEFICIT_KCAL, SURPLUS_KCAL, daysFromFreq, tdee, type Sex, type TrainingFreq } from '../lib/targets'
 import { unitsFor, useUnits, useUnitsStore, type UnitSystem, type Units } from '../lib/units'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -655,6 +655,10 @@ export default function OnboardingScreen() {
     setPrefs((p) => ({ ...p, ...patch }))
     setPrefsPatch((p) => ({ ...p, ...patch }))
   }
+  // The days we filled in from the baseline step's frequency answer. Going
+  // back and changing that answer refills it, unless the user picked a day
+  // count themselves.
+  const prefilledDays = useRef<number | null>(null)
 
   const [form, setForm] = useState<FormState>({
     username: user?.username ?? '',
@@ -768,6 +772,16 @@ export default function OnboardingScreen() {
     setSelectedGoal(o.key)
     setField('calorie_target', String(o.kcal))
   }
+
+  // Training step: start Days a week from the frequency already answered, so
+  // it isn't asked twice from scratch. It saves on Continue, not on Skip.
+  useEffect(() => {
+    if (step !== 4 || !form.training_frequency) return
+    if (prefs.training_days != null && prefs.training_days !== prefilledDays.current) return
+    const days = daysFromFreq(form.training_frequency)
+    prefilledDays.current = days
+    if (prefs.training_days !== days) patchPrefs({ training_days: days })
+  }, [step, form.training_frequency])
 
   // Debounced username availability check.
   useEffect(() => {

@@ -127,6 +127,7 @@ function Intro() {
           </Card>
         </TouchableOpacity>
       )}
+      {!missing && <SetupRow />}
       <BuildButton label="Build my plan" />
     </View>
   )
@@ -353,6 +354,26 @@ function WhyCard({ plan }: { plan: Plan }) {
   )
 }
 
+/** What the next build will use for days and split, one tap from changing it.
+ *  Without it a rebuild looked like the only lever and gave the same week. */
+function SetupRow() {
+  const { data: prefs } = usePreferences()
+  if (!prefs) return null
+  const days = prefs.training_days ? `${prefs.training_days} days a week` : 'Days from your signup answer'
+  const split = prefs.split?.length ? prefs.split.join(' / ') : 'Pit Crew picks the split'
+  return (
+    <TouchableOpacity onPress={() => router.push('/settings/training')}>
+      <Card className="px-4 py-4 flex-row items-center justify-between">
+        <View className="flex-1 pr-3">
+          <Text className="text-text text-footnote font-medium">Days and split</Text>
+          <Text className="text-text-subtle text-caption mt-1">{days} · {split}</Text>
+        </View>
+        <ChevronRight size={18} color={colors['text-subtle']} />
+      </Card>
+    </TouchableOpacity>
+  )
+}
+
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export function PlanPanel() {
@@ -420,7 +441,12 @@ export function PlanPanel() {
                 </TouchableOpacity>
               )}
               <WhyCard plan={plan} />
-              {!state.data?.building && <BuildButton label="Build a new plan" rebuild />}
+              {!state.data?.building && (
+                <>
+                  <SetupRow />
+                  <BuildButton label="Build a new plan" rebuild />
+                </>
+              )}
             </>
           )}
           <Text className="text-text-subtle text-caption text-center px-2">

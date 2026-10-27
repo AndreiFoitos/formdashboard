@@ -9,7 +9,8 @@ Claude picks the exercises and foods. Every number the user sees is ours:
 The model can only name exercises from an enum built per user, so equipment
 and injury exclusions hold by construction. Food is checked in code against
 allergies and diet style; one retry names the problem, a second failure
-fails the build (the quota is refunded).
+fails the build (the quota is refunded). A split the user chose is checked
+the same way, but a week that still strays after the retry is kept.
 """
 from __future__ import annotations
 
@@ -221,6 +222,79 @@ def training_days(prefs: UserPreference | None, freq: str | None) -> int:
     if prefs and prefs.training_days:
         return prefs.training_days
     return FREQ_DAYS.get(freq or "", 3)
+
+
+# ─── The user's own split ─────────────────────────────────────────────────────
+
+SPLIT_MAX = 7
+SPLIT_LABEL_LEN = 40
+
+# Words in a session label → the muscle groups that session may train. A
+# label with none of these words ("Day A", "Full body") isn't checked.
+SPLIT_WORDS: dict[str, set[str]] = {
+    "chest": {"Chest"}, "pec": {"Chest"},
+    "back": {"Back"}, "lat": {"Back"},
+    "leg": {"Legs"}, "quad": {"Legs"}, "hamstring": {"Legs"}, "glute": {"Legs"}, "calf": {"Legs"},
+    "calves": {"Legs"}, "lower": {"Legs"},
+    "shoulder": {"Shoulders"}, "delt": {"Shoulders"},
+    "arm": {"Arms"}, "bicep": {"Arms"}, "tricep": {"Arms"},
+    "push": {"Chest", "Shoulders", "Arms"},
+    "pull": {"Back", "Arms"},
+    "upper": {"Chest", "Back", "Shoulders", "Arms"},
+}
+SPLIT_SKIP = ("full", "total")
+# Share of a session's sets that must land in its label's groups. Core and
+# Other are free filler on any day.
+SPLIT_MATCH = 0.75
+
+
+def clean_split(values: list[str]) -> list[str] | None:
+    """Trim the session labels; [] means "let Pit Crew choose" and is stored
+    as None. Repeats are kept: Upper, Lower, Upper, Lower is a real split."""
+    out = [" ".join(v.split())[:SPLIT_LABEL_LEN] for v in values]
+    out = [v for v in out if v][:SPLIT_MAX]
+    return out or None
+
+
+def split_groups(label: str) -> set[str] | None:
+    words = re.findall(r"[a-z]+", label.lower())
+    if any(w.startswith(SPLIT_SKIP) for w in words):
+        return None
+    groups = {g for w in words for stem, gs in SPLIT_WORDS.items() if w.startswith(stem) for g in gs}
+    return groups or None
+
+
+def split_cycle(split: list[str], days: int) -> list[str]:
+    """The session for each training day, in weekday order."""
+    return [split[i % len(split)] for i in range(days)]
+
+
+def split_problems(raw: dict, split: list[str] | None, days: int,
+                   exercises: dict[str, tuple[str, str]]) -> list[str]:
+    """Where a built week strays from the split the user chose."""
+    if not split:
+        return []
+    out_days = sorted(
+        {d["weekday"]: d for d in raw.get("days", []) if d["weekday"] in WEEKDAYS}.values(),
+        key=lambda d: WEEKDAYS.index(d["weekday"]),
+    )
+    problems = []
+    if len(out_days) != days:
+        problems.append(f"The week has {len(out_days)} training days; it needs exactly {days}.")
+    for d, label in zip(out_days, split_cycle(split, days)):
+        want = split_groups(label)
+        if want is None:
+            continue
+        sets = Counter()
+        for e in d.get("exercises", []):
+            if e["key"] in exercises:
+                sets[exercises[e["key"]][1]] += max(int(e["sets"]), 0)
+        counted = sum(n for g, n in sets.items() if g not in ("Core", "Other"))
+        on_target = sum(n for g, n in sets.items() if g in want)
+        if counted and on_target < SPLIT_MATCH * counted:
+            off = ", ".join(sorted(g for g in sets if g not in want and g not in ("Core", "Other")))
+            problems.append(f"{d['weekday']} should be '{label}' ({', '.join(sorted(want))}) but trains {off}.")
+    return problems
 
 
 def _activity(days: int) -> float:
@@ -446,7 +520,8 @@ def plan_schema(exercise_keys: list[str], with_meals: bool) -> dict:
 PLAN_SYSTEM = """You are the planning engine behind Pit Crew, the training and nutrition planner in the GainRace app. Build one week of strength training and, when asked, a meal plan for the user whose data follows. The app repeats the week until the user rebuilds it.
 
 Training rules:
-- Use exactly the number of training days given. Put rest days between hard sessions where you can, and keep their usual split if it fits.
+- Use exactly the number of training days given. Put rest days between hard sessions where you can.
+- If the inputs list a chosen split, it is the user's decision: in weekday order, each training day is the next session of that cycle, named after it, and trains only its muscle groups (core work may go on any day). Fit volume and exercise choice inside it; never swap in a different split. Otherwise pick the split yourself, keeping their usual split if it fits.
 - Fit each session in the time given: about 2.5 minutes per working set including rest, plus 5 minutes of warm-up.
 - Compound lifts first, isolation after. 10-20 hard sets per major muscle group per week; 8-12 for new lifters.
 - Rep ranges: heavy compounds 4-8, hypertrophy work 8-12, small isolation 10-20. New lifters get fewer exercises and 8-12 reps.
@@ -467,7 +542,7 @@ rationale: 3-5 plain sentences to the user that cite their own numbers (weight t
 
 def plan_inputs(
     days: int, minutes: int, experience: str | None, goal: str | None, targets: dict | None,
-    exercises: dict[str, tuple[str, str]],
+    exercises: dict[str, tuple[str, str]], split: list[str] | None = None,
 ) -> str:
     by_group: dict[str, list[str]] = {}
     for key, (name, group) in exercises.items():
@@ -479,6 +554,13 @@ def plan_inputs(
         f"- experience: {experience or 'unknown (assume some)'}",
         f"- goal: {goal or 'not set'}",
     ]
+    if split:
+        lines.append(
+            f"- chosen split, cycled in weekday order: {' -> '.join(split)}. "
+            f"Training days in order: {', '.join(split_cycle(split, days))}"
+        )
+    else:
+        lines.append("- chosen split: none, pick one")
     if targets:
         lines.append(
             f"- meal plan: yes. Daily target {targets['kcal']} kcal, protein {targets['protein_g']} g "
@@ -739,9 +821,10 @@ async def _generate(user: User, db: AsyncSession) -> dict:
     one_rms = await best_one_rms(user, today, db)
 
     context = await build_context(user, db, min(plan_for(user).history_days, 90))
+    split = prefs.split if prefs else None
     inputs = plan_inputs(
         days, minutes, prefs.experience if prefs else None, prefs.goal if prefs else None,
-        targets if with_meals else None, exercises,
+        targets if with_meals else None, exercises, split,
     )
     system = [{"type": "text", "text": PLAN_SYSTEM, "cache_control": {"type": "ephemeral"}}]
     messages: list[dict] = [{"role": "user", "content": f"{context}\n\n{inputs}"}]
@@ -755,11 +838,12 @@ async def _generate(user: User, db: AsyncSession) -> dict:
         usage_in += u.input_tokens + (u.cache_read_input_tokens or 0) + (u.cache_creation_input_tokens or 0)
         usage_out += u.output_tokens
         hard, soft = food_problems(raw, prefs)
+        off_split = split_problems(raw["training"], split, days, exercises)
         if with_meals and not hard:
             nutrition, warnings = await resolve_nutrition(raw["nutrition"], targets)
-        if attempt == 2 or not (hard or soft or warnings):
+        if attempt == 2 or not (hard or soft or warnings or off_split):
             break
-        problems = hard + soft + [w for w in warnings if "protein" in w]
+        problems = hard + soft + [w for w in warnings if "protein" in w] + off_split
         if not problems:
             break
         messages += [
@@ -768,6 +852,10 @@ async def _generate(user: User, db: AsyncSession) -> dict:
                 "Fix these problems and return the complete plan again:\n- " + "\n- ".join(problems)
             )},
         ]
+    if off_split:
+        # Not worth failing the build over: the user still gets a plan and
+        # can swap exercises in the chat.
+        log.warning("plan build for %s strayed from the chosen split: %s", user.id, off_split)
     if hard:
         log.warning("plan build for %s broke food rules twice: %s", user.id, hard)
         raise PlanBuildError(
@@ -780,6 +868,7 @@ async def _generate(user: User, db: AsyncSession) -> dict:
             "training": resolve_training(raw["training"], exercises, one_rms, days),
             "nutrition": nutrition,
             "days_per_week": days,
+            "split": split,
             "session_minutes": minutes,
             "model": CLAUDE_MODEL,
         },

@@ -52,6 +52,12 @@ export function freqFromDays(days: number | null | undefined): TrainingFreq {
   return '6x+'
 }
 
+/** The onboarding frequency bucket → a starting days-per-week answer.
+ *  Round-trips through freqFromDays, so the calorie maths doesn't shift. */
+export function daysFromFreq(freq: TrainingFreq): number {
+  return { '0-1x': 1, '2-3x': 3, '4-5x': 4, '6x+': 6 }[freq]
+}
+
 /** Daily calorie target for a goal, rounded to 10 kcal. */
 export function calorieTarget(
   goal: GoalKey,
