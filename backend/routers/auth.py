@@ -133,15 +133,11 @@ async def _find_or_create_oauth_user(
             await db.refresh(user)
             return user
 
-    # New user. Apple may not give us an email on re-auth, but on first auth it
-    # does — and the only way to reach this branch is first auth (no sub match).
-    if not email:
-        raise HTTPException(
-            400,
-            "This account has no email on file. Sign in with your original method to link accounts.",
-        )
-
-    username = await _generate_username(email.split("@")[0] or name, db)
+    # New user. Usually first auth, where Apple includes the email. But if the
+    # row was deleted without revoking Apple (revoke is best-effort), Apple
+    # still treats the app as authorized and omits the email — create the
+    # account anyway rather than dead-ending them.
+    username = await _generate_username((email.split("@")[0] if email else None) or name, db)
     user = User(
         email=email,
         hashed_password=None,

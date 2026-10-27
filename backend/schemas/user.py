@@ -36,7 +36,7 @@ RESERVED_USERNAMES = frozenset({
 
 class UserOut(BaseModel):
     id: uuid.UUID
-    email: EmailStr
+    email: EmailStr | None
     username: str | None
     name: str | None
     age: int | None

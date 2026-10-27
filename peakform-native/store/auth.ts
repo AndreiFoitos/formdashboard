@@ -3,7 +3,7 @@ import type { AvatarConfig } from '../lib/avatar/config'
 
 export interface User {
   id: string
-  email: string
+  email: string | null
   username: string | null
   name: string | null
   age: number | null
