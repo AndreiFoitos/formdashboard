@@ -21,8 +21,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core import redis as redis_mod
 from core.database import AsyncSessionLocal
+from core.redis import cache_get, cache_setex
 from models.hydration_log import HydrationLog
 from models.push_token import PushToken
 from models.stimulant_log import StimulantLog
@@ -142,7 +142,7 @@ async def _user_has_active_tokens(db: AsyncSession, user_id: uuid.UUID) -> bool:
     return result.first() is not None
 
 
-async def _process_user(user: User, db: AsyncSession, redis) -> int:
+async def _process_user(user: User, db: AsyncSession) -> int:
     """Returns how many pushes were sent for this user."""
     if not await _user_has_active_tokens(db, user.id):
         return 0
@@ -157,15 +157,11 @@ async def _process_user(user: User, db: AsyncSession, redis) -> int:
     now_min = local_now.hour * 60 + local_now.minute
     now_weekday = local_now.weekday()
 
-    # Daily cap check up front — cheap.
+    # Daily cap check up front — cheap. The cap and per-slot keys go through the
+    # Redis-or-memory helpers: production has no Redis, and skipping them there
+    # let one ignored slot push on every 15-min run inside its window.
     cap_key = _today_cap_key(user.id, today_str)
-    sent_so_far = 0
-    if redis is not None:
-        try:
-            sent_raw = await redis.get(cap_key)
-            sent_so_far = int(sent_raw) if sent_raw else 0
-        except Exception:  # noqa: BLE001
-            sent_so_far = 0
+    sent_so_far = int(await cache_get(cap_key) or 0)
     if sent_so_far >= DAILY_PUSH_CAP:
         return 0
 
@@ -183,12 +179,8 @@ async def _process_user(user: User, db: AsyncSession, redis) -> int:
         # Per-slot dedupe — only one push per slot per day, even if the scheduler
         # picks the user up again 15 min later inside the same window.
         sent_key = _slot_sent_key(user.id, today_str, slot)
-        if redis is not None:
-            try:
-                if await redis.get(sent_key):
-                    continue
-            except Exception:  # noqa: BLE001
-                pass
+        if await cache_get(sent_key):
+            continue
 
         if await _already_logged_near_slot(db, user.id, slot, local_now, tz):
             continue
@@ -200,25 +192,16 @@ async def _process_user(user: User, db: AsyncSession, redis) -> int:
         )
         if delivered > 0:
             delivered_total += 1
-            if redis is not None:
-                try:
-                    # 36h TTL — outlasts the cap-counter day across DST shifts.
-                    await redis.set(sent_key, "1", ex=60 * 60 * 36)
-                except Exception:  # noqa: BLE001
-                    pass
+            # 36h TTL — outlasts the cap-counter day across DST shifts.
+            await cache_setex(sent_key, 60 * 60 * 36, "1")
 
-    if delivered_total and redis is not None:
-        try:
-            new_total = sent_so_far + delivered_total
-            await redis.set(cap_key, new_total, ex=60 * 60 * 36)
-        except Exception:  # noqa: BLE001
-            pass
+    if delivered_total:
+        await cache_setex(cap_key, 60 * 60 * 36, str(sent_so_far + delivered_total))
     return delivered_total
 
 
 async def dispatch_predictive_nudges() -> None:
     """Scheduler entry point — fan out across all users with push tokens."""
-    redis = redis_mod.redis_client
     async with AsyncSessionLocal() as db:
         # Pull users that have at least one active push token. Avoids loading the
         # whole user table when 80% of accounts won't have notifications enabled.
@@ -237,7 +220,7 @@ async def dispatch_predictive_nudges() -> None:
             if user is None:
                 continue
             try:
-                sent = await _process_user(user, db, redis)
+                sent = await _process_user(user, db)
                 sent_total += sent
             except Exception as e:  # noqa: BLE001
                 failed += 1

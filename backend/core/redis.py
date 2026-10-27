@@ -97,6 +97,21 @@ async def cache_setex(key: str, ttl_seconds: int, value: str) -> None:
     _memory_set(key, ttl_seconds, str(value))
 
 
+async def cache_set_nx(key: str, ttl_seconds: int, value: str = "1") -> bool:
+    """Set key only if it doesn't exist yet. True when this call set it (first
+    writer wins), False when it was already there."""
+    if redis_client is not None:
+        try:
+            return bool(await redis_client.set(key, value, ex=ttl_seconds, nx=True))
+        except Exception:
+            pass
+    # No await between the check and the set, so this is atomic on one event loop.
+    if _memory_get(key) is not None:
+        return False
+    _memory_set(key, ttl_seconds, str(value))
+    return True
+
+
 async def incr_with_ttl(key: str, ttl_seconds: int) -> int:
     """Increment a counter and return the new value. The counter expires
     ttl_seconds after its first increment (Redis refreshes it on each call)."""

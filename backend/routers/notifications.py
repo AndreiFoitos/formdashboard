@@ -6,7 +6,7 @@
 - DELETE /notifications/token — for explicit sign-out / opt-out.
 - POST /logs/quick — single endpoint the notification action handler hits.
   Dispatches to hydration / stimulant log paths. Idempotent on `request_id`
-  (Redis dedupe, 5 min) so a double-tap from the lock screen doesn't double-log.
+  (Redis-or-memory dedupe, 5 min) so a double-tap from the lock screen doesn't double-log.
 - GET /notifications/patterns — debug/preview endpoint; lets the app show
   "these are the times we'd nudge you" inside Settings.
 """
@@ -19,10 +19,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-import redis.asyncio as aioredis
 
 from core.database import get_db
-from core.redis import get_redis
+from core.redis import cache_set_nx
 from middleware.auth import get_current_user
 from models.hydration_log import HydrationLog
 from models.push_token import PushToken
@@ -133,7 +132,6 @@ async def quick_log(
     body: QuickLogRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-    redis: aioredis.Redis = Depends(get_redis),
 ):
     """One endpoint for both log types. Idempotent on request_id.
 
@@ -141,15 +139,10 @@ async def quick_log(
     system can deliver the same response twice if the network is flaky) must
     not create two log rows.
     """
-    if redis is not None:
-        dedupe_key = f"quicklog:{current_user.id}:{body.request_id}"
-        try:
-            # SET NX with 5-min TTL — first writer wins.
-            was_set = await redis.set(dedupe_key, "1", ex=300, nx=True)
-            if not was_set:
-                return {"status": "duplicate", "request_id": body.request_id}
-        except Exception:  # noqa: BLE001 — fall through if redis is down
-            pass
+    # SET NX with 5-min TTL — first writer wins. Falls back to the in-memory
+    # store when Redis isn't there (production).
+    if not await cache_set_nx(f"quicklog:{current_user.id}:{body.request_id}", 300):
+        return {"status": "duplicate", "request_id": body.request_id}
 
     if body.type == "hydration":
         if not body.amount_ml:
