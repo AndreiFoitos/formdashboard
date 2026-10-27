@@ -12,6 +12,9 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     # Nullable: Apple omits the email when re-authorizing an app it already knows.
     email: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    # True once the address is proven: Apple/Google vouched for it, or the user
+    # clicked an emailed link. Only proven emails link OAuth sign-ins.
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", nullable=False)
     # Nullable because OAuth-only users (Apple/Google) don't have a password.
     hashed_password: Mapped[str | None] = mapped_column(String, nullable=True)
 

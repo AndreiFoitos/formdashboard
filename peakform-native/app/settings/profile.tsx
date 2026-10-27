@@ -15,6 +15,20 @@ const SEX_LABEL = { male: 'Male', female: 'Female' } as const
 
 // Setting and changing both go through an emailed link, so the password page
 // opens in the browser and proves the person owns the email.
+function resendEmailConfirm(email: string) {
+  Alert.alert('Confirm your email', `We'll send a link to ${email}. Until you open it, Apple and Google sign-in can't link to this account by email.`, [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Send link',
+      onPress: () =>
+        api
+          .post('/users/me/email/confirm-link')
+          .then(() => Alert.alert('Check your email', `Open the link we sent to ${email}.`))
+          .catch((e) => Alert.alert("Couldn't send the link", extractErrorMessage(e, 'Try again in a minute.'))),
+    },
+  ])
+}
+
 function requestPasswordLink(email: string | null, hasPassword: boolean) {
   const verb = hasPassword ? 'change' : 'set'
   if (!email) {
@@ -74,7 +88,9 @@ export default function ProfileScreen() {
         header="Account"
         footer={user?.has_password ? 'You can sign in with your email and password.' : 'Set a password to also sign in with your email.'}
       >
-        {user?.email ? (
+        {user?.email && user.email_verified === false ? (
+          <SettingsRow title="Email" value={`${user.email} · Unconfirmed`} onPress={() => resendEmailConfirm(user.email!)} />
+        ) : user?.email ? (
           <SettingsRow title="Email" value={user.email} />
         ) : (
           <SettingsRow title="Email" value="Add" onPress={() => router.push('/settings/add-email')} />

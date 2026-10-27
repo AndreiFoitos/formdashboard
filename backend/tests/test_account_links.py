@@ -21,7 +21,7 @@ limiter.enabled = False
 def make_user(**kw) -> User:
     base = dict(
         id=uuid.uuid4(), email="u@test.com", username="tester", timezone="UTC",
-        sleep_hour=23, onboarding_complete=True, created_at=datetime.now(timezone.utc),
+        sleep_hour=23, onboarding_complete=True, email_verified=False, created_at=datetime.now(timezone.utc),
     )
     return User(**{**base, **kw})
 
@@ -162,3 +162,25 @@ def test_confirm_fails_if_email_taken_meanwhile(env):
     users.append(make_user(email="race@test.com"))
     r = client.post("/auth/email/confirm", data={"token": link_token(sent)})
     assert r.status_code == 409 and user.email is None
+
+
+def test_password_link_proves_the_email(env):
+    client, users, current, sent = env
+    user = make_user(hashed_password=None, email_verified=False)
+    users.append(user)
+    current["user"] = user
+    client.post("/auth/password/link")
+    client.post("/auth/password/reset", data={"token": link_token(sent), "password": "newpass123", "confirm": "newpass123"})
+    assert user.email_verified is True
+
+
+def test_resend_confirm_marks_existing_email_verified(env):
+    client, users, current, sent = env
+    user = make_user(email_verified=False)
+    users.append(user)
+    current["user"] = user
+    assert client.post("/users/me/email/confirm-link").status_code == 202
+    assert sent[-1]["to"] == "u@test.com"
+    client.post("/auth/email/confirm", data={"token": link_token(sent)})
+    assert user.email_verified is True
+    assert client.post("/users/me/email/confirm-link").status_code == 409

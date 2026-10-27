@@ -8,9 +8,11 @@ form back to finish the job.
 - Password: one flow for "set" (Apple/Google accounts have no password) and
   "change". The token carries a fingerprint of the current password hash, so
   a link dies once it has been used or the password changes some other way.
-- Email: Apple sometimes signs a user in without an email. The app lets them
-  add one, but it's only saved once they click the link, so nobody can claim
-  an address they don't own (OAuth sign-in links accounts by email).
+- Email: proves the person owns an address. Used after email/password
+  sign-up (until then the email can't link Apple/Google sign-ins), and when
+  someone Apple signed in without an email adds one — it's only saved once
+  they click, so nobody can claim an address they don't own. Using a password
+  link also proves the email, since it was sent there.
 """
 from __future__ import annotations
 
@@ -93,6 +95,23 @@ async def _send_password_link(user: User) -> None:
             f"{verb.capitalize()} your password",
             f"Tap the button to {verb} your GainRace password. The link works for 1 hour.",
             f"{verb.capitalize()} password",
+            url,
+        ),
+    )
+
+
+async def send_email_confirm_link(user: User, email: str) -> None:
+    token = create_link_token(str(user.id), "email_confirm", EMAIL_LINK_MINUTES, email=email)
+    url = f"{settings.PUBLIC_API_URL}/auth/email/confirm?token={token}"
+    await send_email(
+        to=email,
+        subject="Confirm your GainRace email",
+        text=f"Open this link to confirm this email for your GainRace account. It works for 24 hours.\n\n{url}\n\n"
+        "If you didn't ask for this, you can ignore this email.",
+        html=_email_html(
+            "Confirm your email",
+            "Tap the button to confirm this email for your GainRace account. The link works for 24 hours.",
+            "Confirm email",
             url,
         ),
     )
@@ -188,6 +207,7 @@ async def password_reset_submit(
         return _password_form(token, verb, "The passwords don't match.")
 
     user.hashed_password = hash_password(password)
+    user.email_verified = True  # the link was sent to this address
     await db.commit()
     return _page(
         "Password saved",
@@ -212,21 +232,20 @@ async def add_email(
     if await _find_by_email(body.email, db):
         raise HTTPException(409, "That email is already used by another account.")
 
-    token = create_link_token(str(current_user.id), "email_confirm", EMAIL_LINK_MINUTES, email=body.email)
-    url = f"{settings.PUBLIC_API_URL}/auth/email/confirm?token={token}"
-    await send_email(
-        to=body.email,
-        subject="Confirm your GainRace email",
-        text=f"Open this link to add this email to your GainRace account. It works for 24 hours.\n\n{url}\n\n"
-        "If you didn't ask for this, you can ignore this email.",
-        html=_email_html(
-            "Confirm your email",
-            "Tap the button to add this email to your GainRace account. The link works for 24 hours.",
-            "Confirm email",
-            url,
-        ),
-    )
+    await send_email_confirm_link(current_user, body.email)
     return {"sent_to": body.email}
+
+
+@router.post("/users/me/email/confirm-link", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("3/hour")
+async def resend_email_confirm(request: Request, current_user: User = Depends(get_current_user)):
+    """Settings → Email (unconfirmed). Re-sends the confirm link."""
+    if not current_user.email:
+        raise HTTPException(400, "Add an email to your account first.")
+    if current_user.email_verified:
+        raise HTTPException(409, "Your email is already confirmed.")
+    await send_email_confirm_link(current_user, current_user.email)
+    return {"sent_to": current_user.email}
 
 
 @router.get("/auth/email/confirm", response_class=HTMLResponse, include_in_schema=False)
@@ -238,7 +257,7 @@ async def confirm_email_page(token: str = "", db: AsyncSession = Depends(get_db)
     email = html.escape(decode_token(token).get("email", ""))
     return _page(
         "Confirm email",
-        f"""<h1>Confirm your email</h1><p>Add <strong>{email}</strong> to your GainRace account?</p>
+        f"""<h1>Confirm your email</h1><p>Confirm <strong>{email}</strong> as the email for your GainRace account?</p>
 <form method="post" action="/auth/email/confirm"><input type="hidden" name="token" value="{html.escape(token)}">
 <button type="submit">Confirm email</button></form>""",
     )
@@ -252,6 +271,8 @@ async def confirm_email_submit(request: Request, token: str = Form(""), db: Asyn
     if not user or not email:
         return _expired_page()
     if user.email and user.email.lower() == email.lower():
+        user.email_verified = True
+        await db.commit()
         return _page("Email confirmed", "<h1>Email confirmed</h1><p>You can close this page.</p>")
     if user.email:
         return _expired_page()
@@ -264,6 +285,7 @@ async def confirm_email_submit(request: Request, token: str = Form(""), db: Asyn
         )
 
     user.email = email
+    user.email_verified = True
     await db.commit()
     return _page(
         "Email confirmed",

@@ -44,6 +44,8 @@ _jwks_cache: dict[str, tuple[float, dict]] = {}
 class VerifiedIdentity:
     sub: str
     email: Optional[str]
+    # Whether the provider says it verified the email. Apple sends the string "true".
+    email_verified: bool = False
 
 
 async def _fetch_jwks(url: str) -> dict:
@@ -154,6 +156,10 @@ async def _verify_jwt(
     return payload
 
 
+def _claim_true(payload: dict, claim: str) -> bool:
+    return payload.get(claim) in (True, "true")
+
+
 async def verify_apple_token(identity_token: str) -> VerifiedIdentity:
     if not settings.APPLE_BUNDLE_ID:
         raise HTTPException(503, "Sign in with Apple is not configured")
@@ -170,7 +176,7 @@ async def verify_apple_token(identity_token: str) -> VerifiedIdentity:
         raise HTTPException(401, "Apple token missing subject")
 
     # `email` is included on first sign-in only; Apple omits it on re-auth.
-    return VerifiedIdentity(sub=sub, email=payload.get("email"))
+    return VerifiedIdentity(sub=sub, email=payload.get("email"), email_verified=_claim_true(payload, "email_verified"))
 
 
 async def verify_google_token(id_token: str) -> VerifiedIdentity:
@@ -193,4 +199,4 @@ async def verify_google_token(id_token: str) -> VerifiedIdentity:
     if not sub:
         raise HTTPException(401, "Google token missing subject")
 
-    return VerifiedIdentity(sub=sub, email=payload.get("email"))
+    return VerifiedIdentity(sub=sub, email=payload.get("email"), email_verified=_claim_true(payload, "email_verified"))

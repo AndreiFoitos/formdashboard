@@ -6,6 +6,8 @@ export interface User {
   email: string | null
   /** False for Apple/Google accounts that never set one; missing on older backends. */
   has_password?: boolean
+  /** True once the email is proven (Apple/Google, or an emailed link was opened). */
+  email_verified?: boolean
   username: string | null
   name: string | null
   age: number | null

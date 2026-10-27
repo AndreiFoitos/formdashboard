@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import secrets
 
@@ -17,6 +18,9 @@ from models.streak import Streak
 from schemas.user import RESERVED_USERNAMES
 from services.oauth_verify import verify_apple_token, verify_google_token
 from services.apple_revoke import exchange_authorization_code
+from routers.account_links import send_email_confirm_link
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -103,6 +107,7 @@ async def _find_or_create_oauth_user(
     provider: str,  # "apple" | "google"
     sub: str,
     email: str | None,
+    email_verified: bool,
     name: str | None,
     db: AsyncSession,
 ) -> User:
@@ -111,8 +116,9 @@ async def _find_or_create_oauth_user(
 
     Lookup order:
       1. Existing user with matching provider sub → return as-is.
-      2. Existing user with matching email (case-insensitive) → link this sub
-         to their account so they can use either method next time.
+      2. Existing user with matching email (case-insensitive), when the
+         provider verified that email → link this sub to their account so they
+         can use either method next time.
       3. Otherwise, create a new user with no password.
     """
     sub_col = User.apple_sub if provider == "apple" else User.google_sub
@@ -122,24 +128,38 @@ async def _find_or_create_oauth_user(
     if user:
         return user
 
+    existing = None
     if email:
         by_email = await db.execute(
             select(User).where(sqlfunc.lower(User.email) == email.lower())
         )
-        user = by_email.scalar_one_or_none()
-        if user:
-            setattr(user, f"{provider}_sub", sub)
-            await db.commit()
-            await db.refresh(user)
-            return user
+        existing = by_email.scalar_one_or_none()
+    if existing and email_verified:
+        user = existing
+        if not user.email_verified:
+            # Whoever registered this address with a password never proved
+            # they own it; the provider just proved this person does. They get
+            # the account and the unproven password stops working (they can
+            # set their own via Settings or Forgot password).
+            user.hashed_password = None
+            user.email_verified = True
+        setattr(user, f"{provider}_sub", sub)
+        await db.commit()
+        await db.refresh(user)
+        return user
 
     # New user. Usually first auth, where Apple includes the email. But if the
     # row was deleted without revoking Apple (revoke is best-effort), Apple
     # still treats the app as authorized and omits the email — create the
     # account anyway rather than dead-ending them.
+    if existing:
+        # Unverified provider email that another account already uses: don't
+        # link, and don't take the address. They can add one from Settings.
+        email = None
     username = await _generate_username((email.split("@")[0] if email else None) or name, db)
     user = User(
         email=email,
+        email_verified=bool(email and email_verified),
         hashed_password=None,
         name=name,
         username=username,
@@ -180,6 +200,14 @@ async def register(request: Request, body: RegisterRequest, db: AsyncSession = D
     db.add(streak)
     await db.commit()
 
+    # Prove the address. Until then it can't be used to link Apple/Google
+    # sign-ins. Best-effort: a mail hiccup must not fail sign-up; they can
+    # resend from Settings.
+    try:
+        await send_email_confirm_link(user, body.email)
+    except HTTPException as e:
+        log.warning("Sign-up confirm email to user %s not sent: %s", user.id, e.detail)
+
     return await _issue_tokens_for_user(user)
 
 
@@ -211,6 +239,7 @@ async def apple_sign_in(request: Request, body: AppleSignInRequest, db: AsyncSes
         provider="apple",
         sub=identity.sub,
         email=identity.email,
+        email_verified=identity.email_verified,
         name=body.full_name,
         db=db,
     )
@@ -234,6 +263,7 @@ async def google_sign_in(request: Request, body: GoogleSignInRequest, db: AsyncS
         provider="google",
         sub=identity.sub,
         email=identity.email,
+        email_verified=identity.email_verified,
         name=None,  # Google's name claim isn't passed through the mobile flow.
         db=db,
     )

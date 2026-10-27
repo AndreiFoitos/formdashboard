@@ -29,6 +29,7 @@ def make_user(**kw) -> User:
         timezone="UTC",
         sleep_hour=23,
         onboarding_complete=True,
+        email_verified=True,
         created_at=datetime.now(timezone.utc),
         **kw,
     )
