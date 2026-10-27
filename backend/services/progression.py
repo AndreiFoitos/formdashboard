@@ -6,9 +6,11 @@ drop back to the bottom. Shared by the Training tab (rep range read off the
 last session) and Pit Crew plans (rep range from the plan), so both always
 give the same advice.
 
-- Warm-up sets (under 60% of the session's top weight) are ignored.
-- Weight steps: 5 kg on leg lifts, 1 kg under 20 kg (dumbbells, cables),
-  2.5 kg otherwise.
+- Warm-up sets (under 60% of the session's top weight) and drop sets are
+  ignored.
+- Weight steps: 5 kg on leg lifts, 1 kg under 20 kg (cables, light machines),
+  2.5 kg otherwise. Dumbbells are logged per dumbbell and go up by the rack:
+  2 kg under 20 kg, 2.5 kg above.
 - Bodyweight work: +reps; at the top of the range, add weight or a harder
   variation.
 - Stalled (same top weight, no extra reps over 3 sessions): one extra set,
@@ -33,7 +35,9 @@ def range_for(reps: int) -> tuple[int, int]:
     return next(r for top, r in RANGES if reps <= top)
 
 
-def step(group: str | None, weight: float) -> float:
+def step(group: str | None, weight: float, dumbbell: bool = False) -> float:
+    if dumbbell:
+        return 2.0 if weight < 20 else 2.5
     if weight < 20:
         return 1.0
     return 5.0 if group == "Legs" else 2.5
@@ -44,12 +48,14 @@ def round_to(weight: float, inc: float) -> float:
 
 
 def _sets(raw: Iterable[Any]) -> list[tuple[float, int]]:
-    """(weight, reps) for sets that have reps; weight 0 for bodyweight."""
+    """(weight, reps) for sets that have reps; weight 0 for bodyweight.
+    Drop sets are skipped: they're extra work past failure, not the target."""
     out = []
     for s in raw:
         reps = s["reps"] if isinstance(s, dict) else s.reps
         w = s["weight_kg"] if isinstance(s, dict) else s.weight_kg
-        if reps:
+        kind = s.get("set_type") if isinstance(s, dict) else getattr(s, "set_type", None)
+        if reps and kind != "drop":
             out.append((float(w or 0), int(reps)))
     return out
 
@@ -75,6 +81,7 @@ def next_target(
     planned_sets: int | None = None,
     start_weight: float | None = None,
     bodyweight: bool | None = None,
+    dumbbell: bool = False,
 ) -> dict:
     """`sessions`: past sessions of one exercise, oldest first, each a list of
     sets (dicts or rows with weight_kg / reps). Returns the next target:
@@ -115,7 +122,7 @@ def next_target(
     fewest = min(at_top)
     lo, hi = rep_range or range_for(max(at_top))
     n = planned_sets or len(at_top)
-    inc = step(group, top)
+    inc = step(group, top, dumbbell)
     # Lighter working sets after the top ones (back-offs) stay as they were
     # in the pre-fill; the target is about the top sets.
     backoff = [(w, r) for w, r in last if w < top]

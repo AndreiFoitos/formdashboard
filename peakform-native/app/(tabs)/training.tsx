@@ -14,7 +14,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import Svg, { Polyline, Circle, Line as SvgLine } from 'react-native-svg'
-import { Award, Trophy, X } from 'lucide-react-native'
+import { Award, Search, Trophy, X } from 'lucide-react-native'
 import { api } from '../../api/client'
 import { useExerciseName } from '../../hooks/useExerciseName'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
@@ -24,7 +24,7 @@ import { PressableScale } from '../../components/PressableScale'
 import { hapticSuccess, hapticSelection, hapticLight } from '../../lib/haptics'
 import { TrustedShield } from '../../components/icons/TrustedShield'
 import { SusFace } from '../../components/icons/SusFace'
-import { ALL_EXERCISES, EXERCISE_NAME, GROUPS, type Exercise, type Group } from '../../lib/exercises'
+import { ALL_EXERCISES, EXERCISE_NAME, GROUPS, isPerDumbbell, searchKey, type Exercise, type Group } from '../../lib/exercises'
 import {
   KIND_COLOUR,
   KIND_LABEL,
@@ -36,7 +36,8 @@ import {
 } from '../../hooks/useProgression'
 import { UndoToast } from '../../components/UndoToast'
 import { showUndo } from '../../store/undo'
-import { useUnits } from '../../lib/units'
+import { cleanReps, cleanWeight, useUnits } from '../../lib/units'
+import { KEYBOARD_DONE_ID, KeyboardDoneBar } from '../../components/KeyboardDoneBar'
 import { colors } from '../../theme/tokens'
 
 // ─── Exercise catalogue ───────────────────────────────────────────────────────
@@ -62,6 +63,8 @@ interface TrainingLog {
   weight_kg: number | null
   reps: number | null
   notes: string | null
+  set_type?: 'normal' | 'drop'
+  superset_id?: string | null
   logged_at: string
 }
 
@@ -95,6 +98,9 @@ interface SessionExercise {
   sets: number
   top_weight_kg: number | null
   top_reps: number | null
+  drop_sets?: number
+  /** Shared by exercises done back to back. */
+  superset_id?: string | null
 }
 
 interface TrainingSession {
@@ -264,7 +270,7 @@ function PRChart({
           <View>
             <Text className="text-text-subtle text-caption">PR</Text>
             <Text className="text-text text-footnote font-semibold">
-              {u.weightLabel(pr.top_weight_kg!)} × {pr.top_reps}
+              {u.liftLabel(pr.top_weight_kg!)} × {pr.top_reps}
             </Text>
           </View>
         )}
@@ -272,7 +278,7 @@ function PRChart({
           <View>
             <Text className="text-text-subtle text-caption">Last</Text>
             <Text className="text-text text-footnote font-semibold">
-              {u.weightLabel(last.top_weight_kg!)} × {last.top_reps}
+              {u.liftLabel(last.top_weight_kg!)} × {last.top_reps}
             </Text>
           </View>
         )}
@@ -309,6 +315,54 @@ function ProgressBadge({
   )
 }
 
+/** Days each exercise was logged on, from the last 500 sets. Shares the
+ *  Training tab's history query, so it costs nothing extra. */
+function useExerciseFrequency(): Record<string, number> {
+  const { data } = useQuery<TrainingLog[]>({
+    queryKey: ['training-history'],
+    queryFn: () => api.get('/training/history?limit=500').then(r => r.data),
+    staleTime: 60 * 1000,
+  })
+  return useMemo(() => {
+    const days: Record<string, Set<string>> = {}
+    for (const l of data ?? []) (days[l.type] ??= new Set()).add(l.date)
+    return Object.fromEntries(Object.entries(days).map(([k, v]) => [k, v.size]))
+  }, [data])
+}
+
+type PickerItem = { key: string; name: string; group: string; custom: boolean }
+
+function PickerRow({
+  item,
+  colour,
+  info,
+  onPick,
+}: {
+  item: PickerItem
+  /** Group dot, shown where the list mixes groups. */
+  colour?: string
+  info?: { ready_for_weight: boolean; stalled: boolean }
+  onPick: (key: string) => void
+}) {
+  return (
+    <TouchableOpacity
+      onPress={() => { hapticSelection(); onPick(item.key) }}
+      className="px-4 py-3 rounded-xl bg-surface border border-divider flex-row items-center justify-between" style={{ borderCurve: 'continuous' }}
+    >
+      <View className="flex-row items-center gap-2 flex-1 pr-2">
+        {colour && <View className="w-1.5 h-1.5 rounded-full" style={{ borderCurve: 'continuous', backgroundColor: colour }} />}
+        <Text className="text-text text-footnote flex-shrink" numberOfLines={1}>{item.name}</Text>
+      </View>
+      <View className="flex-row items-center gap-2">
+        <ProgressBadge info={info} />
+        {item.custom && <Text className="text-text-subtle text-caption">Custom</Text>}
+      </View>
+    </TouchableOpacity>
+  )
+}
+
+const GROUP_COLOUR: Record<string, string> = Object.fromEntries(GROUPS.map(g => [g.name, g.colour]))
+
 function ExercisePickerModal({
   onPick,
   onClose,
@@ -317,18 +371,21 @@ function ExercisePickerModal({
   onPick: (key: string) => void
   onClose: () => void
   /**
-   * When set, the picker only shows exercises (hardcoded + custom) belonging
-   * to this muscle group. Drives the tile-tap flow on the Training tab.
+   * When set, the picker lists exercises (hardcoded + custom) of this muscle
+   * group. Drives the tile-tap flow on the Training tab. Search still looks
+   * through everything.
    */
   filterGroup?: string
 }) {
   const qc = useQueryClient()
+  const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   // If we're filtering to one group, default the new-custom-exercise group
   // to that group so the user doesn't have to re-pick.
   const [newGroup, setNewGroup] = useState<string>(filterGroup ?? 'Chest')
   const { data: progress } = useProgressionOverview()
+  const freq = useExerciseFrequency()
 
   const customQ = useQuery<CustomExerciseRow[]>({
     queryKey: ['custom-exercises'],
@@ -344,18 +401,40 @@ function ExercisePickerModal({
       qc.invalidateQueries({ queryKey: ['custom-exercises'] })
       setNewName('')
       setCreating(false)
+      setQuery('')
     },
   })
 
-  // Merge custom exercises into the right hardcoded group; anything tagged
-  // 'Other' or unmatched gets its own section at the bottom.
-  const customByGroup = useMemo(() => {
-    const map: Record<string, CustomExerciseRow[]> = {}
-    for (const c of customQ.data ?? []) {
-      (map[c.group_name] ??= []).push(c)
-    }
-    return map
-  }, [customQ.data])
+  // Every exercise once, customs folded into their group ('Other' if none).
+  const items = useMemo<PickerItem[]>(() => [
+    ...GROUPS.flatMap(g => g.exercises.map(e => ({ key: e.key, name: e.name, group: g.name, custom: false }))),
+    ...(customQ.data ?? []).map(c => ({ key: c.key, name: c.name, group: c.group_name, custom: true })),
+  ], [customQ.data])
+
+  // Most logged first; the catalogue order breaks ties (sort is stable).
+  const byFreq = (a: PickerItem, b: PickerItem) => (freq[b.key] ?? 0) - (freq[a.key] ?? 0)
+
+  const q = searchKey(query)
+  const results = useMemo(() => {
+    if (!q) return []
+    const words = q.split(' ')
+    return items.filter(i => {
+      const name = searchKey(i.name)
+      return words.every(w => name.includes(w))
+    }).sort(byFreq)
+  }, [q, items, freq])
+
+  const inScope = items.filter(i => !filterGroup || i.group === filterGroup)
+  const top = inScope.filter(i => (freq[i.key] ?? 0) > 0).sort(byFreq).slice(0, 5)
+  const sections = [
+    ...GROUPS.map(g => g.name),
+    'Other',
+  ].filter(g => !filterGroup || g === filterGroup)
+
+  function startCustom(name = '') {
+    setNewName(name)
+    setCreating(true)
+  }
 
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -363,7 +442,7 @@ function ExercisePickerModal({
         <View className="items-center pt-3 pb-2">
           <View className="w-10 h-1 bg-border rounded-full" style={{ borderCurve: 'continuous' }} />
         </View>
-        <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
+        <View className="flex-row items-center justify-between px-4 py-3">
           <Text className="text-text font-semibold">
             {filterGroup ? `Pick ${filterGroup.toLowerCase()} exercise` : 'Pick exercise'}
           </Text>
@@ -375,24 +454,35 @@ function ExercisePickerModal({
             <X size={20} color={colors.text} strokeWidth={2.25} />
           </TouchableOpacity>
         </View>
+        <View className="px-4 pb-3 border-b border-divider">
+          <View
+            className="flex-row items-center bg-surface-raised border border-border rounded-md px-3"
+            style={{ borderCurve: 'continuous', minHeight: 44 }}
+          >
+            <Search size={16} color={colors['text-subtle']} strokeWidth={2} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={`Search ${items.length} exercises`}
+              placeholderTextColor={colors['text-subtle']}
+              autoCorrect={false}
+              autoCapitalize="none"
+              returnKeyType="search"
+              clearButtonMode="while-editing"
+              className="flex-1 py-3 px-2 text-text text-footnote"
+            />
+          </View>
+        </View>
         <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
           className="flex-1 px-4 pt-4"
           contentContainerClassName="pb-6"
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
         >
-          {/* Custom-exercise creation block. Stays at the top so it's
-              discoverable; expands inline rather than launching another modal. */}
-          {!creating ? (
-            <TouchableOpacity
-              onPress={() => setCreating(true)}
-              className="rounded-xl border border-border bg-surface-raised px-4 py-3 mb-4" style={{ borderCurve: 'continuous' }}
-            >
-              <Text className="text-text text-footnote font-medium">+ New custom exercise</Text>
-              <Text className="text-text-subtle text-caption mt-1">
-                Add a movement we don't have in the catalogue.
-              </Text>
-            </TouchableOpacity>
-          ) : (
+          {/* Custom-exercise creation block. Expands inline rather than
+              launching another modal. */}
+          {creating ? (
             <View className="bg-surface-raised border border-border rounded-xl p-3 mb-4" style={{ borderCurve: 'continuous' }}>
               <TextInput
                 value={newName}
@@ -402,8 +492,8 @@ function ExercisePickerModal({
                 maxLength={80}
                 className="bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote mb-2" style={{ borderCurve: 'continuous' }}
               />
-              <ScrollView showsVerticalScrollIndicator={false} horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
-                {GROUPS.map((g) => {
+              <ScrollView showsVerticalScrollIndicator={false} horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2" keyboardShouldPersistTaps="handled">
+                {[...GROUPS.map(g => ({ name: g.name, colour: g.colour })), { name: 'Other', colour: colors.text }].map((g) => {
                   const active = newGroup === g.name
                   return (
                     <TouchableOpacity
@@ -425,23 +515,6 @@ function ExercisePickerModal({
                     </TouchableOpacity>
                   )
                 })}
-                {/* Other bucket as a non-coloured chip */}
-                <TouchableOpacity
-                  onPress={() => setNewGroup('Other')}
-                  className="px-3 py-2 rounded-full border"
-                  style={{
-                    borderCurve: 'continuous',
-                    backgroundColor: newGroup === 'Other' ? colors.text : colors.surface,
-                    borderColor: newGroup === 'Other' ? colors.text : colors.border,
-                  }}
-                >
-                  <Text
-                    className="text-caption font-medium"
-                    style={{ color: newGroup === 'Other' ? colors.bg : colors['text-muted'] }}
-                  >
-                    Other
-                  </Text>
-                </TouchableOpacity>
               </ScrollView>
               <View className="flex-row mt-3 gap-2">
                 <TouchableOpacity
@@ -468,71 +541,79 @@ function ExercisePickerModal({
                 </TouchableOpacity>
               </View>
             </View>
+          ) : q ? null : (
+            <TouchableOpacity
+              onPress={() => startCustom()}
+              className="rounded-xl border border-border bg-surface-raised px-4 py-3 mb-4" style={{ borderCurve: 'continuous' }}
+            >
+              <Text className="text-text text-footnote font-medium">+ New custom exercise</Text>
+              <Text className="text-text-subtle text-caption mt-1">
+                Add a movement we don't have in the catalogue.
+              </Text>
+            </TouchableOpacity>
           )}
 
-          {GROUPS.filter((g) => !filterGroup || g.name === filterGroup).map((g) => {
-            const customs = customByGroup[g.name] ?? []
-            return (
-              <View key={g.name} className="mb-4">
-                {!filterGroup && (
-                  <View className="flex-row items-center gap-2 mb-2">
-                    <View className="w-1.5 h-1.5 rounded-full" style={{ borderCurve: 'continuous', backgroundColor: g.colour }} />
-                    <Text className="text-text-subtle text-caption">{g.name}</Text>
-                  </View>
-                )}
-                <View className="gap-2">
-                  {g.exercises.map((e) => (
-                    <TouchableOpacity
-                      key={e.key}
-                      onPress={() => { hapticSelection(); onPick(e.key) }}
-                      className="px-4 py-3 rounded-xl bg-surface border border-divider flex-row items-center justify-between" style={{ borderCurve: 'continuous' }}
-                    >
-                      <Text className="text-text text-footnote">{e.name}</Text>
-                      <ProgressBadge info={progress?.[e.key]} />
-                    </TouchableOpacity>
-                  ))}
-                  {customs.map((c) => (
-                    <TouchableOpacity
-                      key={c.id}
-                      onPress={() => { hapticSelection(); onPick(c.key) }}
-                      className="px-4 py-3 rounded-xl bg-surface border border-divider flex-row items-center justify-between" style={{ borderCurve: 'continuous' }}
-                    >
-                      <Text className="text-text text-footnote">{c.name}</Text>
-                      <View className="flex-row items-center gap-2">
-                        <ProgressBadge info={progress?.[c.key]} />
-                        <Text className="text-text-subtle text-caption">Custom</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )
-          })}
-
-          {/* 'Other' bucket only shows when we're not filtering — those exercises
-              don't belong to any of the coloured groups. */}
-          {!filterGroup && (customByGroup['Other']?.length ?? 0) > 0 && (
-            <View className="mb-4">
-              <View className="flex-row items-center gap-2 mb-2">
-                <View className="w-1.5 h-1.5 rounded-full" style={{ borderCurve: 'continuous', backgroundColor: colors.muscle.other }} />
-                <Text className="text-text-subtle text-caption">Other</Text>
-              </View>
-              <View className="gap-2">
-                {customByGroup['Other'].map((c) => (
-                  <TouchableOpacity
-                    key={c.id}
-                    onPress={() => { hapticSelection(); onPick(c.key) }}
-                    className="px-4 py-3 rounded-xl bg-surface border border-divider flex-row items-center justify-between" style={{ borderCurve: 'continuous' }}
-                  >
-                    <Text className="text-text text-footnote">{c.name}</Text>
-                    <View className="flex-row items-center gap-2">
-                      <ProgressBadge info={progress?.[c.key]} />
-                      <Text className="text-text-subtle text-caption">Custom</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
+          {q ? (
+            // Search: one flat list across every group, most logged first.
+            <View className="gap-2">
+              {results.map(i => (
+                <PickerRow
+                  key={i.key}
+                  item={i}
+                  colour={GROUP_COLOUR[i.group] ?? colors.muscle.other}
+                  info={progress?.[i.key]}
+                  onPick={onPick}
+                />
+              ))}
+              {results.length === 0 && !creating && (
+                <TouchableOpacity
+                  onPress={() => startCustom(query.trim())}
+                  className="rounded-xl border border-border bg-surface-raised px-4 py-3" style={{ borderCurve: 'continuous' }}
+                >
+                  <Text className="text-text text-footnote font-medium">No match. Add “{query.trim()}”</Text>
+                  <Text className="text-text-subtle text-caption mt-1">Save it as a custom exercise.</Text>
+                </TouchableOpacity>
+              )}
             </View>
+          ) : (
+            <>
+              {top.length > 0 && (
+                <View className="mb-4">
+                  <Text className="text-text-subtle text-caption mb-2">Your most logged</Text>
+                  <View className="gap-2">
+                    {top.map(i => (
+                      <PickerRow
+                        key={i.key}
+                        item={i}
+                        colour={filterGroup ? undefined : GROUP_COLOUR[i.group] ?? colors.muscle.other}
+                        info={progress?.[i.key]}
+                        onPick={onPick}
+                      />
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {sections.map(group => {
+                const rows = items.filter(i => i.group === group).sort(byFreq)
+                if (!rows.length) return null
+                return (
+                  <View key={group} className="mb-4">
+                    {!filterGroup && (
+                      <View className="flex-row items-center gap-2 mb-2">
+                        <View className="w-1.5 h-1.5 rounded-full" style={{ borderCurve: 'continuous', backgroundColor: GROUP_COLOUR[group] ?? colors.muscle.other }} />
+                        <Text className="text-text-subtle text-caption">{group}</Text>
+                      </View>
+                    )}
+                    <View className="gap-2">
+                      {rows.map(i => (
+                        <PickerRow key={i.key} item={i} info={progress?.[i.key]} onPick={onPick} />
+                      ))}
+                    </View>
+                  </View>
+                )
+              })}
+            </>
           )}
         </ScrollView>
       </View>
@@ -542,7 +623,209 @@ function ExercisePickerModal({
 
 // ─── Log modal ────────────────────────────────────────────────────────────────
 
-type SetRow = { reps: string; weight: string }
+/** One row in the sheet. A drop set follows straight on from the row above
+ *  at a lighter weight; it's saved as set_type "drop" and left out of the
+ *  progression targets. */
+type SetRow = { reps: string; weight: string; drop?: boolean }
+/** One exercise in the sheet. Two or more make a superset. */
+type LogBlock = { key: string; sets: SetRow[]; touched: boolean }
+
+const EMPTY_ROW: SetRow = { reps: '', weight: '' }
+
+function ExerciseBlock({
+  block,
+  label,
+  onChange,
+  onRemove,
+}: {
+  block: LogBlock
+  /** "A", "B"… in a superset; none for a single exercise. */
+  label?: string
+  onChange: (sets: SetRow[], touched: boolean) => void
+  onRemove?: () => void
+}) {
+  const u = useUnits()
+  const displayName = useExerciseName(EXERCISE_NAME)
+  const perDb = isPerDumbbell(block.key)
+
+  // Recent logs for this exercise, for "last session" and the pre-fill.
+  const { data: history } = useQuery<ExerciseProgress>({
+    queryKey: ['exercise-history', block.key],
+    queryFn: () => api.get(`/training/by-exercise/${block.key}?days=30`).then(r => r.data),
+  })
+
+  const lastSession = useMemo(() => {
+    if (!history?.logs?.length) return null
+    const lastDate = history.logs[history.logs.length - 1].date
+    return history.logs.filter(l => l.date === lastDate)
+  }, [history])
+
+  // Progressive overload target: pre-fill the sets with it, else with last
+  // session. Waits for the data and stops once the user edits anything.
+  const progression = useProgression(block.key)
+  const target = progression.data?.target
+  useEffect(() => {
+    if (block.touched) return
+    if (target?.sets.length) {
+      onChange(target.sets.map(t => ({
+        reps: String(t.reps),
+        weight: t.weight_kg != null ? String(u.lift(t.weight_kg)) : '',
+      })), false)
+    } else if (progression.isFetched && lastSession?.length) {
+      onChange(lastSession.map(l => ({
+        reps: l.reps != null ? String(l.reps) : '',
+        weight: l.weight_kg != null ? String(u.lift(l.weight_kg)) : '',
+        drop: l.set_type === 'drop',
+      })), false)
+    }
+  }, [target, lastSession, progression.isFetched, block.touched])
+
+  const sets = block.sets
+
+  function updateSet(i: number, field: 'reps' | 'weight', value: string) {
+    const clean = field === 'reps' ? cleanReps(value) : cleanWeight(value)
+    onChange(sets.map((s, idx) => idx === i ? { ...s, [field]: clean } : s), true)
+  }
+
+  function addSet() {
+    hapticLight()
+    // Copy the last full set, not a drop.
+    const base = [...sets].reverse().find(s => !s.drop) ?? EMPTY_ROW
+    onChange([...sets, { reps: base.reps, weight: base.weight }], true)
+  }
+
+  function addDrop() {
+    hapticLight()
+    const last = parseFloat(sets[sets.length - 1]?.weight ?? '')
+    // About 20% lighter, on a weight that exists.
+    const lighter = Number.isFinite(last) && last > 0 ? String(Math.round(last * 0.8 * 2) / 2) : ''
+    onChange([...sets, { reps: '', weight: lighter, drop: true }], true)
+  }
+
+  function removeSet(i: number) {
+    if (sets.length === 1) return
+    onChange(sets.filter((_, idx) => idx !== i), true)
+  }
+
+  let setNumber = 0
+
+  return (
+    <View>
+      {label && (
+        <View className="flex-row items-center justify-between mb-3">
+          <Text className="text-text text-footnote font-semibold flex-1 pr-3" numberOfLines={1}>
+            {label} · {displayName(block.key)}
+          </Text>
+          {onRemove && (
+            <TouchableOpacity onPress={onRemove} hitSlop={10} accessibilityLabel="Remove from superset">
+              <Text className="text-text-subtle text-caption">Remove</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Progressive overload target */}
+      {target && target.kind !== 'first' && (
+        <View className="bg-surface-raised border border-border rounded-xl p-3 mb-3" style={{ borderCurve: 'continuous' }}>
+          <View className="flex-row items-center justify-between mb-2">
+            <Text className="text-text-subtle text-caption">Next target</Text>
+            <View className="rounded-full px-2 py-1" style={{ borderCurve: 'continuous', backgroundColor: `${KIND_COLOUR[target.kind]}22` }}>
+              <Text className="text-caption font-semibold" style={{ color: KIND_COLOUR[target.kind] }}>
+                {KIND_LABEL[target.kind]}
+              </Text>
+            </View>
+          </View>
+          <Text className="text-text text-headline font-bold">
+            {targetHeadline(target, u)}{perDb && target.weight_kg != null ? ' each' : ''}
+          </Text>
+          <Text className="text-text-muted text-caption mt-1">{target.reason}</Text>
+          <Text className="text-text-subtle text-caption mt-2">
+            Rep range {target.range[0]}–{target.range[1]} · sets below are pre-filled, edit what you actually did
+          </Text>
+        </View>
+      )}
+
+      {/* Last session reference */}
+      {lastSession && lastSession.length > 0 && (
+        <View className="bg-surface-raised border border-border rounded-xl p-3 mb-4" style={{ borderCurve: 'continuous' }}>
+          <Text className="text-text-subtle text-caption mb-2">
+            Last session
+          </Text>
+          <Text className="text-text-muted text-footnote">
+            {lastSession.map(s =>
+              `${s.set_type === 'drop' ? '↳ ' : ''}${s.weight_kg != null ? u.liftLabel(s.weight_kg) : '–'} × ${s.reps ?? '–'}`
+            ).join('  ·  ')}
+          </Text>
+        </View>
+      )}
+
+      <View className="flex-row items-baseline justify-between mb-2">
+        <Text className="text-text-subtle text-caption">Sets</Text>
+        {perDb && (
+          <Text className="text-text-subtle text-caption">Weight is per dumbbell</Text>
+        )}
+      </View>
+
+      <View className="gap-2">
+        {sets.map((s, i) => {
+          if (!s.drop) setNumber += 1
+          return (
+            <View key={i} className="flex-row items-center gap-2">
+              <Text className="text-text-subtle text-caption w-12" style={s.drop ? { paddingLeft: 8 } : undefined}>
+                {s.drop ? '↳ drop' : `#${setNumber}`}
+              </Text>
+              <TextInput
+                value={s.reps}
+                onChangeText={v => updateSet(i, 'reps', v)}
+                placeholder="reps"
+                placeholderTextColor={colors['text-subtle']}
+                keyboardType="number-pad"
+                inputAccessoryViewID={KEYBOARD_DONE_ID}
+                maxLength={3}
+                className="flex-1 bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}
+              />
+              <Text className="text-text-subtle text-caption">×</Text>
+              <TextInput
+                value={s.weight}
+                onChangeText={v => updateSet(i, 'weight', v)}
+                placeholder={perDb ? `${u.weightUnit} each` : u.weightUnit}
+                placeholderTextColor={colors['text-subtle']}
+                keyboardType="decimal-pad"
+                inputAccessoryViewID={KEYBOARD_DONE_ID}
+                className="flex-1 bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}
+              />
+              {sets.length > 1 && (
+                <TouchableOpacity
+                  onPress={() => removeSet(i)}
+                  hitSlop={8}
+                  className="px-2"
+                  accessibilityLabel="Remove set"
+                >
+                  <Text className="text-text-subtle text-body">−</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )
+        })}
+      </View>
+
+      <View className="flex-row gap-2 mt-3">
+        <TouchableOpacity
+          onPress={addSet}
+          className="flex-1 py-3 rounded-md border border-dashed border-border items-center" style={{ borderCurve: 'continuous' }}
+        >
+          <Text className="text-text-muted text-footnote">+ Add set</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={addDrop}
+          className="flex-1 py-3 rounded-md border border-dashed border-border items-center" style={{ borderCurve: 'continuous' }}
+        >
+          <Text className="text-text-muted text-footnote">+ Drop set</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  )
+}
 
 function LogExerciseModal({
   exerciseKey,
@@ -555,77 +838,47 @@ function LogExerciseModal({
   const qc = useQueryClient()
   const displayName = useExerciseName(EXERCISE_NAME)
 
-  // Pull recent logs for this exercise so we can show "last session" and prefill.
-  const { data: history } = useQuery<ExerciseProgress>({
-    queryKey: ['exercise-history', exerciseKey],
-    queryFn: () => api.get(`/training/by-exercise/${exerciseKey}?days=30`).then(r => r.data),
-  })
-
-  const lastSession = useMemo(() => {
-    if (!history?.logs?.length) return null
-    const lastDate = history.logs[history.logs.length - 1].date
-    return history.logs.filter(l => l.date === lastDate)
-  }, [history])
-
-  const lastWeight = lastSession?.[0]?.weight_kg ?? null
-  const lastReps   = lastSession?.[0]?.reps ?? null
-
-  const [sets, setSets] = useState<SetRow[]>([
-    {
-      reps: lastReps != null ? String(lastReps) : '',
-      weight: lastWeight != null ? String(u.weight(lastWeight)) : '',
-    },
+  const [blocks, setBlocks] = useState<LogBlock[]>([
+    { key: exerciseKey, sets: [EMPTY_ROW], touched: false },
   ])
   const [notes, setNotes] = useState('')
+  const [pickingSuperset, setPickingSuperset] = useState(false)
+  const isSuperset = blocks.length > 1
 
-  // Progressive overload target: pre-fill the sets with it. The old pre-fill
-  // read history in useState's initialiser, before the query had loaded, so
-  // the sheet usually opened empty; this waits for the data and stops once
-  // the user edits anything.
-  const progression = useProgression(exerciseKey)
-  const target = progression.data?.target
-  const [touched, setTouched] = useState(false)
-  useEffect(() => {
-    if (touched) return
-    if (target?.sets.length) {
-      setSets(target.sets.map(t => ({
-        reps: String(t.reps),
-        weight: t.weight_kg != null ? String(u.weight(t.weight_kg)) : '',
-      })))
-    } else if (progression.isFetched && lastSession?.length) {
-      setSets(lastSession.map(l => ({
-        reps: l.reps != null ? String(l.reps) : '',
-        weight: l.weight_kg != null ? String(u.weight(l.weight_kg)) : '',
-      })))
-    }
-  }, [target, lastSession, progression.isFetched, touched])
+  function updateBlock(i: number, sets: SetRow[], touched: boolean) {
+    setBlocks(prev => prev.map((b, idx) => idx === i ? { ...b, sets, touched: b.touched || touched } : b))
+  }
 
   function invalidateTraining() {
     qc.invalidateQueries({ queryKey: ['training-volume'] })
     qc.invalidateQueries({ queryKey: ['exercise-history'] })
     qc.invalidateQueries({ queryKey: ['training-history'] })
+    qc.invalidateQueries({ queryKey: ['training-sessions'] })
     qc.invalidateQueries({ queryKey: ['dashboard'] })
     qc.invalidateQueries({ queryKey: PROGRESSION_KEY })
   }
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (body: object) => api.post('/training/log-exercise', body),
-    onSuccess: async (res) => {
+    mutationFn: (body: { superset: boolean; payload: object }) =>
+      api.post(body.superset ? '/training/log-superset' : '/training/log-exercise', body.payload),
+    onSuccess: async (res, body) => {
       hapticSuccess()
       invalidateTraining()
       onClose()
       // "Saved · Next time: 82.5 kg × 8", with Undo deleting what was just logged.
       const ids: string[] = (res.data ?? []).map((l: { id: string }) => l.id)
-      let label = 'Saved'
-      try {
-        const { data } = await api.get<ExerciseProgression>(`/training/progression/${exerciseKey}`)
-        const nxt = data.next ?? data.target
-        if (nxt && nxt.kind !== 'first') {
-          label = nxt.kind === 'stall'
-            ? 'Saved · Stalled: next time add a set or go lighter'
-            : `Saved · Next time: ${targetHeadline(nxt)}`
-        }
-      } catch {}
+      let label = body.superset ? 'Superset saved' : 'Saved'
+      if (!body.superset) {
+        try {
+          const { data } = await api.get<ExerciseProgression>(`/training/progression/${exerciseKey}`)
+          const nxt = data.next ?? data.target
+          if (nxt && nxt.kind !== 'first') {
+            label = nxt.kind === 'stall'
+              ? 'Saved · Stalled: next time add a set or go lighter'
+              : `Saved · Next time: ${targetHeadline(nxt, u)}`
+          }
+        } catch {}
+      }
       showUndo({
         label,
         durationMs: 7000,
@@ -637,44 +890,31 @@ function LogExerciseModal({
     },
   })
 
-  function updateSet(i: number, field: 'reps' | 'weight', value: string) {
-    setTouched(true)
-    setSets(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
-  }
-
-  function addSet() {
-    setTouched(true)
-    hapticLight()
-    setSets(prev => [...prev, {
-      reps: prev[prev.length - 1]?.reps ?? '',
-      weight: prev[prev.length - 1]?.weight ?? '',
-    }])
-  }
-
-  function removeSet(i: number) {
-    if (sets.length === 1) return
-    setTouched(true)
-    setSets(prev => prev.filter((_, idx) => idx !== i))
-  }
-
   function handleSave() {
-    const cleanSets = sets
-      .map(s => ({
-        weight_kg: s.weight ? u.weightToKg(parseFloat(s.weight)) : null,
-        reps:      s.reps   ? parseInt(s.reps)     : null,
+    const exercises = blocks
+      .map(b => ({
+        type: b.key,
+        sets: b.sets
+          .map(s => {
+            const w = parseFloat(s.weight)
+            const r = parseInt(s.reps, 10)
+            return {
+              weight_kg: Number.isFinite(w) ? u.weightToKg(w) : null,
+              reps: Number.isFinite(r) ? r : null,
+              set_type: s.drop ? 'drop' : 'normal',
+            }
+          })
+          .filter(s => s.weight_kg != null || s.reps != null),
       }))
-      .filter(s => s.weight_kg != null || s.reps != null)
+      .filter(e => e.sets.length > 0)
+    if (exercises.length === 0) return
 
-    if (cleanSets.length === 0) return
-
-    mutate({
-      type: exerciseKey,
-      sets: cleanSets,
-      notes: notes.trim() || null,
-    })
+    const withNotes = exercises.map((e, i) => i === 0 ? { ...e, notes: notes.trim() || null } : e)
+    if (withNotes.length === 1) mutate({ superset: false, payload: withNotes[0] })
+    else mutate({ superset: true, payload: { exercises: withNotes } })
   }
 
-  const hasValidSet = sets.some(s => s.reps || s.weight)
+  const hasValidSet = blocks.some(b => b.sets.some(s => s.reps || s.weight))
 
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -684,8 +924,8 @@ function LogExerciseModal({
         </View>
 
         <View className="flex-row items-center justify-between px-4 py-3 border-b border-divider">
-          <Text className="text-text font-semibold">
-            {displayName(exerciseKey)}
+          <Text className="text-text font-semibold flex-1 pr-3" numberOfLines={1}>
+            {isSuperset ? 'Superset' : displayName(exerciseKey)}
           </Text>
           <TouchableOpacity
             onPress={onClose}
@@ -696,82 +936,42 @@ function LogExerciseModal({
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
-          {/* Progressive overload target */}
-          {target && target.kind !== 'first' && (
-            <View className="bg-surface-raised border border-border rounded-xl p-3 mb-3" style={{ borderCurve: 'continuous' }}>
-              <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-text-subtle text-caption">Next target</Text>
-                <View className="rounded-full px-2 py-1" style={{ borderCurve: 'continuous', backgroundColor: `${KIND_COLOUR[target.kind]}22` }}>
-                  <Text className="text-caption font-semibold" style={{ color: KIND_COLOUR[target.kind] }}>
-                    {KIND_LABEL[target.kind]}
-                  </Text>
-                </View>
-              </View>
-              <Text className="text-text text-headline font-bold">{targetHeadline(target)}</Text>
-              <Text className="text-text-muted text-caption mt-1">{target.reason}</Text>
-              <Text className="text-text-subtle text-caption mt-2">
-                Rep range {target.range[0]}–{target.range[1]} · sets below are pre-filled, edit what you actually did
-              </Text>
-            </View>
+        {/* automaticallyAdjustKeyboardInsets keeps the focused field above
+            the keyboard inside the page sheet; without it the keyboard sat
+            over the sets and the Save button. */}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+          className="flex-1 px-4 pt-4"
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets
+        >
+          {isSuperset && (
+            <Text className="text-text-subtle text-caption mb-4">
+              Done back to back, alternating sets. Log each exercise below; they save together.
+            </Text>
           )}
 
-          {/* Last session reference */}
-          {lastSession && lastSession.length > 0 && (
-            <View className="bg-surface-raised border border-border rounded-xl p-3 mb-4" style={{ borderCurve: 'continuous' }}>
-              <Text className="text-text-subtle text-caption mb-2">
-                Last session
-              </Text>
-              <Text className="text-text-muted text-footnote">
-                {lastSession.map((s, i) =>
-                  `${s.weight_kg != null ? u.weightLabel(s.weight_kg) : '–'} × ${s.reps ?? '–'}`
-                ).join('  ·  ')}
-              </Text>
-            </View>
-          )}
-
-          {/* Sets */}
-          <Text className="text-text-subtle text-caption mb-2">Sets</Text>
-
-          <View className="gap-2">
-            {sets.map((s, i) => (
-              <View key={i} className="flex-row items-center gap-2">
-                <Text className="text-text-subtle text-caption w-8">#{i + 1}</Text>
-                <TextInput
-                  value={s.reps}
-                  onChangeText={v => updateSet(i, 'reps', v)}
-                  placeholder="reps"
-                  placeholderTextColor={colors['text-subtle']}
-                  keyboardType="number-pad"
-                  className="flex-1 bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}
-                />
-                <Text className="text-text-subtle text-caption">×</Text>
-                <TextInput
-                  value={s.weight}
-                  onChangeText={v => updateSet(i, 'weight', v)}
-                  placeholder={u.weightUnit}
-                  placeholderTextColor={colors['text-subtle']}
-                  keyboardType="decimal-pad"
-                  className="flex-1 bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}
-                />
-                {sets.length > 1 && (
-                  <TouchableOpacity
-                    onPress={() => removeSet(i)}
-                    hitSlop={8}
-                    className="px-2"
-                  >
-                    <Text className="text-text-subtle text-body">−</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+          <View className="gap-6">
+            {blocks.map((b, i) => (
+              <ExerciseBlock
+                key={`${b.key}-${i}`}
+                block={b}
+                label={isSuperset ? String.fromCharCode(65 + i) : undefined}
+                onChange={(sets, touched) => updateBlock(i, sets, touched)}
+                onRemove={i > 0 ? () => setBlocks(prev => prev.filter((_, idx) => idx !== i)) : undefined}
+              />
             ))}
           </View>
 
           <TouchableOpacity
-            onPress={addSet}
-            className="mt-3 py-3 rounded-md border border-dashed border-border items-center" style={{ borderCurve: 'continuous' }}
+            onPress={() => setPickingSuperset(true)}
+            className="mt-4 py-3 rounded-md border border-border bg-surface-raised items-center" style={{ borderCurve: 'continuous' }}
           >
-            <Text className="text-text-muted text-footnote">+ Add set</Text>
+            <Text className="text-text-muted text-footnote font-medium">
+              {isSuperset ? '+ Add another exercise' : '+ Superset with…'}
+            </Text>
           </TouchableOpacity>
 
           {/* Notes */}
@@ -799,11 +999,24 @@ function LogExerciseModal({
             {isPending ? (
               <ActivityIndicator color={colors['on-accent']} />
             ) : (
-              <Text className="text-on-accent font-semibold text-body">Save</Text>
+              <Text className="text-on-accent font-semibold text-body">
+                {isSuperset ? 'Save superset' : 'Save'}
+              </Text>
             )}
           </TouchableOpacity>
         </ScrollView>
+        <KeyboardDoneBar />
       </View>
+
+      {pickingSuperset && (
+        <ExercisePickerModal
+          onPick={(key) => {
+            setPickingSuperset(false)
+            setBlocks(prev => [...prev, { key, sets: [EMPTY_ROW], touched: false }])
+          }}
+          onClose={() => setPickingSuperset(false)}
+        />
+      )}
     </Modal>
   )
 }
@@ -836,7 +1049,7 @@ function ExerciseRow({
         <Text className="text-text text-footnote font-medium">{exercise.name}</Text>
         {pr ? (
           <Text className="text-text-subtle text-caption">
-            {u.weightLabel(pr.weight_kg)} × {pr.reps}
+            {u.liftLabel(pr.weight_kg)} × {pr.reps}
           </Text>
         ) : (
           <Text className="text-text-subtle text-caption">—</Text>
@@ -1059,7 +1272,7 @@ function MuscleGroupTile({
             {last.exerciseName}
           </Text>
           <Text className="text-text-subtle text-caption mt-1" numberOfLines={1}>
-            {last.weightKg != null ? u.weightLabel(last.weightKg) : '–'} × {last.reps ?? '–'}
+            {last.weightKg != null ? u.liftLabel(last.weightKg) : '–'} × {last.reps ?? '–'}
           </Text>
           <Text className="text-text-subtle text-caption mt-1">
             {daysSince === 0 ? 'today' : `${daysSince}d ago`}
@@ -1229,7 +1442,7 @@ function OneRMCard() {
                   {displayName(row.exercise)}
                 </Text>
                 <Text className="text-text-subtle text-caption mt-1">
-                  from {u.weightLabel(row.source.weight_kg)} × {row.source.reps}
+                  from {u.liftLabel(row.source.weight_kg)} × {row.source.reps}
                 </Text>
               </View>
               <Text className="text-text text-footnote font-semibold">
@@ -1370,11 +1583,13 @@ function SessionRow({
             <View key={e.type} className="flex-row items-center justify-between">
               <Text className="text-text-muted text-caption flex-1 pr-3" numberOfLines={1}>
                 {nameForKey(e.type)}
+                {e.superset_id ? <Text className="text-text-subtle"> · superset</Text> : null}
               </Text>
               <Text className="text-text-subtle text-caption">
                 {e.sets} {e.sets === 1 ? 'set' : 'sets'}
+                {e.drop_sets ? ` (${e.drop_sets} drop)` : ''}
                 {e.top_weight_kg != null
-                  ? ` · top ${u.weightLabel(e.top_weight_kg)} × ${e.top_reps ?? '?'}`
+                  ? ` · top ${u.liftLabel(e.top_weight_kg)} × ${e.top_reps ?? '?'}`
                   : ''}
               </Text>
             </View>
@@ -1491,7 +1706,7 @@ export default function TrainingScreen() {
 
   // Custom exercises — used to resolve custom_<uuid> keys to a muscle group
   // for the tile last-session lookup.
-  const customExercisesQ = useQuery<{ exercises: { id: string; name: string; group_name: string }[] }>({
+  const customExercisesQ = useQuery<CustomExerciseRow[]>({
     queryKey: ['custom-exercises'],
     queryFn: () => api.get('/training/custom-exercises').then(r => r.data),
     enabled: !!user,
@@ -1502,16 +1717,16 @@ export default function TrainingScreen() {
   // + custom. Memoised so the tile pass stays O(N) in logs, not O(N×customs).
   const customKeyToGroup = useMemo<Record<string, string>>(() => {
     const out: Record<string, string> = {}
-    for (const ex of customExercisesQ.data?.exercises ?? []) {
-      out[`custom_${ex.id}`] = ex.group_name
+    for (const ex of customExercisesQ.data ?? []) {
+      out[ex.key] = ex.group_name
     }
     return out
   }, [customExercisesQ.data])
 
   const customKeyToName = useMemo<Record<string, string>>(() => {
     const out: Record<string, string> = {}
-    for (const ex of customExercisesQ.data?.exercises ?? []) {
-      out[`custom_${ex.id}`] = ex.name
+    for (const ex of customExercisesQ.data ?? []) {
+      out[ex.key] = ex.name
     }
     return out
   }, [customExercisesQ.data])

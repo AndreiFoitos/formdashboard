@@ -23,19 +23,9 @@ from models.friend_invite import FriendInvite
 from models.sus_vote import SusVote
 from models.vouch import Vouch
 from services.dots import dots_score
+from services.social_notifications import set_volume_kg
 
 router = APIRouter(prefix="/friends", tags=["friends"])
-
-
-# Exercises where the load IS the lifter — falls back to user.weight_kg when
-# no added weight is logged. Weighted variants (e.g. weighted pull-ups) still
-# work: the user logs the added weight and we use that instead.
-BODYWEIGHT_EXERCISES = {
-    "pull_up",
-    "push_up",
-    "tricep_dip",
-    "hanging_leg_raise",
-}
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -57,14 +47,6 @@ def _sus_threshold(circle_size: int) -> int:
     """
     voters = max(0, circle_size - 1)
     return max(2, math.ceil(voters / 3)) if voters > 0 else 2
-
-
-def _effective_weight(log: TrainingLog, user_weight_kg: Optional[float]) -> float:
-    if log.weight_kg is not None:
-        return float(log.weight_kg)
-    if log.type in BODYWEIGHT_EXERCISES and user_weight_kg is not None:
-        return float(user_weight_kg)
-    return 0.0
 
 
 def _user_dict(u: User) -> dict:
@@ -872,8 +854,7 @@ async def _build_volume_leaderboard(
         user = users_by_id.get(log.user_id)
         if not user:
             continue
-        w = _effective_weight(log, user.weight_kg)
-        volume_by_user[log.user_id] += w * (log.reps or 0)
+        volume_by_user[log.user_id] += set_volume_kg(log.type, log.weight_kg, log.reps, user.weight_kg)
         days_by_user[log.user_id].add(log.date)
 
     # Sus tally — split weekly vs per-lift so the badge weighting can value
@@ -1196,10 +1177,9 @@ async def weekly_recap_race(
         user = users_by_id.get(log.user_id)
         if not user:
             continue
-        w = _effective_weight(log, user.weight_kg)
         day_idx = (log.date - week_start).days
         if 0 <= day_idx <= 6:
-            daily_kg[log.user_id][day_idx] += w * (log.reps or 0)
+            daily_kg[log.user_id][day_idx] += set_volume_kg(log.type, log.weight_kg, log.reps, user.weight_kg)
             days_trained[log.user_id].add(log.date)
 
     # Cumulative kg by user (rounded once at the end so JSON stays tidy)

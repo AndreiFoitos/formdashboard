@@ -32,6 +32,7 @@ from models.daily_summary import DailySummary
 from models.streak import Streak
 from models.stimulant_log import StimulantLog
 from models.training_log import TrainingLog
+from services.social_notifications import set_volume_kg
 from services.stimulants import caffeine_at_time
 
 
@@ -46,10 +47,6 @@ WEIGHTS = {
 # Calorie deviation tolerance — ±10% = full credit, linear decay to 0 at ±30%.
 CALORIE_PERFECT_BAND = 0.10
 CALORIE_ZERO_BAND   = 0.30
-
-# Bodyweight exercises where the load IS the lifter — falls back to the user's
-# weight_kg when no added load is logged. Mirrors routers/friends.py.
-BODYWEIGHT_EXERCISES = {"pull_up", "push_up", "tricep_dip", "hanging_leg_raise"}
 
 # Streak ceiling — 14 consecutive logged days = full credit.
 STREAK_FULL_DAYS = 14
@@ -159,10 +156,7 @@ async def _volume_today_and_baseline_kg(
     today_volume = 0.0
     by_date: dict[date, float] = {}
     for log in logs:
-        w = float(log.weight_kg) if log.weight_kg is not None else 0.0
-        if w == 0 and log.type in BODYWEIGHT_EXERCISES and user_weight_kg:
-            w = float(user_weight_kg)
-        vol = w * (log.reps or 0)
+        vol = set_volume_kg(log.type, log.weight_kg, log.reps, user_weight_kg)
         by_date[log.date] = by_date.get(log.date, 0.0) + vol
         if log.date == target_date:
             today_volume += vol

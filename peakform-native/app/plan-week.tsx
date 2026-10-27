@@ -73,7 +73,7 @@ export default function PlanWeekScreen() {
                     </Text>
                   </View>
                   <Text className="text-text-subtle text-caption mt-1">
-                    {e.start_weight_kg != null ? `Start ${u.weightLabel(e.start_weight_kg)} · ` : ''}rest {Math.round(e.rest_seconds / 30) / 2} min
+                    {e.start_weight_kg != null ? `Start ${u.liftLabel(e.start_weight_kg)} · ` : ''}rest {Math.round(e.rest_seconds / 30) / 2} min
                     {e.note ? ` · ${e.note}` : ''}
                   </Text>
                 </View>

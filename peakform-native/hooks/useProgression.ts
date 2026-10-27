@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
+import type { Units } from '../lib/units'
 
 // Progressive overload targets (backend services/progression.py, routes
 // /training/progression). Double progression: +reps until every set hits the
@@ -73,12 +74,13 @@ export const KIND_COLOUR: Record<TargetKind, string> = {
   bodyweight_harder: '#a3e635',
 }
 
-/** "82.5 kg × 8" / "80 kg × 11, 10, 9" / "Bodyweight × 10". */
-export function targetHeadline(t: Target): string {
+/** "82.5 kg × 8" / "80 kg × 11, 10, 9" / "Bodyweight × 10", in the
+ *  user's units (this used to print kg for everyone). */
+export function targetHeadline(t: Target, u: Units): string {
   const top = t.sets.filter((s) => s.weight_kg === t.weight_kg)
   const reps = top.length > 1 && new Set(top.map((s) => s.reps)).size > 1
     ? top.map((s) => s.reps).join(', ')
     : String(t.reps)
   if (t.weight_kg == null) return t.kind === 'first' ? `Aim for ${t.range[0]}–${t.range[1]} reps` : `Bodyweight × ${reps}`
-  return `${t.weight_kg} kg × ${reps}`
+  return `${u.liftLabel(t.weight_kg)} × ${reps}`
 }

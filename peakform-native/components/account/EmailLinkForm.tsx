@@ -63,7 +63,7 @@ export function EmailLinkForm({
             ),
         }}
       />
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1 bg-surface" contentContainerClassName="px-4 pt-6 pb-12" keyboardShouldPersistTaps="handled">
+      <ScrollView showsVerticalScrollIndicator={false} className="flex-1 bg-surface" contentContainerClassName="px-4 pt-6 pb-12" keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         {sentTo ? (
           <View className="px-4">
             <Text className="text-text text-headline mb-2">Check your email</Text>

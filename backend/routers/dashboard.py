@@ -14,7 +14,7 @@ from models.daily_summary import DailySummary
 from models.body_metric import BodyMetric
 from models.training_log import TrainingLog
 from services.plans import history_window, plan_for
-from services.social_notifications import BODYWEIGHT_EXERCISES
+from services.social_notifications import set_volume_kg
 from services.form_score import compute_form_score, check_and_unlock_form_score
 from services.stimulants import get_caffeine_curve
 
@@ -129,12 +129,9 @@ async def get_trends(
     volume_by_week: dict[str, float] = defaultdict(float)
     days_by_week: dict[str, set] = defaultdict(set)
     for log in logs:
-        weight = log.weight_kg
-        if weight is None and log.type in BODYWEIGHT_EXERCISES:
-            weight = current_user.weight_kg
         year, week, _ = log.date.isocalendar()
         key = f"{year}-W{week:02d}"
-        volume_by_week[key] += float(weight or 0) * (log.reps or 0)
+        volume_by_week[key] += set_volume_kg(log.type, log.weight_kg, log.reps, current_user.weight_kg)
         days_by_week[key].add(log.date)
 
     return {

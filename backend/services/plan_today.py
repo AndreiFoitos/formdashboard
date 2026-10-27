@@ -27,6 +27,7 @@ from models.ai_plan import AiPlan
 from models.nutrition_log import NutritionLog
 from models.training_log import TrainingLog
 from models.user import User
+from services.exercise_taxonomy import is_per_dumbbell
 from services.progression import next_target
 
 LOOKBACK = timedelta(weeks=8)
@@ -44,6 +45,7 @@ def suggest(ex: dict, sessions: list[list[TrainingLog]]) -> dict:
         planned_sets=ex["sets"],
         start_weight=ex.get("start_weight_kg"),
         bodyweight=ex.get("basis") == "bodyweight",
+        dumbbell=is_per_dumbbell(ex["key"]),
     )
     return {"weight_kg": t["weight_kg"], "reps": t["reps"], "reason": t["reason"], "kind": t["kind"]}
 

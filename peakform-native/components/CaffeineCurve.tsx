@@ -23,6 +23,7 @@ import Svg, {
 } from 'react-native-svg'
 import { api } from '../api/client'
 import { SwipeableRow } from './SwipeableRow'
+import { KEYBOARD_DONE_ID, KeyboardDoneBar } from './KeyboardDoneBar'
 import { showUndo } from '../store/undo'
 import { hapticLight, hapticSuccess } from '../lib/haptics'
 import { colors, fontPx } from '../theme/tokens'
@@ -403,7 +404,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
+        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets>
           <View className="flex-row flex-wrap gap-2 mb-4">
             {presets.map((s) => (
               <TouchableOpacity
@@ -467,6 +468,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
                   placeholder="e.g. 150"
                   placeholderTextColor={colors['text-subtle']}
                   keyboardType="number-pad"
+                  inputAccessoryViewID={KEYBOARD_DONE_ID}
                   className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote" style={{ borderCurve: 'continuous' }}
                 />
                 <Text className="absolute right-4 top-4 text-text-subtle text-footnote">mg</Text>
@@ -534,6 +536,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
             )}
           </TouchableOpacity>
         </ScrollView>
+        <KeyboardDoneBar />
       </View>
     </Modal>
   )

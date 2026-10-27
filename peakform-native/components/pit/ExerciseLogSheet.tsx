@@ -4,7 +4,9 @@ import { X } from 'lucide-react-native'
 import { useLogPlanExercise, type TodayExercise } from '../../hooks/usePitCrew'
 import { hapticLight, hapticSuccess } from '../../lib/haptics'
 import { extractErrorMessage } from '../../lib/apiError'
-import { useUnits } from '../../lib/units'
+import { cleanReps, cleanWeight, useUnits } from '../../lib/units'
+import { isPerDumbbell } from '../../lib/exercises'
+import { KEYBOARD_DONE_ID, KeyboardDoneBar } from '../KeyboardDoneBar'
 import { colors } from '../../theme/tokens'
 
 // Log one exercise from today's plan. Sets come pre-filled with the
@@ -30,20 +32,22 @@ export function ExerciseLogSheet({
   const [rows, setRows] = useState<Row[]>(() =>
     Array.from({ length: exercise.sets }, () => ({
       reps: String(suggestion.reps),
-      weight: suggestion.weight_kg != null ? String(u.weight(suggestion.weight_kg)) : '',
+      weight: suggestion.weight_kg != null ? String(u.lift(suggestion.weight_kg)) : '',
     })),
   )
   const log = useLogPlanExercise()
+  const perDb = isPerDumbbell(exercise.key)
 
   function update(i: number, field: keyof Row, value: string) {
-    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)))
+    const clean = field === 'reps' ? cleanReps(value) : cleanWeight(value)
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: clean } : r)))
   }
 
   function save() {
     const sets = rows
       .map((r) => ({
         reps: r.reps ? parseInt(r.reps, 10) : null,
-        weight_kg: r.weight ? u.weightToKg(parseFloat(r.weight.replace(',', '.'))) : null,
+        weight_kg: r.weight && Number.isFinite(parseFloat(r.weight)) ? u.weightToKg(parseFloat(r.weight)) : null,
       }))
       .filter((s) => s.reps || s.weight_kg)
     if (!sets.length) return
@@ -83,19 +87,29 @@ export function ExerciseLogSheet({
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled">
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          showsHorizontalScrollIndicator={false}
+          className="flex-1 px-4 pt-4"
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets
+        >
           <View className="bg-surface-raised border border-border rounded-xl p-3 mb-4" style={{ borderCurve: 'continuous' }}>
             <Text className="text-text-subtle text-caption mb-2">Today's target</Text>
             <Text className="text-text text-footnote">{suggestion.reason}</Text>
             {exercise.last.length > 0 && (
               <Text className="text-text-subtle text-caption mt-2">
-                Last time: {exercise.last.map((s) => `${s.weight_kg != null ? u.weightLabel(s.weight_kg) : '–'} × ${s.reps ?? '–'}`).join('  ·  ')}
+                Last time: {exercise.last.map((s) => `${s.weight_kg != null ? u.liftLabel(s.weight_kg) : '–'} × ${s.reps ?? '–'}`).join('  ·  ')}
               </Text>
             )}
             {!!exercise.note && <Text className="text-text-muted text-caption mt-2">{exercise.note}</Text>}
           </View>
 
-          <Text className="text-text-subtle text-caption mb-2">What you did</Text>
+          <View className="flex-row items-baseline justify-between mb-2">
+            <Text className="text-text-subtle text-caption">What you did</Text>
+            {perDb && <Text className="text-text-subtle text-caption">Weight is per dumbbell</Text>}
+          </View>
           <View className="gap-2">
             {rows.map((r, i) => (
               <View key={i} className="flex-row items-center gap-2">
@@ -106,15 +120,18 @@ export function ExerciseLogSheet({
                   placeholder="reps"
                   placeholderTextColor={colors['text-subtle']}
                   keyboardType="number-pad"
+                  inputAccessoryViewID={KEYBOARD_DONE_ID}
+                  maxLength={3}
                   className="flex-1 bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}
                 />
                 <Text className="text-text-subtle text-caption">×</Text>
                 <TextInput
                   value={r.weight}
                   onChangeText={(v) => update(i, 'weight', v)}
-                  placeholder={exercise.basis === 'bodyweight' ? 'bodyweight' : u.weightUnit}
+                  placeholder={exercise.basis === 'bodyweight' ? 'bodyweight' : perDb ? `${u.weightUnit} each` : u.weightUnit}
                   placeholderTextColor={colors['text-subtle']}
                   keyboardType="decimal-pad"
+                  inputAccessoryViewID={KEYBOARD_DONE_ID}
                   className="flex-1 bg-surface-raised border border-border rounded-md px-3 py-3 text-text text-footnote" style={{ borderCurve: 'continuous' }}
                 />
                 {rows.length > 1 && (
@@ -152,6 +169,7 @@ export function ExerciseLogSheet({
             )}
           </TouchableOpacity>
         </ScrollView>
+        <KeyboardDoneBar />
       </View>
     </Modal>
   )

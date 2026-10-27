@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Callable
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,7 +34,8 @@ from models.user import User
 from models.vouch import Vouch
 from services import avatar_packs
 from services.billing import owned_pack_products
-from services.social_notifications import BODYWEIGHT_EXERCISES
+from services.exercise_taxonomy import DUMBBELL_PAIR
+from services.social_notifications import set_volume_kg
 from services.stimulants import get_caffeine_curve
 
 GOLDEN_AFTER_DAYS = 7
@@ -269,7 +270,11 @@ def count_prs(logs: list[tuple[str, date, float]]) -> int:
 async def _stats(user: User, db: AsyncSession) -> dict[str, float]:
     uid = user.id
     volume = await db.scalar(
-        select(func.coalesce(func.sum(TrainingLog.weight_kg * TrainingLog.reps), 0.0)).where(
+        # Dumbbell pairs are logged per dumbbell: x2, as in set_volume_kg.
+        select(func.coalesce(func.sum(
+            TrainingLog.weight_kg * TrainingLog.reps
+            * case((TrainingLog.type.in_(DUMBBELL_PAIR), 2), else_=1)
+        ), 0.0)).where(
             TrainingLog.user_id == uid, TrainingLog.weight_kg.is_not(None), TrainingLog.reps.is_not(None)
         )
     )
@@ -335,13 +340,7 @@ async def _race_record(user: User, db: AsyncSession, today: date) -> tuple[int, 
 
     volume: dict[date, dict[uuid.UUID, float]] = defaultdict(lambda: defaultdict(float))
     for uid, d, ex_type, weight, reps in logs:
-        if weight is not None:
-            w = float(weight)
-        elif ex_type in BODYWEIGHT_EXERCISES and body_weight.get(uid):
-            w = float(body_weight[uid])
-        else:
-            w = 0.0
-        volume[d - timedelta(days=d.weekday())][uid] += w * (reps or 0)
+        volume[d - timedelta(days=d.weekday())][uid] += set_volume_kg(ex_type, weight, reps, body_weight.get(uid))
 
     won_weeks = [
         week for week, by_user in volume.items()

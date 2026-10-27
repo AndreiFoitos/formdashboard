@@ -143,6 +143,13 @@ export function unitsFor(system: UnitSystem) {
     /** kg → "82.5 kg" / "181.9 lb". */
     weightLabel: (kg: number, decimals = 1) =>
       `${formatNumber(imperial ? kg * LB_PER_KG : kg, decimals)} ${imperial ? 'lb' : 'kg'}`,
+    /** kg → a weight you can actually load, in the current unit: nearest
+     *  0.5 kg / 0.5 lb. Converting 2.5 kg steps gives 187.39 lb; nobody
+     *  has that plate. Use for lifts, not bodyweight. */
+    lift: (kg: number) => Math.round((imperial ? kg * LB_PER_KG : kg) * 2) / 2,
+    /** kg → "82.5 kg" / "182 lb", snapped like lift(). */
+    liftLabel: (kg: number) =>
+      `${formatNumber(Math.round((imperial ? kg * LB_PER_KG : kg) * 2) / 2, 1)} ${imperial ? 'lb' : 'kg'}`,
     /** ml → "2,800 ml" / "95 fl oz". */
     waterLabel: (ml: number) => `${formatNumber(Math.round(imperial ? ml / ML_PER_FL_OZ : ml))} ${imperial ? 'fl oz' : 'ml'}`,
     /** Display-unit number typed by the user → kg for the API. */
@@ -165,6 +172,19 @@ export function unitsFor(system: UnitSystem) {
 }
 
 export type Units = ReturnType<typeof unitsFor>
+
+/** Typed reps → whole number only: "8.5" or "8," can't be logged. */
+export function cleanReps(v: string): string {
+  return v.replace(/\D/g, '').slice(0, 3)
+}
+
+/** Typed weight → digits and one decimal point (a comma counts), at most
+ *  two decimals for 1.25 plates. */
+export function cleanWeight(v: string): string {
+  const [whole, ...rest] = v.replace(',', '.').replace(/[^\d.]/g, '').split('.')
+  const out = whole.slice(0, 4)
+  return rest.length ? `${out}.${rest.join('').slice(0, 2)}` : out
+}
 
 export function useUnits(): Units {
   const system = useUnitsStore((s) => s.system)

@@ -368,7 +368,7 @@ function LiftRowSusVouch({
         <Text className="text-text-subtle text-caption mt-1">
           {new Date(lift.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
           {' · '}
-          {lift.weight_kg != null ? u.weightLabel(lift.weight_kg) : '–'} × {lift.reps ?? '–'}
+          {lift.weight_kg != null ? u.liftLabel(lift.weight_kg) : '–'} × {lift.reps ?? '–'}
         </Text>
       </View>
       <View className="flex-row gap-2">
@@ -728,6 +728,8 @@ function FriendsTab() {
       contentContainerClassName="p-4 pb-8"
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.text} />}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      automaticallyAdjustKeyboardInsets
     >
       {/* Invite link — primary CTA. Generates a token server-side and pops
           the native Share sheet immediately, so the common flow is one tap. */}

@@ -18,14 +18,14 @@ from models.training_log import TrainingLog
 from models.custom_exercise import CustomExercise
 from models.user_split import UserSplit
 from services.daily import get_or_create_today
-from services.exercise_taxonomy import group_for_exercise, groups_for_exercises
+from services.exercise_taxonomy import group_for_exercise, groups_for_exercises, is_per_dumbbell
 from services.one_rm import estimate as estimate_one_rm
 from services.progression import next_target
 from services.plans import history_window
 from services.social_notifications import (
     notify_pr_if_applicable,
     notify_weekly_volume_overtakes,
-    BODYWEIGHT_EXERCISES,
+    set_volume_kg,
 )
 from services.split_detection import detect_for_user as detect_split_for_user
 
@@ -48,6 +48,8 @@ class LogTrainingRequest(BaseModel):
 class LogSetRequest(BaseModel):
     weight_kg: Optional[float] = None
     reps: Optional[int] = None
+    # "drop": straight on from the set before, lighter.
+    set_type: Literal["normal", "drop"] = "normal"
 
 
 class LogExerciseRequest(BaseModel):
@@ -61,15 +63,10 @@ class LogExerciseRequest(BaseModel):
     source: Optional[Literal["plan"]] = None
 
 
-def _effective_weight_kg(log: TrainingLog, user_weight_kg: float | None) -> float:
-    """Weight moved by one set. Bodyweight exercises count the lifter's own
-    mass, matching friends._effective_weight so session volume agrees with
-    the leaderboard."""
-    if log.weight_kg is not None:
-        return float(log.weight_kg)
-    if log.type in BODYWEIGHT_EXERCISES and user_weight_kg is not None:
-        return float(user_weight_kg)
-    return 0.0
+class LogSupersetRequest(BaseModel):
+    """Two or more exercises done back to back; their sets share a superset_id."""
+    exercises: list[LogExerciseRequest]
+    date: Optional[DateType] = None
 
 
 def _log_dict(t: TrainingLog) -> dict:
@@ -84,6 +81,8 @@ def _log_dict(t: TrainingLog) -> dict:
         "reps": t.reps,
         "notes": t.notes,
         "source": t.source,
+        "set_type": t.set_type,
+        "superset_id": str(t.superset_id) if t.superset_id else None,
         "logged_at": t.logged_at.isoformat(),
     }
 
@@ -112,17 +111,6 @@ async def _sync_training_summary(
         summary.trained = first_type is not None
         summary.training_type = first_type
         await db.flush()
-
-
-def _effective_weight_for_volume(
-    type_: str, weight_kg: Optional[float], user_weight_kg: Optional[float]
-) -> float:
-    """Mirrors social_notifications._user_weekly_volume_kg's bodyweight rule."""
-    if weight_kg is not None and weight_kg > 0:
-        return float(weight_kg)
-    if type_ in BODYWEIGHT_EXERCISES and user_weight_kg:
-        return float(user_weight_kg)
-    return 0.0
 
 
 @router.post("/log", status_code=201)
@@ -164,13 +152,71 @@ async def log_training(
             await notify_pr_if_applicable(
                 current_user, body.type, body.weight_kg, body.reps, db, redis
             )
-            added_kg = _effective_weight_for_volume(
-                body.type, body.weight_kg, current_user.weight_kg
-            ) * (body.reps or 0)
+            added_kg = set_volume_kg(
+                body.type, body.weight_kg, body.reps, current_user.weight_kg
+            )
             await notify_weekly_volume_overtakes(current_user, added_kg, db, redis)
         except Exception:  # noqa: BLE001
             pass
     return _log_dict(entry)
+
+
+def _add_exercise_sets(
+    body: LogExerciseRequest,
+    user: User,
+    target_date: date,
+    db: AsyncSession,
+    superset_id: uuid.UUID | None = None,
+) -> list[TrainingLog]:
+    created: list[TrainingLog] = []
+    for s in body.sets:
+        if s.reps is None and s.weight_kg is None:
+            continue
+        # A drop set needs a set to drop from.
+        set_type = s.set_type if created else "normal"
+        entry = TrainingLog(
+            user_id=user.id,
+            date=target_date,
+            type=body.type,
+            volume_sets=len(created) + 1,
+            weight_kg=s.weight_kg,
+            reps=s.reps,
+            notes=body.notes if not created else None,
+            source=body.source,
+            set_type=set_type,
+            superset_id=superset_id,
+        )
+        db.add(entry)
+        created.append(entry)
+    return created
+
+
+async def _after_log(
+    user: User, target_date: date, created: list[TrainingLog], db: AsyncSession, redis
+) -> None:
+    """Commit, then friend notifications for today's logs. The PR check uses
+    each exercise's heaviest set; weekly volume sums all of them."""
+    await db.flush()
+    await _sync_training_summary(user.id, target_date, db, tz_name=user.timezone)
+    await db.commit()
+    for e in created:
+        await db.refresh(e)
+
+    if target_date == date.today() and created:
+        try:
+            by_type: dict[str, list[TrainingLog]] = defaultdict(list)
+            for e in created:
+                by_type[e.type].append(e)
+            for type_, sets in by_type.items():
+                top = max(sets, key=lambda e: float(e.weight_kg or 0))
+                await notify_pr_if_applicable(user, type_, top.weight_kg, top.reps, db, redis)
+            added_kg = sum(
+                set_volume_kg(e.type, e.weight_kg, e.reps, user.weight_kg)
+                for e in created
+            )
+            await notify_weekly_volume_overtakes(user, added_kg, db, redis)
+        except Exception:  # noqa: BLE001
+            pass
 
 
 @router.post("/log-exercise", status_code=201)
@@ -186,62 +232,36 @@ async def log_exercise(
 
     from core.timezone import user_today
     target_date = body.date or user_today(current_user.timezone)
-    created: list[TrainingLog] = []
-
-    for i, s in enumerate(body.sets, start=1):
-        if s.reps is None and s.weight_kg is None:
-            continue
-        entry = TrainingLog(
-            user_id=current_user.id,
-            date=target_date,
-            type=body.type,
-            volume_sets=i,
-            weight_kg=s.weight_kg,
-            reps=s.reps,
-            notes=body.notes if i == 1 else None,
-            source=body.source,
-        )
-        db.add(entry)
-        created.append(entry)
-
+    created = _add_exercise_sets(body, current_user, target_date, db)
     if not created:
         raise HTTPException(400, "No valid sets to log")
 
-    await db.flush()
-    await _sync_training_summary(
-        current_user.id, target_date, db, tz_name=current_user.timezone,
-    )
+    await _after_log(current_user, target_date, created, db, redis)
+    return [_log_dict(e) for e in created]
 
-    await db.commit()
-    for e in created:
-        await db.refresh(e)
 
-    # Friend notifications — only for today's logs. PR check uses the heaviest
-    # set in the session; weekly volume sums all of them.
-    if target_date == date.today() and created:
-        try:
-            top = max(created, key=lambda e: float(e.weight_kg or 0))
-            await notify_pr_if_applicable(
-                current_user,
-                body.type,
-                top.weight_kg,
-                top.reps,
-                db,
-                redis,
-            )
-            added_kg = sum(
-                _effective_weight_for_volume(
-                    body.type, e.weight_kg, current_user.weight_kg
-                )
-                * (e.reps or 0)
-                for e in created
-            )
-            await notify_weekly_volume_overtakes(
-                current_user, added_kg, db, redis
-            )
-        except Exception:  # noqa: BLE001
-            pass
+@router.post("/log-superset", status_code=201)
+async def log_superset(
+    body: LogSupersetRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis),
+):
+    """Log exercises done back to back. Every set gets the same superset_id
+    so history can show them together."""
+    if len(body.exercises) < 2:
+        raise HTTPException(400, "A superset needs at least two exercises")
 
+    from core.timezone import user_today
+    target_date = body.date or user_today(current_user.timezone)
+    superset_id = uuid.uuid4()
+    created: list[TrainingLog] = []
+    for ex in body.exercises:
+        created += _add_exercise_sets(ex, current_user, target_date, db, superset_id)
+    if not created:
+        raise HTTPException(400, "No valid sets to log")
+
+    await _after_log(current_user, target_date, created, db, redis)
     return [_log_dict(e) for e in created]
 
 
@@ -308,7 +328,7 @@ async def get_sessions(
             by_exercise[log.type].append(log)
 
         volume = sum(
-            _effective_weight_kg(log, current_user.weight_kg) * (log.reps or 0)
+            set_volume_kg(log.type, log.weight_kg, log.reps, current_user.weight_kg)
             for log in logs
         )
         top = max(
@@ -333,6 +353,11 @@ async def get_sessions(
                             reverse=True,
                         )),
                         None,
+                    ),
+                    "drop_sets": sum(1 for x in sets if x.set_type == "drop"),
+                    # Exercises sharing one were done back to back.
+                    "superset_id": next(
+                        (str(x.superset_id) for x in sets if x.superset_id), None
                     ),
                 }
                 for key, sets in by_exercise.items()
@@ -399,8 +424,9 @@ async def get_volume_weekly(
 
     volume_by_day: dict[str, float] = defaultdict(float)
     for log in logs:
-        if log.weight_kg is not None and log.reps is not None:
-            volume_by_day[log.date.isoformat()] += float(log.weight_kg) * log.reps
+        volume_by_day[log.date.isoformat()] += set_volume_kg(
+            log.type, log.weight_kg, log.reps, current_user.weight_kg
+        )
 
     days = []
     for i in range(7):
@@ -456,9 +482,8 @@ async def get_by_exercise(
             default=None,
         )
         volume = sum(
-            float(s.weight_kg or 0) * (s.reps or 0)
+            set_volume_kg(s.type, s.weight_kg, s.reps, current_user.weight_kg)
             for s in sets
-            if s.weight_kg is not None and s.reps is not None
         )
         progression.append({
             "date": d,
@@ -648,7 +673,7 @@ async def progression_overview(
     groups = await groups_for_exercises(list(by_key), db)
     out = {}
     for key, rows in by_key.items():
-        t = next_target(_sessions(rows), groups.get(key))
+        t = next_target(_sessions(rows), groups.get(key), dumbbell=is_per_dumbbell(key))
         out[key] = {"kind": t["kind"], "ready_for_weight": t["ready_for_weight"], "stalled": t["stalled"]}
     return {"exercises": out}
 
@@ -677,8 +702,9 @@ async def progression_for_exercise(
     done_today = bool(sessions) and sessions[-1][0].date == today
     basis = sessions[:-1] if done_today else sessions
     group = await group_for_exercise(exercise_key, db)
-    target = next_target(basis, group)
-    nxt = next_target(sessions, group) if done_today else None
+    db_ = is_per_dumbbell(exercise_key)
+    target = next_target(basis, group, dumbbell=db_)
+    nxt = next_target(sessions, group, dumbbell=db_) if done_today else None
     return {
         "exercise": exercise_key,
         "target": target,

@@ -162,7 +162,7 @@ export default function EditValueScreen() {
             ),
         }}
       />
-      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 bg-surface" contentContainerClassName="px-4 pt-6 pb-12" keyboardShouldPersistTaps="handled">
+      <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 bg-surface" contentContainerClassName="px-4 pt-6 pb-12" keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
         <View className="flex-row gap-3">
           <Field
             value={text}

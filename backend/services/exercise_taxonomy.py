@@ -162,7 +162,110 @@ EXERCISE_TO_GROUP: dict[str, str] = {
     "bird_dog":               "Core",
     "l_sit":                  "Core",
     "dragon_flag":            "Core",
+    # Chest (second batch)
+    "smith_bench":             "Chest",
+    "incline_smith_press":     "Chest",
+    "incline_machine_press":   "Chest",
+    "floor_press":             "Chest",
+    "db_floor_press":          "Chest",
+    "incline_db_fly":          "Chest",
+    "high_cable_fly":          "Chest",
+    "db_pullover":             "Chest",
+    "close_grip_push_up":      "Chest",
+    "weighted_dip":            "Chest",
+    # Back (second batch)
+    "chest_supported_row":     "Back",
+    "machine_row":             "Back",
+    "single_arm_cable_row":    "Back",
+    "kroc_row":                "Back",
+    "inverted_row":            "Back",
+    "assisted_pull_up":        "Back",
+    "close_grip_pulldown":     "Back",
+    "single_arm_pulldown":     "Back",
+    "cable_pullover":          "Back",
+    "snatch_grip_deadlift":    "Back",
+    "deficit_deadlift":        "Back",
+    "smith_shrug":             "Back",
+    "reverse_hyper":           "Back",
+    # Legs (second batch)
+    "smith_squat":             "Legs",
+    "zercher_squat":           "Legs",
+    "pendulum_squat":          "Legs",
+    "split_squat":             "Legs",
+    "db_lunge":                "Legs",
+    "lateral_lunge":           "Legs",
+    "curtsy_lunge":            "Legs",
+    "db_rdl":                  "Legs",
+    "kb_swing":                "Legs",
+    "standing_leg_curl":       "Legs",
+    "glute_ham_raise":         "Legs",
+    "reverse_nordic":          "Legs",
+    "hip_adduction":           "Legs",
+    "leg_press_calf_raise":    "Legs",
+    "tibialis_raise":          "Legs",
+    "box_jump":                "Legs",
+    "sled_push":               "Legs",
+    # Shoulders (second batch)
+    "machine_lateral_raise":   "Shoulders",
+    "cable_front_raise":       "Shoulders",
+    "cable_rear_delt_fly":     "Shoulders",
+    "y_raise":                 "Shoulders",
+    "z_press":                 "Shoulders",
+    "landmine_shoulder_press": "Shoulders",
+    "db_upright_row":          "Shoulders",
+    "cuban_press":             "Shoulders",
+    "band_pull_apart":         "Shoulders",
+    "pike_push_up":            "Shoulders",
+    # Arms (second batch)
+    "ez_bar_curl":             "Arms",
+    "machine_curl":            "Arms",
+    "bayesian_curl":           "Arms",
+    "rope_hammer_curl":        "Arms",
+    "cross_body_hammer_curl":  "Arms",
+    "drag_curl":               "Arms",
+    "db_skullcrusher":         "Arms",
+    "cable_overhead_extension": "Arms",
+    "single_arm_pushdown":     "Arms",
+    "tate_press":              "Arms",
+    "diamond_push_up":         "Arms",
+    "bench_dip":               "Arms",
+    "assisted_dip":            "Arms",
+    "dead_hang":               "Arms",
+    # Core (second batch)
+    "crunch":                  "Core",
+    "machine_crunch":          "Core",
+    "reverse_crunch":          "Core",
+    "bicycle_crunch":          "Core",
+    "v_up":                    "Core",
+    "hollow_hold":             "Core",
+    "toes_to_bar":             "Core",
+    "captains_chair_raise":    "Core",
+    "mountain_climber":        "Core",
+    "flutter_kick":            "Core",
+    "side_bend":               "Core",
+    "suitcase_carry":          "Core",
+    "landmine_rotation":       "Core",
 }
+
+
+# Logged per dumbbell (peakform-native/lib/exercises.ts): weight_kg is ONE
+# dumbbell. Pairs, one in each hand, move twice that per rep, so volume
+# doubles; one-dumbbell moves count once. PRs, 1RM and progression stay per
+# dumbbell, which is how people talk about them ("I press the 30s").
+DUMBBELL_PAIR: set[str] = {
+    "dumbbell_press", "incline_db_press", "decline_db_press", "chest_fly", "incline_db_fly",
+    "db_floor_press", "db_shrug", "chest_supported_row", "db_lunge", "db_rdl",
+    "db_shoulder_press", "arnold_press", "lateral_raise", "front_raise", "rear_delt_fly",
+    "y_raise", "db_upright_row", "db_curl", "hammer_curl", "incline_db_curl", "zottman_curl",
+    "cross_body_hammer_curl", "db_skullcrusher", "farmer_carry",
+}
+DUMBBELL_SINGLE: set[str] = {
+    "one_arm_db_row", "kroc_row", "concentration_curl", "kickback", "suitcase_carry", "side_bend",
+}
+
+
+def is_per_dumbbell(exercise_key: str) -> bool:
+    return exercise_key in DUMBBELL_PAIR or exercise_key in DUMBBELL_SINGLE
 
 
 async def group_for_exercise(

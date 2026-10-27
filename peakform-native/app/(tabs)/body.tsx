@@ -21,6 +21,7 @@ import { useAuthStore } from '../../store/auth'
 import { CountUp } from '../../components/CountUp'
 import { SkeletonCard } from '../../components/Skeleton'
 import { SwipeableRow } from '../../components/SwipeableRow'
+import { KEYBOARD_DONE_ID, KeyboardDoneBar } from '../../components/KeyboardDoneBar'
 import { PressableScale } from '../../components/PressableScale'
 import { hapticSuccess, hapticSelection } from '../../lib/haptics'
 import { colors, fontPx } from '../../theme/tokens'
@@ -357,6 +358,7 @@ function LogModal({
               <TextInput
                 value={weight}
                 onChangeText={(t) => setWeight(t.replace(',', '.'))}
+                inputAccessoryViewID={KEYBOARD_DONE_ID}
                 placeholder={shownCurrent ?? (u.system === 'imperial' ? '175.0' : '80.0')}
                 placeholderTextColor={colors['text-subtle']}
                 keyboardType="decimal-pad"
@@ -379,6 +381,7 @@ function LogModal({
               <TextInput
                 value={bodyFat}
                 onChangeText={(t) => setBodyFat(t.replace(',', '.'))}
+                inputAccessoryViewID={KEYBOARD_DONE_ID}
                 placeholder="15.0"
                 placeholderTextColor={colors['text-subtle']}
                 keyboardType="decimal-pad"
@@ -401,6 +404,7 @@ function LogModal({
             )}
           </TouchableOpacity>
         </View>
+        <KeyboardDoneBar />
       </View>
     </Modal>
   )

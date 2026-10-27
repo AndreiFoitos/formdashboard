@@ -28,6 +28,16 @@ export const GROUPS: Group[] = [
       { key: 'deficit_push_up',       name: 'Deficit Push-up' },
       { key: 'chest_dip',             name: 'Chest Dip' },
       { key: 'landmine_press',        name: 'Landmine Press' },
+      { key: 'smith_bench',           name: 'Smith Machine Bench' },
+      { key: 'incline_smith_press',   name: 'Incline Smith Press' },
+      { key: 'incline_machine_press', name: 'Incline Machine Press' },
+      { key: 'floor_press',           name: 'Floor Press' },
+      { key: 'db_floor_press',        name: 'DB Floor Press' },
+      { key: 'incline_db_fly',        name: 'Incline DB Fly' },
+      { key: 'high_cable_fly',        name: 'High-to-low Cable Fly' },
+      { key: 'db_pullover',           name: 'DB Pullover' },
+      { key: 'close_grip_push_up',    name: 'Close-grip Push-up' },
+      { key: 'weighted_dip',          name: 'Weighted Dip' },
     ],
   },
   {
@@ -57,6 +67,19 @@ export const GROUPS: Group[] = [
       { key: 'back_extension',        name: 'Back Extension' },
       { key: 'good_morning',          name: 'Good Morning' },
       { key: 'hip_thrust_back',       name: 'Hip Thrust (back-focus)' },
+      { key: 'chest_supported_row',   name: 'Chest-supported DB Row' },
+      { key: 'machine_row',           name: 'Machine Row' },
+      { key: 'single_arm_cable_row',  name: 'Single-arm Cable Row' },
+      { key: 'kroc_row',              name: 'Kroc Row' },
+      { key: 'inverted_row',          name: 'Inverted Row' },
+      { key: 'assisted_pull_up',      name: 'Assisted Pull-up' },
+      { key: 'close_grip_pulldown',   name: 'Close-grip Pulldown' },
+      { key: 'single_arm_pulldown',   name: 'Single-arm Pulldown' },
+      { key: 'cable_pullover',        name: 'Cable Pullover' },
+      { key: 'snatch_grip_deadlift',  name: 'Snatch-grip Deadlift' },
+      { key: 'deficit_deadlift',      name: 'Deficit Deadlift' },
+      { key: 'smith_shrug',           name: 'Smith Shrug' },
+      { key: 'reverse_hyper',         name: 'Reverse Hyper' },
     ],
   },
   {
@@ -93,6 +116,23 @@ export const GROUPS: Group[] = [
       { key: 'calf_raise',            name: 'Standing Calf Raise' },
       { key: 'seated_calf_raise',     name: 'Seated Calf Raise' },
       { key: 'donkey_calf_raise',     name: 'Donkey Calf Raise' },
+      { key: 'smith_squat',           name: 'Smith Squat' },
+      { key: 'zercher_squat',         name: 'Zercher Squat' },
+      { key: 'pendulum_squat',        name: 'Pendulum Squat' },
+      { key: 'split_squat',           name: 'Split Squat' },
+      { key: 'db_lunge',              name: 'DB Lunge' },
+      { key: 'lateral_lunge',         name: 'Lateral Lunge' },
+      { key: 'curtsy_lunge',          name: 'Curtsy Lunge' },
+      { key: 'db_rdl',                name: 'DB Romanian Deadlift' },
+      { key: 'kb_swing',              name: 'Kettlebell Swing' },
+      { key: 'standing_leg_curl',     name: 'Standing Leg Curl' },
+      { key: 'glute_ham_raise',       name: 'Glute-ham Raise' },
+      { key: 'reverse_nordic',        name: 'Reverse Nordic' },
+      { key: 'hip_adduction',         name: 'Hip Adduction' },
+      { key: 'leg_press_calf_raise',  name: 'Leg-press Calf Raise' },
+      { key: 'tibialis_raise',        name: 'Tibialis Raise' },
+      { key: 'box_jump',              name: 'Box Jump' },
+      { key: 'sled_push',             name: 'Sled Push' },
     ],
   },
   {
@@ -115,6 +155,16 @@ export const GROUPS: Group[] = [
       { key: 'face_pull',             name: 'Face Pull' },
       { key: 'upright_row',           name: 'Upright Row' },
       { key: 'handstand_push_up',     name: 'Handstand Push-up' },
+      { key: 'machine_lateral_raise', name: 'Machine Lateral Raise' },
+      { key: 'cable_front_raise',     name: 'Cable Front Raise' },
+      { key: 'cable_rear_delt_fly',   name: 'Cable Rear Delt Fly' },
+      { key: 'y_raise',               name: 'Y-raise' },
+      { key: 'z_press',               name: 'Z Press' },
+      { key: 'landmine_shoulder_press', name: 'Single-arm Landmine Press' },
+      { key: 'db_upright_row',        name: 'DB Upright Row' },
+      { key: 'cuban_press',           name: 'Cuban Press' },
+      { key: 'band_pull_apart',       name: 'Band Pull-apart' },
+      { key: 'pike_push_up',          name: 'Pike Push-up' },
     ],
   },
   {
@@ -142,6 +192,20 @@ export const GROUPS: Group[] = [
       { key: 'wrist_curl',            name: 'Wrist Curl' },
       { key: 'reverse_wrist_curl',    name: 'Reverse Wrist Curl' },
       { key: 'farmer_carry',          name: 'Farmer Carry' },
+      { key: 'ez_bar_curl',           name: 'EZ-bar Curl' },
+      { key: 'machine_curl',          name: 'Machine Curl' },
+      { key: 'bayesian_curl',         name: 'Bayesian Cable Curl' },
+      { key: 'rope_hammer_curl',      name: 'Rope Hammer Curl' },
+      { key: 'cross_body_hammer_curl', name: 'Cross-body Hammer Curl' },
+      { key: 'drag_curl',             name: 'Drag Curl' },
+      { key: 'db_skullcrusher',       name: 'DB Skullcrusher' },
+      { key: 'cable_overhead_extension', name: 'Cable Overhead Extension' },
+      { key: 'single_arm_pushdown',   name: 'Single-arm Pushdown' },
+      { key: 'tate_press',            name: 'Tate Press' },
+      { key: 'diamond_push_up',       name: 'Diamond Push-up' },
+      { key: 'bench_dip',             name: 'Bench Dip' },
+      { key: 'assisted_dip',          name: 'Assisted Dip' },
+      { key: 'dead_hang',             name: 'Dead Hang' },
     ],
   },
   {
@@ -163,6 +227,19 @@ export const GROUPS: Group[] = [
       { key: 'bird_dog',              name: 'Bird Dog' },
       { key: 'l_sit',                 name: 'L-sit Hold' },
       { key: 'dragon_flag',           name: 'Dragon Flag' },
+      { key: 'crunch',                name: 'Crunch' },
+      { key: 'machine_crunch',        name: 'Ab Crunch Machine' },
+      { key: 'reverse_crunch',        name: 'Reverse Crunch' },
+      { key: 'bicycle_crunch',        name: 'Bicycle Crunch' },
+      { key: 'v_up',                  name: 'V-up' },
+      { key: 'hollow_hold',           name: 'Hollow Hold' },
+      { key: 'toes_to_bar',           name: 'Toes-to-bar' },
+      { key: 'captains_chair_raise',  name: "Captain's Chair Leg Raise" },
+      { key: 'mountain_climber',      name: 'Mountain Climber' },
+      { key: 'flutter_kick',          name: 'Flutter Kick' },
+      { key: 'side_bend',             name: 'DB Side Bend' },
+      { key: 'suitcase_carry',        name: 'Suitcase Carry' },
+      { key: 'landmine_rotation',     name: 'Landmine Rotation' },
     ],
   },
 ]
@@ -171,3 +248,27 @@ export const ALL_EXERCISES: Exercise[] = GROUPS.flatMap(g => g.exercises)
 export const EXERCISE_NAME: Record<string, string> = Object.fromEntries(
   ALL_EXERCISES.map(e => [e.key, e.name]),
 )
+
+// Logged per dumbbell: the weight field is ONE dumbbell, the way people say
+// "I press the 30s". Pairs (one in each hand) count both towards volume on
+// the server; one-dumbbell moves count once. Keep in sync with
+// backend/services/exercise_taxonomy.py DUMBBELL_PAIR / DUMBBELL_SINGLE.
+export const DUMBBELL_PAIR = new Set([
+  'dumbbell_press', 'incline_db_press', 'decline_db_press', 'chest_fly', 'incline_db_fly',
+  'db_floor_press', 'db_shrug', 'chest_supported_row', 'db_lunge', 'db_rdl',
+  'db_shoulder_press', 'arnold_press', 'lateral_raise', 'front_raise', 'rear_delt_fly',
+  'y_raise', 'db_upright_row', 'db_curl', 'hammer_curl', 'incline_db_curl', 'zottman_curl',
+  'cross_body_hammer_curl', 'db_skullcrusher', 'farmer_carry',
+])
+export const DUMBBELL_SINGLE = new Set([
+  'one_arm_db_row', 'kroc_row', 'concentration_curl', 'kickback', 'suitcase_carry', 'side_bend',
+])
+
+export function isPerDumbbell(key: string): boolean {
+  return DUMBBELL_PAIR.has(key) || DUMBBELL_SINGLE.has(key)
+}
+
+/** Lower-case, "dumbbell" → "db", so "dumbbell curl" finds "DB Curl". */
+export function searchKey(s: string): string {
+  return s.toLowerCase().replace(/dumbbells?/g, 'db').replace(/[^a-z0-9]+/g, ' ').trim()
+}

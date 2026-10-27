@@ -170,7 +170,7 @@ function ExerciseRow({
         <Text className={`text-footnote font-medium ${done ? 'text-text-subtle' : 'text-text'}`}>{name}</Text>
         <Text className="text-text-subtle text-caption mt-1">
           {ex.sets} × {ex.reps_min === ex.reps_max ? ex.reps_max : `${ex.reps_min}–${ex.reps_max}`}
-          {w != null ? ` · ${u.weightLabel(w)}` : ex.basis === 'bodyweight' ? ' · bodyweight' : ''}
+          {w != null ? ` · ${u.liftLabel(w)}` : ex.basis === 'bodyweight' ? ' · bodyweight' : ''}
         </Text>
       </View>
       {done ? (

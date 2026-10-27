@@ -27,6 +27,7 @@ from models.custom_exercise import CustomExercise
 from models.friendship import Friendship
 from models.training_log import TrainingLog
 from models.user import User
+from services.exercise_taxonomy import DUMBBELL_PAIR
 from services import push
 
 
@@ -34,6 +35,24 @@ logger = logging.getLogger(__name__)
 
 
 BODYWEIGHT_EXERCISES = {"pull_up", "push_up", "tricep_dip", "hanging_leg_raise"}
+
+
+def set_volume_kg(
+    exercise_key: str,
+    weight_kg: Optional[float],
+    reps: Optional[int],
+    user_weight_kg: Optional[float],
+) -> float:
+    """kg moved by one set: weight x reps. Bodyweight moves with no weight
+    count the lifter's own mass; dumbbell pairs are logged per dumbbell, so
+    they count twice. Every volume number (leaderboard, weekly chart,
+    sessions, milestones) goes through here so they all agree."""
+    w = float(weight_kg) if weight_kg else 0.0
+    if w <= 0 and exercise_key in BODYWEIGHT_EXERCISES and user_weight_kg:
+        w = float(user_weight_kg)
+    if exercise_key in DUMBBELL_PAIR:
+        w *= 2
+    return w * (reps or 0)
 
 # 7-day TTL for dedupe keys — keys naturally cycle out as the week rolls over,
 # but we don't want a stuck key for someone who only logs once.
@@ -178,10 +197,7 @@ async def _user_weekly_volume_kg(
     )
     total = 0.0
     for log in result.scalars().all():
-        w = float(log.weight_kg) if log.weight_kg is not None else 0.0
-        if w == 0 and log.type in BODYWEIGHT_EXERCISES and user_weight_kg:
-            w = float(user_weight_kg)
-        total += w * (log.reps or 0)
+        total += set_volume_kg(log.type, log.weight_kg, log.reps, user_weight_kg)
     return total
 
 

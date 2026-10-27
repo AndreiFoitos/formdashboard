@@ -38,7 +38,8 @@ from models.user import User
 from models.user_preference import UserPreference
 from services import nutrition_estimate as ne
 from services.ai_client import CLAUDE_MODEL, call_claude_json
-from services.exercise_taxonomy import EXERCISE_TO_GROUP, VALID_GROUPS
+from services.exercise_taxonomy import EXERCISE_TO_GROUP, VALID_GROUPS, is_per_dumbbell
+from services.progression import step as progression_step
 from services.one_rm import estimate as estimate_one_rm
 from services.plan_context import _slope_per_week, build_context
 from services.plans import plan_for, refund_scan
@@ -68,6 +69,13 @@ MACHINE_OR_CABLE = {
     "seated_calf_raise", "donkey_calf_raise", "machine_shoulder_press", "cable_lateral_raise",
     "reverse_pec_deck", "face_pull", "cable_curl", "tricep_pushdown", "rope_pushdown", "cable_crunch",
     "pallof_press", "wood_chop", "tbar_row", "meadows_row", "landmine_press", "back_extension",
+    "smith_bench", "incline_smith_press", "incline_machine_press", "high_cable_fly", "machine_row",
+    "single_arm_cable_row", "close_grip_pulldown", "single_arm_pulldown", "cable_pullover", "smith_shrug",
+    "reverse_hyper", "smith_squat", "pendulum_squat", "standing_leg_curl", "glute_ham_raise",
+    "hip_adduction", "leg_press_calf_raise", "sled_push", "machine_lateral_raise", "cable_front_raise",
+    "cable_rear_delt_fly", "landmine_shoulder_press", "machine_curl", "bayesian_curl", "rope_hammer_curl",
+    "cable_overhead_extension", "single_arm_pushdown", "assisted_dip", "assisted_pull_up",
+    "machine_crunch", "captains_chair_raise", "landmine_rotation",
 }
 
 # Doable with no equipment beyond a bar to hang from and something to dip on.
@@ -77,6 +85,10 @@ BODYWEIGHT = {
     "glute_bridge", "hip_thrust", "nordic_curl", "sissy_squat", "handstand_push_up", "calf_raise",
     "plank", "side_plank", "hanging_leg_raise", "hanging_knee_raise", "ab_wheel", "sit_up",
     "decline_sit_up", "russian_twist", "dead_bug", "bird_dog", "l_sit", "dragon_flag",
+    "close_grip_push_up", "inverted_row", "split_squat", "lateral_lunge", "curtsy_lunge",
+    "reverse_nordic", "tibialis_raise", "box_jump", "pike_push_up", "diamond_push_up", "bench_dip",
+    "dead_hang", "crunch", "reverse_crunch", "bicycle_crunch", "v_up", "hollow_hold", "toes_to_bar",
+    "mountain_climber", "flutter_kick",
 }
 
 # Coarse: the movements that most load each preset injury. Free-text
@@ -368,12 +380,13 @@ async def best_one_rms(user: User, today: date, db: AsyncSession) -> dict[str, f
     return best
 
 
-def start_weight(one_rm: float | None, reps_max: int) -> float | None:
-    """Epley inverted for the top of the rep range with RIR reps to spare."""
+def start_weight(one_rm: float | None, reps_max: int, dumbbell: bool = False) -> float | None:
+    """Epley inverted for the top of the rep range with RIR reps to spare.
+    Rounded to a weight that exists: the dumbbell rack, or plates."""
     if not one_rm:
         return None
     w = one_rm / (1 + (reps_max + RIR) / 30)
-    step = 1.0 if w < 20 else 2.5
+    step = progression_step(None, w, dumbbell)
     return round(round(w / step) * step, 1)
 
 
@@ -506,7 +519,7 @@ def resolve_training(
                 "reps_max": hi,
                 "rest_seconds": min(max(int(e["rest_seconds"]), 30), 300),
                 "note": e.get("note", "").strip(),
-                "start_weight_kg": None if body else start_weight(one_rms.get(e["key"]), hi),
+                "start_weight_kg": None if body else start_weight(one_rms.get(e["key"]), hi, is_per_dumbbell(e["key"])),
                 "basis": "bodyweight" if body else ("e1rm" if one_rms.get(e["key"]) else "none"),
             })
         if exs:
