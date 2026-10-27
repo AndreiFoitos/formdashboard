@@ -70,6 +70,10 @@ services:
       # unauthenticated, so anyone could spoof pushes to your users.
       - key: EXPO_ACCESS_TOKEN
         sync: false
+      # Resend API key for set/change-password and confirm-email links
+      # (services/email.py). Unset = those endpoints answer 503.
+      - key: RESEND_API_KEY
+        sync: false
       # ── Redis: leave unset to run Redis-free. To enable later, add an Upstash
       #    URL here (redis://...) — the code picks it up automatically.
       # - key: REDIS_URL

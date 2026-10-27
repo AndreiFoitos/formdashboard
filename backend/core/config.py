@@ -1,4 +1,4 @@
-﻿from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -56,6 +56,16 @@ class Settings(BaseSettings):
     # field. Both empty = billing endpoints answer 503 and everyone stays free.
     REVENUECAT_SECRET_API_KEY: str = ""
     REVENUECAT_WEBHOOK_AUTH: str = ""
+
+    # Transactional email (services/email.py) via Resend — set/change-password
+    # and confirm-email links. Empty key = links are logged instead of sent in
+    # dev, and the endpoints answer 503 in production.
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "GainRace <no-reply@gainrace.com>"
+
+    # Public origin of this API. Emailed links point at pages it serves
+    # (routers/account_links.py).
+    PUBLIC_API_URL: str = "https://api.gainrace.com"
 
     model_config = SettingsConfigDict(
             env_file=".env",

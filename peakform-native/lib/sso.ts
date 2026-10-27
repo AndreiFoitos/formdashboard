@@ -64,6 +64,8 @@ async function completeSignIn(tokens: { access_token: string; refresh_token: str
   }
 
   router.replace(user.onboarding_complete ? '/' : '/onboarding')
+  // Apple withholds the email when it re-authorizes an app it already knows.
+  if (!user.email) router.push('/settings/add-email')
 }
 
 // ── Apple ────────────────────────────────────────────────────────────────────

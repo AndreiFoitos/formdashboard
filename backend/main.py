@@ -38,6 +38,7 @@ if settings.SENTRY_DSN:
     )
 
 from routers.auth import router as auth_router
+from routers.account_links import router as account_links_router
 from routers.users import router as users_router
 from routers.daily import router as daily_router
 from routers.hydration import router as hydration_router
@@ -104,6 +105,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(account_links_router)
 app.include_router(users_router)
 app.include_router(daily_router)
 app.include_router(hydration_router)

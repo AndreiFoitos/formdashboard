@@ -4,6 +4,8 @@ import type { AvatarConfig } from '../lib/avatar/config'
 export interface User {
   id: string
   email: string | null
+  /** False for Apple/Google accounts that never set one; missing on older backends. */
+  has_password?: boolean
   username: string | null
   name: string | null
   age: number | null

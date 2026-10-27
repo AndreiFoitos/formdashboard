@@ -218,6 +218,7 @@ function RootLayout() {
               <Stack.Screen name="login" />
               <Stack.Screen name="register" />
               <Stack.Screen name="onboarding" />
+              <Stack.Screen name="forgot-password" options={modalHeader} />
 
               {/* Main app — native tab group, protected via useRequireAuth() */}
               <Stack.Screen name="(tabs)" />
@@ -228,6 +229,7 @@ function RootLayout() {
               <Stack.Screen name="settings/training" options={{ ...pushedHeader, title: 'Training preferences' }} />
               <Stack.Screen name="settings/nutrition" options={{ ...pushedHeader, title: 'Nutrition preferences' }} />
               <Stack.Screen name="settings/edit/[field]" options={modalHeader} />
+              <Stack.Screen name="settings/add-email" options={modalHeader} />
               <Stack.Screen name="settings/choose/[field]" options={formSheet} />
 
               {/* Photo-based calorie estimation flow */}

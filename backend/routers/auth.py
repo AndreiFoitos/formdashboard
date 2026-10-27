@@ -160,7 +160,7 @@ async def _find_or_create_oauth_user(
 @limiter.limit("3/hour")
 async def register(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     # Check if email already exists
-    result = await db.execute(select(User).where(User.email == body.email))
+    result = await db.execute(select(User).where(sqlfunc.lower(User.email) == body.email.lower()))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -186,7 +186,7 @@ async def register(request: Request, body: RegisterRequest, db: AsyncSession = D
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("5/minute")
 async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == body.email))
+    result = await db.execute(select(User).where(sqlfunc.lower(User.email) == body.email.lower()))
     user = result.scalar_one_or_none()
 
     # Reject OAuth-only accounts here so the error message is honest — users
@@ -194,7 +194,7 @@ async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends
     if user and user.hashed_password is None:
         raise HTTPException(
             status_code=401,
-            detail="This account uses Sign in with Apple or Google",
+            detail="This account uses Sign in with Apple or Google. To use a password, tap Forgot password.",
         )
 
     if not user or not verify_password(body.password, user.hashed_password):

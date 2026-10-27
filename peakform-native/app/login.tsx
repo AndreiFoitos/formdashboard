@@ -191,6 +191,14 @@ export default function LoginScreen() {
             className="bg-surface-raised border border-border rounded-md px-4 py-4 text-text text-footnote mb-4" style={{ borderCurve: 'continuous' }}
           />
 
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/forgot-password', params: { email: email.trim() } })}
+            hitSlop={8}
+            className="self-end -mt-2 mb-4"
+          >
+            <Text className="text-text-muted text-footnote">Forgot password?</Text>
+          </TouchableOpacity>
+
           {/* Error */}
           {error && (
             <View className="bg-danger/15 border border-danger/40 rounded-xl px-4 py-3 mb-4" style={{ borderCurve: 'continuous' }}>

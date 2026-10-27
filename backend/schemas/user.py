@@ -37,6 +37,8 @@ RESERVED_USERNAMES = frozenset({
 class UserOut(BaseModel):
     id: uuid.UUID
     email: EmailStr | None
+    # Settings shows "Change password" or "Set password" from this.
+    has_password: bool = False
     username: str | None
     name: str | None
     age: int | None

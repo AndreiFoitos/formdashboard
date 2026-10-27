@@ -14,6 +14,11 @@ class User(Base):
     email: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     # Nullable because OAuth-only users (Apple/Google) don't have a password.
     hashed_password: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    @property
+    def has_password(self) -> bool:
+        return self.hashed_password is not None
+
     # Public handle used for friend invites — stable across email changes / Apple relays.
     username: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     # Provider-specific stable subject IDs (Apple `sub`, Google `sub`).

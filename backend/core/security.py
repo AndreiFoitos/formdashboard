@@ -63,6 +63,20 @@ def create_refresh_token(user_id: str) -> str:
     )
 
 
+def create_link_token(user_id: str, purpose: str, minutes: int, **claims) -> str:
+    """
+    Short-lived token for an emailed link. `type` is the purpose, so the auth
+    middleware (type == "access") and /auth/refresh never accept one.
+    """
+    payload = {
+        "sub": user_id,
+        "type": purpose,
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=minutes),
+        **claims,
+    }
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm="HS256")
+
+
 def decode_token(token: str) -> dict:
     try:
         return jwt.decode(
