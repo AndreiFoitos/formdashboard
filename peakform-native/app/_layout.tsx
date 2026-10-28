@@ -259,6 +259,7 @@ function RootLayout() {
               {/* Internal renderer instrumentation — reachable from Settings
                   in dev builds only (__DEV__) */}
               <Stack.Screen name="avatar-lab" options={{ ...pushedHeader, title: 'Avatar lab' }} />
+              <Stack.Screen name="widget-debug" options={{ ...pushedHeader, title: 'Widget snapshot' }} />
               <Stack.Screen name="avatar-edit" options={{ ...pushedHeader, title: 'Your avatar' }} />
               <Stack.Screen name="combo-dex" options={{ ...pushedHeader, title: 'Combo Dex' }} />
               {/* Long-range charts; how far back depends on the plan */}

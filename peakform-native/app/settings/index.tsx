@@ -1,5 +1,5 @@
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Platform, ScrollView, Share, Text, TextInput, TouchableOpacity, View } from 'react-native'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { router } from 'expo-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Constants from 'expo-constants'
@@ -16,6 +16,7 @@ import { manageSubscription, restorePurchases } from '../../lib/purchases'
 import { PRIVACY_POLICY_URL, TERMS_OF_SERVICE_URL, SUPPORT_EMAIL } from '../../lib/legal'
 import { disableNudges, enablePredictiveNudges, getNudgeStatus, nudgesOptedOut } from '../../lib/notifications'
 import { UNIT_SYSTEM_LABEL, useUnits } from '../../lib/units'
+import { loadWidgetPrefs, useWidgetPrefs } from '../../lib/widgets'
 import { formatNumber } from '../../lib/format'
 import { AvatarBadge } from '../../components/avatar/AvatarBadge'
 import { SettingsGroup } from '../../components/settings/SettingsGroup'
@@ -80,6 +81,25 @@ function GoalsGroup() {
         value={hourLabel(user?.sleep_hour ?? 23)}
         onPress={() => choose('bedtime')}
       />
+    </SettingsGroup>
+  )
+}
+
+// ─── Widgets ───────────────────────────────────────────────────────────────────
+
+/** Home screen widgets (docs/widgets-design.md §3.5). Stored on this device
+ *  only. iOS only until Android widgets ship. The quick-log rows come with the
+ *  widget buttons (phase 3). */
+function WidgetsGroup() {
+  const hide = useWidgetPrefs((s) => s.hideOnLockScreen)
+  const setHide = useWidgetPrefs((s) => s.setHideOnLockScreen)
+  useEffect(() => {
+    loadWidgetPrefs()
+  }, [])
+  if (Platform.OS !== 'ios') return null
+  return (
+    <SettingsGroup header="Widgets" footer="Widgets keep their shape but hide your numbers while the phone is locked.">
+      <SettingsRow title="Hide numbers on lock screen" switchValue={hide} onSwitch={setHide} />
     </SettingsGroup>
   )
 }
@@ -464,6 +484,8 @@ export default function SettingsScreen() {
           <SettingsRow title="Units" value={UNIT_SYSTEM_LABEL[u.system]} onPress={() => router.push('/settings/units')} />
         </SettingsGroup>
 
+        <WidgetsGroup />
+
         {FEATURES.avatar && (
           <SettingsGroup header="Avatar">
             <SettingsRow title="Customize avatar" onPress={() => router.push('/avatar-edit')} />
@@ -489,6 +511,7 @@ export default function SettingsScreen() {
         {__DEV__ && (
           <SettingsGroup header="Developer">
             <SettingsRow title="Avatar lab" detail="Placeholder model, FPS and snapshot timing" onPress={() => router.push('/avatar-lab')} />
+            <SettingsRow title="Widget snapshot" detail="The JSON the home screen widgets read" onPress={() => router.push('/widget-debug')} />
           </SettingsGroup>
         )}
 
