@@ -95,11 +95,11 @@ struct NutritionSummary: View {
         if let target = data.calorieTarget {
           let hit = DayData.goalHit(data.calories, target)
           Ring(progress: DayData.progress(data.calories, target), color: hit ? Tokens.success : Tokens.accent)
-            .overlay(
+            .overlay {
               Text("kcal")
                 .font(TypeScale.caption)
                 .foregroundStyle(Tokens.textSubtle)
-            )
+            }
             .frame(width: 48, height: 48)
         }
         VStack(alignment: .leading, spacing: 0) {
@@ -216,45 +216,81 @@ struct CaffeineCurveShape: View {
 
   var body: some View {
     GeometryReader { geo in
-      let pts = caffeine.points
-      if pts.count >= 2, let first = pts.first?.date, let last = pts.last?.date, last > first {
-        let span = last.timeIntervalSince(first)
-        let peak = max(100, pts.map { $0.mg }.max() ?? 0)
-        let w = geo.size.width
-        let h = geo.size.height
-        let inset: CGFloat = 4
-        let x = { (d: Date) -> CGFloat in CGFloat(d.timeIntervalSince(first) / span) * w }
-        let y = { (mg: Double) -> CGFloat in inset + (h - 2 * inset) * CGFloat(1 - min(mg, peak) / peak) }
-        let clampedNow = min(max(now, first), last)
-        let nowMg = DayData.interpolate(pts, at: clampedNow) ?? 0
-        let nowPoint = CGPoint(x: x(clampedNow), y: y(nowMg))
-
+      if let chart = CurveGeometry(points: caffeine.points, size: geo.size, now: now) {
         ZStack(alignment: .topLeading) {
-          Path { p in
-            p.move(to: CGPoint(x: 0, y: y(pts[0].mg)))
-            for pt in pts where pt.date < clampedNow {
-              p.addLine(to: CGPoint(x: x(pt.date), y: y(pt.mg)))
-            }
-            p.addLine(to: nowPoint)
-          }
-          .stroke(Tokens.textMuted, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-
-          Path { p in
-            p.move(to: nowPoint)
-            for pt in pts where pt.date > clampedNow {
-              p.addLine(to: CGPoint(x: x(pt.date), y: y(pt.mg)))
-            }
-          }
-          .stroke(Tokens.textMuted, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [3, 4]))
-
+          chart.pastPath()
+            .stroke(Tokens.textMuted, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+          chart.futurePath()
+            .stroke(Tokens.textMuted, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [3, 4]))
           Circle()
-            .fill(caffeineColor(Int(nowMg.rounded())))
+            .fill(caffeineColor(Int(chart.nowMg.rounded())))
             .frame(width: 8, height: 8)
-            .position(nowPoint)
+            .position(chart.nowPoint)
             .widgetAccentable()
         }
       }
     }
+  }
+}
+
+/// Maps curve points into a rect. nil when there's nothing to draw.
+struct CurveGeometry {
+  let points: [(date: Date, mg: Double)]
+  let size: CGSize
+  let first: Date
+  let span: TimeInterval
+  let peak: Double
+  let clampedNow: Date
+  let nowMg: Double
+
+  init?(points: [(date: Date, mg: Double)], size: CGSize, now: Date) {
+    guard points.count >= 2, let first = points.first?.date, let last = points.last?.date, last > first else {
+      return nil
+    }
+    self.points = points
+    self.size = size
+    self.first = first
+    self.span = last.timeIntervalSince(first)
+    var top: Double = 100
+    for p in points where p.mg > top {
+      top = p.mg
+    }
+    self.peak = top
+    let clamped = min(max(now, first), last)
+    self.clampedNow = clamped
+    self.nowMg = DayData.interpolate(points, at: clamped) ?? 0
+  }
+
+  func point(_ date: Date, _ mg: Double) -> CGPoint {
+    let inset: CGFloat = 4
+    let fx = date.timeIntervalSince(first) / span
+    let fy = 1 - min(mg, peak) / peak
+    let x = CGFloat(fx) * size.width
+    let y = inset + CGFloat(fy) * (size.height - 2 * inset)
+    return CGPoint(x: x, y: y)
+  }
+
+  var nowPoint: CGPoint {
+    return point(clampedNow, nowMg)
+  }
+
+  func pastPath() -> Path {
+    var path = Path()
+    path.move(to: point(points[0].date, points[0].mg))
+    for p in points where p.date < clampedNow {
+      path.addLine(to: point(p.date, p.mg))
+    }
+    path.addLine(to: nowPoint)
+    return path
+  }
+
+  func futurePath() -> Path {
+    var path = Path()
+    path.move(to: nowPoint)
+    for p in points where p.date > clampedNow {
+      path.addLine(to: point(p.date, p.mg))
+    }
+    return path
   }
 }
 

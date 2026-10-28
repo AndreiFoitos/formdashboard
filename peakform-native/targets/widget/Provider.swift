@@ -44,14 +44,15 @@ enum Timelines {
       return GainEntry(date: now, data: DayData(snapshot: s, at: now), metric: metric)
     }
     // The widget gallery shows sample numbers instead of the setup message.
-    return GainEntry(date: now, data: inPreview ? .sample(at: now) : nil, metric: metric)
+    let sample: DayData? = inPreview ? DayData.sample(at: now) : nil
+    return GainEntry(date: now, data: sample, metric: metric)
   }
 }
 
 /// Home screen families and the rectangular / inline lock-screen ones.
 struct GainProvider: TimelineProvider {
   func placeholder(in context: Context) -> GainEntry {
-    GainEntry(date: Date(), data: .sample(at: Date()))
+    GainEntry(date: Date(), data: DayData.sample(at: Date()))
   }
 
   func getSnapshot(in context: Context, completion: @escaping (GainEntry) -> Void) {
@@ -71,18 +72,20 @@ enum LockMetric: String, AppEnum {
   case protein
   case caffeine
 
-  static var typeDisplayRepresentation: TypeDisplayRepresentation = "Metric"
-  static var caseDisplayRepresentations: [LockMetric: DisplayRepresentation] = [
-    .calories: "Calories",
-    .water: "Water",
-    .protein: "Protein",
-    .caffeine: "Caffeine",
-  ]
+  static var typeDisplayRepresentation: TypeDisplayRepresentation { "Metric" }
+  static var caseDisplayRepresentations: [LockMetric: DisplayRepresentation] {
+    [
+      .calories: "Calories",
+      .water: "Water",
+      .protein: "Protein",
+      .caffeine: "Caffeine",
+    ]
+  }
 }
 
 struct LockMetricIntent: WidgetConfigurationIntent {
-  static var title: LocalizedStringResource = "Ring"
-  static var description = IntentDescription("Choose what the ring shows.")
+  static var title: LocalizedStringResource { "Ring" }
+  static var description: IntentDescription { "Choose what the ring shows." }
 
   @Parameter(title: "Shows", default: .calories)
   var metric: LockMetric
@@ -90,7 +93,7 @@ struct LockMetricIntent: WidgetConfigurationIntent {
 
 struct CircularProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> GainEntry {
-    GainEntry(date: Date(), data: .sample(at: Date()))
+    GainEntry(date: Date(), data: DayData.sample(at: Date()))
   }
 
   func snapshot(for configuration: LockMetricIntent, in context: Context) async -> GainEntry {
