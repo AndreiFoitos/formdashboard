@@ -21,6 +21,15 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.gainrace.app"
+        ],
+        "keychain-access-groups": [
+          "$(AppIdentifierPrefix)com.gainrace.app",
+          "$(AppIdentifierPrefix)com.gainrace.app.shared"
+        ]
+      },
       "privacyManifests": {
         "NSPrivacyTracking": false,
         "NSPrivacyTrackingDomains": [],
@@ -174,7 +183,8 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@bacons/apple-targets"
     ],
     "extra": {
       "router": {},
