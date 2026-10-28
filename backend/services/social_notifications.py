@@ -179,26 +179,26 @@ async def notify_pr_if_applicable(
 # ─── Weekly-volume overtake ──────────────────────────────────────────────────
 
 
-async def _user_weekly_volume_kg(
-    user_id: uuid.UUID,
-    user_weight_kg: Optional[float],
+async def _weekly_volumes_kg(
+    body_weights: dict[uuid.UUID, Optional[float]],
     monday: date,
     sunday: date,
     db: AsyncSession,
-) -> float:
-    """Σ weight × reps for the week, with bodyweight fallback identical to
-    the leaderboard's accounting in routers/friends.py."""
+) -> dict[uuid.UUID, float]:
+    """Σ weight × reps for the week per user (keys of `body_weights`), with
+    bodyweight fallback identical to the leaderboard's accounting in
+    routers/friends.py. One query for the whole crew."""
     result = await db.execute(
-        select(TrainingLog).where(
-            TrainingLog.user_id == user_id,
+        select(TrainingLog.user_id, TrainingLog.type, TrainingLog.weight_kg, TrainingLog.reps).where(
+            TrainingLog.user_id.in_(body_weights),
             TrainingLog.date >= monday,
             TrainingLog.date <= sunday,
         )
     )
-    total = 0.0
-    for log in result.scalars().all():
-        total += set_volume_kg(log.type, log.weight_kg, log.reps, user_weight_kg)
-    return total
+    totals = dict.fromkeys(body_weights, 0.0)
+    for uid, ex_type, weight, reps in result.all():
+        totals[uid] += set_volume_kg(ex_type, weight, reps, body_weights[uid])
+    return totals
 
 
 async def notify_weekly_volume_overtakes(
@@ -222,9 +222,13 @@ async def notify_weekly_volume_overtakes(
         return 0
 
     monday, sunday = _week_bounds()
-    my_vol = await _user_weekly_volume_kg(
-        user.id, user.weight_kg, monday, sunday, db
+    friend_weights = dict(
+        (await db.execute(select(User.id, User.weight_kg).where(User.id.in_(friend_ids)))).all()
     )
+    volumes = await _weekly_volumes_kg(
+        {user.id: user.weight_kg, **friend_weights}, monday, sunday, db
+    )
+    my_vol = volumes[user.id]
     pre_vol = my_vol - added_kg
     if my_vol <= 0:
         return 0
@@ -232,12 +236,9 @@ async def notify_weekly_volume_overtakes(
     sender = _sender_label(user)
     delivered_total = 0
     for fid in friend_ids:
-        friend = await db.get(User, fid)
-        if not friend:
+        if fid not in friend_weights:
             continue
-        fvol = await _user_weekly_volume_kg(
-            fid, friend.weight_kg, monday, sunday, db
-        )
+        fvol = volumes[fid]
         # Overtake condition: friend's total sits between our previous and
         # current totals. Equal-to-friend (the edge case where pre == fvol)
         # counts so a tied-then-broken state still fires.

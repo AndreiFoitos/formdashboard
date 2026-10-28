@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Callable
 
-from sqlalchemy import case, func, or_, select, update
+from sqlalchemy import Date, DateTime, case, cast, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,7 +35,7 @@ from models.vouch import Vouch
 from services import avatar_packs
 from services.billing import owned_pack_products
 from services.exercise_taxonomy import DUMBBELL_PAIR
-from services.social_notifications import set_volume_kg
+from services.social_notifications import BODYWEIGHT_EXERCISES
 from services.stimulants import get_caffeine_curve
 
 GOLDEN_AFTER_DAYS = 7
@@ -290,11 +290,12 @@ async def _stats(user: User, db: AsyncSession) -> dict[str, float]:
                 DailySummary.user_id == uid, DailySummary.water_ml >= user.water_target_ml
             )
         ) or 0
+    # count_prs only needs each exercise's heaviest set per day.
     pr_rows = (
         await db.execute(
-            select(TrainingLog.type, TrainingLog.date, TrainingLog.weight_kg).where(
-                TrainingLog.user_id == uid, TrainingLog.weight_kg.is_not(None)
-            )
+            select(TrainingLog.type, TrainingLog.date, func.max(TrainingLog.weight_kg))
+            .where(TrainingLog.user_id == uid, TrainingLog.weight_kg > 0)
+            .group_by(TrainingLog.type, TrainingLog.date)
         )
     ).all()
     return {
@@ -330,17 +331,35 @@ async def _race_record(user: User, db: AsyncSession, today: date) -> tuple[int, 
     body_weight = dict((await db.execute(select(User.id, User.weight_kg).where(User.id.in_(circle)))).all())
     this_monday = today - timedelta(days=today.weekday())
     start = this_monday - timedelta(weeks=RACE_LOOKBACK_WEEKS)
-    logs = (
+    # A year of every friend's sets is a lot of rows, so sum them per (lifter,
+    # week, exercise) in the database. Sets without a positive weight are summed
+    # apart, because set_volume_kg swaps in body weight for bodyweight moves.
+    week = cast(func.date_trunc("week", cast(TrainingLog.date, DateTime)), Date)
+    loaded = TrainingLog.weight_kg > 0
+    reps = func.coalesce(TrainingLog.reps, 0)
+    totals = (
         await db.execute(
-            select(TrainingLog.user_id, TrainingLog.date, TrainingLog.type, TrainingLog.weight_kg, TrainingLog.reps).where(
-                TrainingLog.user_id.in_(circle), TrainingLog.date >= start, TrainingLog.date < this_monday
+            select(
+                TrainingLog.user_id,
+                week,
+                TrainingLog.type,
+                func.sum(case((loaded, TrainingLog.weight_kg * reps), else_=0.0)),
+                func.sum(case((loaded, 0.0), else_=func.coalesce(TrainingLog.weight_kg, 0.0) * reps)),
+                func.sum(case((loaded, 0), else_=reps)),
             )
+            .where(TrainingLog.user_id.in_(circle), TrainingLog.date >= start, TrainingLog.date < this_monday)
+            .group_by(TrainingLog.user_id, week, TrainingLog.type)
         )
     ).all()
 
     volume: dict[date, dict[uuid.UUID, float]] = defaultdict(lambda: defaultdict(float))
-    for uid, d, ex_type, weight, reps in logs:
-        volume[d - timedelta(days=d.weekday())][uid] += set_volume_kg(ex_type, weight, reps, body_weight.get(uid))
+    for uid, wk, ex_type, loaded_kg, unloaded_kg, unloaded_reps in totals:
+        # set_volume_kg's rules, applied to the sums.
+        bw = body_weight.get(uid)
+        if ex_type in BODYWEIGHT_EXERCISES and bw:
+            unloaded_kg = float(bw) * unloaded_reps
+        kg = float(loaded_kg) + float(unloaded_kg)
+        volume[wk][uid] += kg * 2 if ex_type in DUMBBELL_PAIR else kg
 
     won_weeks = [
         week for week, by_user in volume.items()
@@ -362,13 +381,22 @@ async def _was_ever_trusted(user_id: uuid.UUID, db: AsyncSession) -> bool:
 
 # ─── Sync + read ──────────────────────────────────────────────────────────────
 
-async def _record(db: AsyncSession, user_id: uuid.UUID, key: str, day: date) -> None:
+async def _record(db: AsyncSession, user_id: uuid.UUID, keys: set[tuple[str, date]]) -> None:
+    """Insert (key, day) reward rows in one statement. Rows a concurrent request
+    already added are skipped by the unique constraint."""
     stmt = (
         pg_insert(AvatarAchievement)
-        .values(id=uuid.uuid4(), user_id=user_id, key=key, date=day, seen=False)
+        .values([
+            {"id": uuid.uuid4(), "user_id": user_id, "key": key, "date": day, "seen": False}
+            for key, day in sorted(keys)
+        ])
         .on_conflict_do_nothing(constraint="uq_avatar_achievement_day")
     )
     await db.execute(stmt)
+
+
+async def _achievements(user_id: uuid.UUID, db: AsyncSession) -> list[AvatarAchievement]:
+    return list((await db.execute(select(AvatarAchievement).where(AvatarAchievement.user_id == user_id))).scalars().all())
 
 
 def owned_items(rows: list[AvatarAchievement]) -> set[str]:
@@ -394,9 +422,8 @@ def owned_items(rows: list[AvatarAchievement]) -> set[str]:
 
 async def load_owned(user_id: uuid.UUID, db: AsyncSession) -> set[str]:
     """Earned items plus items from bought packs."""
-    rows = (await db.execute(select(AvatarAchievement).where(AvatarAchievement.user_id == user_id))).scalars().all()
     bought = avatar_packs.items_from_products(await owned_pack_products(user_id, db))
-    return owned_items(list(rows)) | bought
+    return owned_items(await _achievements(user_id, db)) | bought
 
 
 async def sync_and_describe(user: User, db: AsyncSession) -> dict:
@@ -417,6 +444,13 @@ async def sync_and_describe(user: User, db: AsyncSession) -> dict:
     caffeine = await get_caffeine_curve(user.id, db, user.sleep_hour, tz_name=user.timezone)
     bed_mg = float(caffeine.get("caffeine_at_bedtime") or 0)
 
+    # Only write rows we don't have yet: the backfill re-checks 120 days on
+    # every call, and almost all of it is already recorded.
+    rows = await _achievements(user.id, db)
+    recorded = {(r.key, r.date) for r in rows}
+    unlocked = {r.key for r in rows}
+    missing: set[tuple[str, date]] = set()
+
     active_today: list[str] = []
     for s in summaries:
         is_today = s.date == today
@@ -426,19 +460,24 @@ async def sync_and_describe(user: User, db: AsyncSession) -> dict:
                 continue
             if is_today:
                 active_today.append(c.id)
-            if c.reward:  # effect-only combos (too_wired) are never recorded
-                await _record(db, user.id, f"combo:{c.id}", s.date)
+            # effect-only combos (too_wired) are never recorded
+            if c.reward and (f"combo:{c.id}", s.date) not in recorded:
+                missing.add((f"combo:{c.id}", s.date))
 
     stats = await _stats(user, db)
     race_wins, champion = await _race_record(user, db, today)
     stats["race_wins"] = float(race_wins)
     trusted = await _was_ever_trusted(user.id, db)
     for m in MILESTONES:
-        if m.evaluated and stats[m.metric] >= m.target and (trusted or not m.needs_trusted):
-            await _record(db, user.id, f"milestone:{m.id}", today)
-    await db.commit()
+        key = f"milestone:{m.id}"
+        # One row, dated the unlock day.
+        if key not in unlocked and m.evaluated and stats[m.metric] >= m.target and (trusted or not m.needs_trusted):
+            missing.add((key, today))
+    if missing:
+        await _record(db, user.id, missing)
+        await db.commit()
+        rows = await _achievements(user.id, db)
 
-    rows = list((await db.execute(select(AvatarAchievement).where(AvatarAchievement.user_id == user.id))).scalars().all())
     owned = owned_items(rows) | avatar_packs.items_from_products(await owned_pack_products(user.id, db))
     days_by_key: dict[str, int] = defaultdict(int)
     for r in rows:

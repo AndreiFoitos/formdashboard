@@ -49,6 +49,16 @@ def _sus_threshold(circle_size: int) -> int:
     return max(2, math.ceil(voters / 3)) if voters > 0 else 2
 
 
+# What the weekly volume maths reads from each set (see set_volume_kg).
+_VOLUME_COLUMNS = (
+    TrainingLog.user_id,
+    TrainingLog.date,
+    TrainingLog.type,
+    TrainingLog.weight_kg,
+    TrainingLog.reps,
+)
+
+
 def _user_dict(u: User) -> dict:
     # Email and weight_kg are intentionally NOT exposed to friends.
     # - email: most apps hide this from accepted friends; not needed once
@@ -840,8 +850,10 @@ async def _build_volume_leaderboard(
     if exercise_key:
         conditions.append(TrainingLog.type == exercise_key)
 
-    logs_result = await db.execute(select(TrainingLog).where(*conditions))
-    logs = logs_result.scalars().all()
+    # Columns, not ORM objects: building a TrainingLog per set was most of
+    # this endpoint's CPU.
+    logs_result = await db.execute(select(*_VOLUME_COLUMNS).where(*conditions))
+    logs = logs_result.all()
 
     # Pull user rows so we can use weight_kg for bodyweight exercises
     users_result = await db.execute(select(User).where(User.id.in_(circle_ids)))
@@ -1162,13 +1174,13 @@ async def weekly_recap_race(
 
     # Training logs in the week
     logs_result = await db.execute(
-        select(TrainingLog).where(
+        select(*_VOLUME_COLUMNS).where(
             TrainingLog.user_id.in_(circle_ids),
             TrainingLog.date >= week_start,
             TrainingLog.date <= week_end,
         )
     )
-    logs = logs_result.scalars().all()
+    logs = logs_result.all()
 
     # Per-day non-cumulative kg by user (index 0..6 = Mon..Sun)
     daily_kg: dict[uuid.UUID, list[float]] = defaultdict(lambda: [0.0] * 7)
