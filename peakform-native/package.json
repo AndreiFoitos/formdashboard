@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@bacons/apple-targets": "~4.0.7",
     "@react-native-community/netinfo": "11.4.1",
     "@react-native-google-signin/google-signin": "^14.0.0",
     "@react-navigation/material-top-tabs": "^7.8.0",
@@ -19,7 +20,7 @@
     "axios": "^1.16.1",
     "expo": "~54.0.35",
     "expo-apple-authentication": "~8.0.0",
-    "expo-asset": "~12.0.13",
+    "expo-asset": "~12.0.14",
     "expo-audio": "~1.1.1",
     "expo-camera": "~17.0.10",
     "expo-constants": "~18.0.13",
