@@ -522,7 +522,7 @@ function LogModal({ onClose }: { onClose: () => void }) {
                         <Text className="text-caption mt-1" style={{ color: active ? colors.bg : colors['text-subtle'] }}>{d.serving}</Text>
                       </View>
                       <Text className="text-caption" style={{ color: active ? colors.bg : colors['text-muted'] }}>
-                        {d.caffeine_mg} mg · {formatNumber(d.sugar_g ?? 0)} g sugar · {formatNumber(d.calories)} kcal
+                        {d.caffeine_mg} mg · {formatNumber(d.sugar_g ?? d.carbs_g)} g sugar · {formatNumber(d.calories)} kcal
                       </Text>
                     </TouchableOpacity>
                   )
