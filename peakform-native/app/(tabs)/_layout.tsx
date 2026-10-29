@@ -11,6 +11,7 @@ import { useIsFocused } from '@react-navigation/native'
 import { useTabSwipeStore } from '../../store/tabSwipe'
 import { useTourStore } from '../../store/tour'
 import { SpotlightTour } from '../../components/SpotlightTour'
+import { useInstantTabs } from '../../lib/widgetLinks'
 
 const { Navigator } = createMaterialTopTabNavigator()
 
@@ -28,6 +29,9 @@ export default function TabsLayout() {
   // A row swipe or horizontal scroll inside a tab holds a lock; tab swiping
   // pauses until it's released (store/tabSwipe.ts).
   const swipeLocked = useTabSwipeStore((s) => s.locks > 0)
+  // A widget tap jumps straight to its tab instead of sliding across the
+  // pager (lib/widgetLinks.ts).
+  const instant = useInstantTabs((s) => s.instant)
 
   // The app tour, queued by onboarding or Settings, starts once the tabs are
   // the screen on top (not while onboarding still covers them).
@@ -44,7 +48,7 @@ export default function TabsLayout() {
       <MaterialTopTabs
         tabBarPosition="bottom"
         tabBar={(props) => <BottomNav {...props} />}
-        screenOptions={{ swipeEnabled: !swipeLocked, lazy: true }}
+        screenOptions={{ swipeEnabled: !swipeLocked, lazy: true, animationEnabled: !instant }}
       >
         <MaterialTopTabs.Screen name="index" />
         <MaterialTopTabs.Screen name="training" />

@@ -9,6 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@bacons/apple-targets": "5.0.0",
     "@react-native-community/netinfo": "11.4.1",
     "@react-native-google-signin/google-signin": "^14.0.0",
     "@react-navigation/material-top-tabs": "^7.8.0",
@@ -61,5 +62,12 @@
     "babel-preset-expo": "~54.0.0",
     "tailwindcss": "^3.4.19"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "autolinking": {
+      "exclude": [
+        "@bacons/apple-targets"
+      ]
+    }
+  }
 }

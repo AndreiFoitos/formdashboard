@@ -22,6 +22,7 @@ import { formSheet, modalHeader, pushedHeader } from '../theme/navigation'
 import { loadUnits, syncUnits } from '../lib/units'
 import { OfflineBanner } from '../components/OfflineBanner'
 import { PolicyUpdateNotice } from '../components/PolicyUpdateNotice'
+import { useWidgetSync } from '../hooks/useWidgetSync'
 
 // Native headers, sheets and the tab bar render dark (DESIGN.md §5, §6 rule 6).
 const navTheme: Theme = {
@@ -83,6 +84,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
     lastUserId.current = currentId
   }, [user?.id, qc])
+
+  // Home screen widgets read a snapshot the app writes (docs/widgets-design.md
+  // §2). After the cache wipe above, so a new user never sees the last one's data.
+  useWidgetSync()
 
   // RevenueCat follows the signed-in user, so purchases land on the right
   // account (backend matches RevenueCat's app user id to users.id).
@@ -256,6 +261,7 @@ function RootLayout() {
               {/* Internal renderer instrumentation — reachable from Settings
                   in dev builds only (__DEV__) */}
               <Stack.Screen name="avatar-lab" options={{ ...pushedHeader, title: 'Avatar lab' }} />
+              <Stack.Screen name="widget-debug" options={{ ...pushedHeader, title: 'Widget snapshot' }} />
               <Stack.Screen name="avatar-edit" options={{ ...pushedHeader, title: 'Your avatar' }} />
               <Stack.Screen name="combo-dex" options={{ ...pushedHeader, title: 'Combo Dex' }} />
               {/* Long-range charts; how far back depends on the plan */}

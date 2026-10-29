@@ -21,6 +21,15 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.com.gainrace.app"
+        ],
+        "keychain-access-groups": [
+          "$(AppIdentifierPrefix)com.gainrace.app",
+          "$(AppIdentifierPrefix)com.gainrace.app.shared"
+        ]
+      },
       "privacyManifests": {
         "NSPrivacyTracking": false,
         "NSPrivacyTrackingDomains": [],
@@ -28,7 +37,8 @@
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
             "NSPrivacyAccessedAPITypeReasons": [
-              "CA92.1"
+              "CA92.1",
+              "1C8F.1"
             ]
           },
           {
@@ -174,7 +184,8 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@bacons/apple-targets"
     ],
     "extra": {
       "router": {},

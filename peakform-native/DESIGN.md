@@ -293,6 +293,49 @@ For the few places that need raw values (react-three-fiber, SVG charts, `Switch`
 
 ---
 
+## Widgets
+
+Home screen and lock-screen widgets (iOS WidgetKit, `targets/widget/`). Spec:
+`docs/widgets-design.md`. SwiftUI can't read `theme/tokens.ts`, so the hex
+values are copied once into `targets/widget/Tokens.swift`; change both
+together. No other colors exist in the extension.
+
+| Element | Token |
+|---|---|
+| Background | `surface` |
+| Calorie ring / bar | `accent` (progress) |
+| Protein bar | `data.protein` |
+| Water bar | `data.water` |
+| Caffeine curve | stroke `text-muted`; current-level dot uses the impact colors of `CaffeineCurve.tsx` (`success` < 200 mg, `warning` < 300 mg, `danger` above; `text-subtle` under 50 mg) |
+| Goal hit (≥ 100%) | `success` |
+| Over calorie target | `warning` ("120 over") |
+| Bar / ring track | `surface-raised` |
+| Block dividers | `divider` |
+| Primary text | `text`; secondary `text-muted`; captions `text-subtle` |
+| Buttons (phase 3) | `surface-raised` fill, `text` label |
+
+Rules:
+- System font only. Sizes from §3: `caption` 12, `footnote` 14, `body` 16,
+  `headline` 18, `title` 24 (key number on Small/Medium). Lock-screen
+  accessories use the system's sizes for their family (iOS sets them).
+- Spacing from §4 steps; widget content padding is the system's
+  (`contentMargins`), not ours.
+- Every family works in full color, tinted (iOS 18) and clear/accented
+  (iOS 26): rings and bars are `.widgetAccentable()`, the `surface`
+  background is a `containerBackground(for: .widget)` so the system can
+  remove it.
+- Outside full color iOS keeps only opacity, so text and chrome grays come
+  from `ink()` in `Components.swift`: the tokens above in full color, and
+  white at 100% (`text`), 70% (`text-muted`), 50% (`text-subtle`) and 20%
+  (tracks, dividers) otherwise. Never an opaque gray for a track.
+- Calorie ring: 64 pt, 7 pt stroke, kcal left (or over, in `warning`) inside;
+  eaten and "of N kcal" beside it.
+- Number text is `.privacySensitive()` when "Hide numbers on lock screen" is on.
+- Sentence case, plain words (§1 rules 7–8): "Open GainRace to set up",
+  "Rest day", "760 left".
+
+---
+
 ## 8. Work order
 
 Do these as separate commits/PRs, verify on device/simulator after each.
