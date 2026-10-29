@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { router } from 'expo-router'
+import { useCallback, useEffect } from 'react'
+import { router, useFocusEffect } from 'expo-router'
 import { useAuthStore } from '../store/auth'
 
 /**
@@ -21,6 +21,16 @@ export function useRequireAuth() {
       router.replace('/login')
     }
   }, [user, hydrated])
+
+  // After sign out the tabs stay mounted under /login. A deep link (widget
+  // tap, notification) that brings one back into focus doesn't change auth
+  // state, so the effect above wouldn't run again; check on every focus.
+  useFocusEffect(
+    useCallback(() => {
+      const { user: current, hydrated: ready } = useAuthStore.getState()
+      if (ready && !current) router.replace('/login')
+    }, []),
+  )
 
   return { user, hydrated }
 }

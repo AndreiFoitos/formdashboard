@@ -22,5 +22,10 @@ module.exports = (config) => ({
     // Shared keychain group for the phase 3 widget token. Added now so phase 3
     // needs no signing change.
     'keychain-access-groups': ['$(AppIdentifierPrefix)com.gainrace.app.shared'],
+    // iOS only hides lock-screen widget content while locked when the extension
+    // has Data Protection; without it .privacySensitive() is ignored unless the
+    // user turned off "Lock Screen Widgets" in Face ID & Passcode. The views
+    // opt back in with .unredacted() when "Hide numbers" is off.
+    'com.apple.developer.default-data-protection': 'NSFileProtectionComplete',
   },
 })

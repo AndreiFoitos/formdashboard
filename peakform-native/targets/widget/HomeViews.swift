@@ -28,6 +28,7 @@ struct HomeWidgetView: View {
           .widgetURL(Links.home)
       }
     }
+    .lockScreenPrivacy(hide: entry.data?.hideNumbers ?? false)
     .containerBackground(for: .widget) {
       Tokens.surface
     }
@@ -62,7 +63,7 @@ struct MediumContent: View {
         NutritionSummary(data: data)
       }
       Rectangle()
-        .fill(Tokens.divider)
+        .ink(.divider)
         .frame(width: 1)
       Link(destination: Links.home) {
         StatusColumn(data: data)
@@ -131,7 +132,7 @@ struct ExtraLargeView: View {
 
       if data.plan != nil || data.race != nil {
         Rectangle()
-          .fill(Tokens.divider)
+          .ink(.divider)
           .frame(width: 1)
         VStack(alignment: .leading, spacing: Space.s3) {
           if let plan = data.plan {

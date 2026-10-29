@@ -18,6 +18,58 @@ extension View {
   func numberText(_ data: DayData) -> some View {
     self.monospacedDigit().privacySensitive(data.hideNumbers)
   }
+
+  /// The extension has Data Protection (complete), so iOS redacts the whole
+  /// widget while the phone is locked. With "Hide numbers" off we opt back in,
+  /// so numbers show on the lock screen by default (docs/widgets-design.md §0).
+  @ViewBuilder
+  func lockScreenPrivacy(hide: Bool) -> some View {
+    if hide {
+      self
+    } else {
+      self.unredacted()
+    }
+  }
+
+  /// Text and chrome grays that survive tinted / clear / lock-screen rendering.
+  func ink(_ ink: Ink) -> some View {
+    modifier(InkModifier(ink: ink))
+  }
+}
+
+enum Ink {
+  case text, muted, subtle, track, divider
+}
+
+/// In full color these are the DESIGN.md tokens. In the other rendering modes
+/// iOS drops the hue and keeps only opacity, so opaque grays would all turn
+/// solid white (a track would look like a full ring); there the hierarchy is
+/// carried by opacity instead.
+private struct InkModifier: ViewModifier {
+  @Environment(\.widgetRenderingMode) private var mode
+  let ink: Ink
+
+  func body(content: Content) -> some View {
+    content.foregroundStyle(color)
+  }
+
+  private var color: Color {
+    if mode == .fullColor {
+      switch ink {
+      case .text: return Tokens.text
+      case .muted: return Tokens.textMuted
+      case .subtle: return Tokens.textSubtle
+      case .track: return Tokens.surfaceRaised
+      case .divider: return Tokens.divider
+      }
+    }
+    switch ink {
+    case .text: return Color.white
+    case .muted: return Color.white.opacity(0.7)
+    case .subtle: return Color.white.opacity(0.5)
+    case .track, .divider: return Color.white.opacity(0.2)
+    }
+  }
 }
 
 struct Ring: View {
@@ -28,7 +80,8 @@ struct Ring: View {
   var body: some View {
     ZStack {
       Circle()
-        .stroke(Tokens.surfaceRaised, lineWidth: lineWidth)
+        .stroke(lineWidth: lineWidth)
+        .ink(.track)
       Circle()
         .trim(from: 0, to: max(0.001, progress))
         .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
@@ -45,7 +98,7 @@ struct Bar: View {
   var body: some View {
     GeometryReader { geo in
       ZStack(alignment: .leading) {
-        Capsule().fill(Tokens.surfaceRaised)
+        Capsule().ink(.track)
         Capsule()
           .fill(color)
           .frame(width: max(0, geo.size.width * progress))
@@ -70,12 +123,12 @@ struct MetricBar: View {
     HStack(spacing: Space.s2) {
       Text(label)
         .font(TypeScale.caption)
-        .foregroundStyle(Tokens.textMuted)
+        .ink(.muted)
         .frame(width: 12, alignment: .leading)
       Bar(progress: DayData.progress(value, target), color: hit ? Tokens.success : color)
       Text(valueText)
         .font(TypeScale.caption)
-        .foregroundStyle(Tokens.text)
+        .ink(.text)
         .numberText(data)
         .lineLimit(1)
         .minimumScaleFactor(0.8)
@@ -84,32 +137,49 @@ struct MetricBar: View {
   }
 }
 
-/// Calorie ring + number + "760 left", then protein and water bars.
-/// The Small widget, and the left half of Medium / Large / XL.
+/// Calorie ring with kcal left inside, eaten / target beside it, then protein
+/// and water bars. The Small widget, and the left half of Medium / Large / XL.
 struct NutritionSummary: View {
   var data: DayData
 
   var body: some View {
     VStack(alignment: .leading, spacing: Space.s2) {
       HStack(spacing: Space.s3) {
-        if let target = data.calorieTarget {
+        if let target = data.calorieTarget, let left = data.caloriesLeft {
           let hit = DayData.goalHit(data.calories, target)
-          Ring(progress: DayData.progress(data.calories, target), color: hit ? Tokens.success : Tokens.accent)
+          Ring(progress: DayData.progress(data.calories, target), color: hit ? Tokens.success : Tokens.accent, lineWidth: 7)
             .overlay {
-              Text("kcal")
-                .font(TypeScale.caption)
-                .foregroundStyle(Tokens.textSubtle)
+              RingLabel(left: left, data: data)
+                .padding(Space.s2)
             }
-            .frame(width: 48, height: 48)
-        }
-        VStack(alignment: .leading, spacing: 0) {
-          Text(Format.number(data.calories))
-            .font(TypeScale.title)
-            .foregroundStyle(Tokens.text)
-            .numberText(data)
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-          leftLine
+            .frame(width: 64, height: 64)
+          VStack(alignment: .leading, spacing: 0) {
+            Text(Format.number(data.calories))
+              .font(TypeScale.headline)
+              .ink(.text)
+              .numberText(data)
+              .lineLimit(1)
+              .minimumScaleFactor(0.6)
+            Text("of \(Format.number(target)) kcal")
+              .font(TypeScale.caption)
+              .ink(.subtle)
+              .numberText(data)
+              .lineLimit(1)
+              .minimumScaleFactor(0.6)
+          }
+        } else {
+          // No calorie target: just the number, no ring (§2.2).
+          VStack(alignment: .leading, spacing: 0) {
+            Text(Format.number(data.calories))
+              .font(TypeScale.title)
+              .ink(.text)
+              .numberText(data)
+              .lineLimit(1)
+              .minimumScaleFactor(0.6)
+            Text("kcal")
+              .font(TypeScale.caption)
+              .ink(.muted)
+          }
         }
       }
       Spacer(minLength: 0)
@@ -126,24 +196,30 @@ struct NutritionSummary: View {
     }
   }
 
-  @ViewBuilder
-  private var leftLine: some View {
-    if let left = data.caloriesLeft {
+}
+
+/// Inside the calorie ring: "760 / left" or "120 / over" (warning).
+struct RingLabel: View {
+  var left: Int
+  var data: DayData
+
+  var body: some View {
+    VStack(spacing: 0) {
+      Text(Format.number(abs(left)))
+        .font(TypeScale.headline)
+        .ink(.text)
+        .numberText(data)
+        .lineLimit(1)
+        .minimumScaleFactor(0.5)
       if left >= 0 {
-        Text("\(Format.number(left)) left")
+        Text("left")
           .font(TypeScale.caption)
-          .foregroundStyle(Tokens.textMuted)
-          .numberText(data)
+          .ink(.muted)
       } else {
-        Text("\(Format.number(-left)) over")
+        Text("over")
           .font(TypeScale.caption)
           .foregroundStyle(Tokens.warning)
-          .numberText(data)
       }
-    } else {
-      Text("kcal")
-        .font(TypeScale.caption)
-        .foregroundStyle(Tokens.textMuted)
     }
   }
 }
@@ -158,13 +234,13 @@ struct StatusColumn: View {
       VStack(alignment: .leading, spacing: 0) {
         Text("\(Format.number(data.caffeine?.currentMg ?? data.caffeineMg)) mg")
           .font(TypeScale.headline)
-          .foregroundStyle(Tokens.text)
+          .ink(.text)
           .numberText(data)
           .lineLimit(1)
           .minimumScaleFactor(0.7)
         Text(data.caffeine != nil ? "Caffeine now" : "Caffeine today")
           .font(TypeScale.caption)
-          .foregroundStyle(Tokens.textSubtle)
+          .ink(.subtle)
       }
       Spacer(minLength: 0)
       TrainingLine(data: data)
@@ -184,18 +260,18 @@ struct TrainingLine: View {
     } else if data.plan?.restDay == true {
       Text("Rest day")
         .font(TypeScale.footnote)
-        .foregroundStyle(Tokens.textMuted)
+        .ink(.muted)
         .lineLimit(1)
     } else if let workout = data.plan?.workoutName {
       Text(workout)
         .font(TypeScale.footnote)
-        .foregroundStyle(Tokens.textMuted)
+        .ink(.muted)
         .lineLimit(1)
         .minimumScaleFactor(0.8)
     } else {
       Text("Not trained yet")
         .font(TypeScale.footnote)
-        .foregroundStyle(Tokens.textMuted)
+        .ink(.muted)
         .lineLimit(1)
     }
   }
@@ -219,9 +295,11 @@ struct CaffeineCurveShape: View {
       if let chart = CurveGeometry(points: caffeine.points, size: geo.size, now: now) {
         ZStack(alignment: .topLeading) {
           chart.pastPath()
-            .stroke(Tokens.textMuted, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            .stroke(style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            .ink(.muted)
           chart.futurePath()
-            .stroke(Tokens.textMuted, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [3, 4]))
+            .stroke(style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [3, 4]))
+            .ink(.muted)
           Circle()
             .fill(caffeineColor(Int(chart.nowMg.rounded())))
             .frame(width: 8, height: 8)
@@ -304,15 +382,15 @@ struct CaffeineBlock: View {
       HStack(alignment: .firstTextBaseline) {
         Text("Caffeine")
           .font(TypeScale.caption)
-          .foregroundStyle(Tokens.textSubtle)
+          .ink(.subtle)
         Spacer(minLength: Space.s2)
         Text("\(Format.number(caffeine.currentMg)) mg now")
           .font(TypeScale.footnoteSemibold)
-          .foregroundStyle(Tokens.text)
+          .ink(.text)
           .numberText(data)
         Text("· \(Format.number(caffeine.atBedtimeMg)) mg at bedtime")
           .font(TypeScale.caption)
-          .foregroundStyle(Tokens.textMuted)
+          .ink(.muted)
           .numberText(data)
       }
       .lineLimit(1)
@@ -331,14 +409,14 @@ struct PlanBlock: View {
     VStack(alignment: .leading, spacing: 2) {
       Text(headline)
         .font(TypeScale.footnoteSemibold)
-        .foregroundStyle(Tokens.text)
+        .ink(.text)
         .lineLimit(1)
         .minimumScaleFactor(0.8)
       if plan.mealsPlanned > 0 {
         if let meal = plan.nextMeal {
           Text("Next: \(meal.slot) · \(Format.capitalized(meal.name)) · \(Format.number(meal.kcal)) kcal")
             .font(TypeScale.caption)
-            .foregroundStyle(Tokens.textMuted)
+            .ink(.muted)
             .numberText(data)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
@@ -372,10 +450,10 @@ struct RaceBlock: View {
       HStack(spacing: Space.s1) {
         Text("Race")
           .font(TypeScale.caption)
-          .foregroundStyle(Tokens.textSubtle)
+          .ink(.subtle)
         Text(line)
           .font(TypeScale.footnoteSemibold)
-          .foregroundStyle(Tokens.text)
+          .ink(.text)
           .numberText(data)
           .lineLimit(1)
           .minimumScaleFactor(0.8)
@@ -383,7 +461,7 @@ struct RaceBlock: View {
       if race.rank > 1, let name = race.aheadName {
         Text("Behind \(name)")
           .font(TypeScale.caption)
-          .foregroundStyle(Tokens.textMuted)
+          .ink(.muted)
           .lineLimit(1)
       }
     }
@@ -405,10 +483,10 @@ struct EmptyStateView: View {
     VStack(alignment: .leading, spacing: Space.s1) {
       Text("GainRace")
         .font(compact ? TypeScale.footnoteSemibold : TypeScale.headline)
-        .foregroundStyle(Tokens.text)
+        .ink(.text)
       Text("Open GainRace to set up")
         .font(compact ? TypeScale.caption : TypeScale.footnote)
-        .foregroundStyle(Tokens.textMuted)
+        .ink(.muted)
         .fixedSize(horizontal: false, vertical: true)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -418,7 +496,7 @@ struct EmptyStateView: View {
 struct BlockDivider: View {
   var body: some View {
     Rectangle()
-      .fill(Tokens.divider)
+      .ink(.divider)
       .frame(height: 1)
   }
 }

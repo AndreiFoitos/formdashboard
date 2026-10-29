@@ -31,6 +31,7 @@ struct LockWidgetView: View {
       }
     }
     .widgetURL(entry.data == nil ? Links.home : Links.nutrition)
+    .lockScreenPrivacy(hide: entry.data?.hideNumbers ?? false)
     .containerBackground(for: .widget) {
       Color.clear
     }
@@ -108,6 +109,7 @@ struct CircularWidgetView: View {
       }
     }
     .widgetURL(entry.data == nil ? Links.home : (entry.metric == .caffeine ? Links.home : Links.nutrition))
+    .lockScreenPrivacy(hide: entry.data?.hideNumbers ?? false)
     .containerBackground(for: .widget) {
       Color.clear
     }
@@ -124,12 +126,12 @@ struct CircularMetricView: View {
       if let target = data.calorieTarget {
         ring(
           progress: DayData.progress(data.calories, target),
-          value: Format.number(abs(target - data.calories)),
+          value: Format.compact(abs(target - data.calories)),
           caption: data.calories > target ? "over" : "left"
         )
       } else {
         // No target: just the number, no ring (§2.2).
-        plain(value: Format.number(data.calories), caption: "kcal")
+        plain(value: Format.compact(data.calories), caption: "kcal")
       }
     case .water:
       ring(
@@ -139,21 +141,21 @@ struct CircularMetricView: View {
       )
     case .protein:
       if let target = data.proteinTargetG {
-        ring(progress: DayData.progress(data.proteinG, target), value: Format.number(data.proteinG), caption: "g")
+        ring(progress: DayData.progress(data.proteinG, target), value: Format.compact(data.proteinG), caption: "g")
       } else {
-        plain(value: Format.number(data.proteinG), caption: "g")
+        plain(value: Format.compact(data.proteinG), caption: "g")
       }
     case .caffeine:
       let mg = data.caffeine?.currentMg ?? data.caffeineMg
       // Full ring at 400 mg, the common daily guidance for adults.
-      ring(progress: min(1, Double(mg) / 400), value: Format.number(mg), caption: "mg")
+      ring(progress: min(1, Double(mg) / 400), value: Format.compact(mg), caption: "mg")
     }
   }
 
   private var waterValue: String {
     switch data.units {
     case .imperial:
-      return Format.number(Int((Double(data.waterMl) / 29.5735).rounded()))
+      return Format.compact(Int((Double(data.waterMl) / 29.5735).rounded()))
     case .metric:
       let liters = (Double(data.waterMl) / 100).rounded() / 10
       return liters.formatted(.number.precision(.fractionLength(0...1)))

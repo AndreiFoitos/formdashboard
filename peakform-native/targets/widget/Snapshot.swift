@@ -295,6 +295,13 @@ enum Format {
     return n.formatted(.number)
   }
 
+  /// For the small lock-screen ring: 760 → "760", 2757 → "2.8k" (locale decimal).
+  static func compact(_ n: Int) -> String {
+    if abs(n) < 1000 { return number(n) }
+    let thousands = (Double(n) / 100).rounded() / 10
+    return "\(thousands.formatted(.number.precision(.fractionLength(0...1))))k"
+  }
+
   static func water(_ ml: Int, _ units: UnitSystem) -> String {
     switch units {
     case .imperial:

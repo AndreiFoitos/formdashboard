@@ -324,6 +324,12 @@ Rules:
   (iOS 26): rings and bars are `.widgetAccentable()`, the `surface`
   background is a `containerBackground(for: .widget)` so the system can
   remove it.
+- Outside full color iOS keeps only opacity, so text and chrome grays come
+  from `ink()` in `Components.swift`: the tokens above in full color, and
+  white at 100% (`text`), 70% (`text-muted`), 50% (`text-subtle`) and 20%
+  (tracks, dividers) otherwise. Never an opaque gray for a track.
+- Calorie ring: 64 pt, 7 pt stroke, kcal left (or over, in `warning`) inside;
+  eaten and "of N kcal" beside it.
 - Number text is `.privacySensitive()` when "Hide numbers on lock screen" is on.
 - Sentence case, plain words (§1 rules 7–8): "Open GainRace to set up",
   "Rest day", "760 left".

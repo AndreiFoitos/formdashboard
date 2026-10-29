@@ -10,9 +10,11 @@ struct GainEntry: TimelineEntry {
 }
 
 enum Timelines {
-  /// Entries now, every 15 min until the next local midnight (moves the
-  /// caffeine "now" marker), and at midnight (the day resets). After the last
-  /// one WidgetKit asks for a new timeline.
+  /// Entries now and every 15 min for the next 2 hours (moves the caffeine
+  /// "now" marker), plus local midnight when it falls inside that window (the
+  /// day resets). After the last one WidgetKit asks for a new timeline, about
+  /// 12 reloads a day. WidgetKit renders every entry up front, so a whole day
+  /// of 15-min entries is too heavy for the larger sizes.
   static func entries(now: Date, metric: LockMetric) -> [GainEntry] {
     let snapshot = SnapshotStore.load()
     func entry(_ d: Date) -> GainEntry {
@@ -23,18 +25,16 @@ enum Timelines {
     let midnight =
       calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now))
       ?? now.addingTimeInterval(24 * 60 * 60)
+    let windowEnd = min(now.addingTimeInterval(2 * 60 * 60), midnight)
 
     var result = [entry(now)]
-    // Without data there is nothing to move; one entry plus midnight is enough.
-    if snapshot != nil {
-      let quarter: TimeInterval = 15 * 60
-      var t = (now.timeIntervalSinceReferenceDate / quarter).rounded(.down) * quarter + quarter
-      while t < midnight.timeIntervalSinceReferenceDate {
-        result.append(entry(Date(timeIntervalSinceReferenceDate: t)))
-        t += quarter
-      }
+    let quarter: TimeInterval = 15 * 60
+    var t = (now.timeIntervalSinceReferenceDate / quarter).rounded(.down) * quarter + quarter
+    while t < windowEnd.timeIntervalSinceReferenceDate {
+      result.append(entry(Date(timeIntervalSinceReferenceDate: t)))
+      t += quarter
     }
-    result.append(entry(midnight))
+    result.append(entry(windowEnd))
     return result
   }
 
