@@ -6,7 +6,11 @@ import {
 } from '@react-navigation/material-top-tabs'
 import type { ParamListBase, TabNavigationState } from '@react-navigation/native'
 import { BottomNav } from '../../components/BottomNav'
+import { useEffect } from 'react'
+import { useIsFocused } from '@react-navigation/native'
 import { useTabSwipeStore } from '../../store/tabSwipe'
+import { useTourStore } from '../../store/tour'
+import { SpotlightTour } from '../../components/SpotlightTour'
 
 const { Navigator } = createMaterialTopTabNavigator()
 
@@ -25,6 +29,16 @@ export default function TabsLayout() {
   // pauses until it's released (store/tabSwipe.ts).
   const swipeLocked = useTabSwipeStore((s) => s.locks > 0)
 
+  // The app tour, queued by onboarding or Settings, starts once the tabs are
+  // the screen on top (not while onboarding still covers them).
+  const focused = useIsFocused()
+  const tourPending = useTourStore((s) => s.pending)
+  useEffect(() => {
+    if (!focused || !tourPending) return
+    const t = setTimeout(() => useTourStore.getState().start(), 800)
+    return () => clearTimeout(t)
+  }, [focused, tourPending])
+
   return (
     <View className="flex-1 bg-bg">
       <MaterialTopTabs
@@ -38,6 +52,7 @@ export default function TabsLayout() {
         <MaterialTopTabs.Screen name="body" />
         <MaterialTopTabs.Screen name="ask" />
       </MaterialTopTabs>
+      <SpotlightTour />
     </View>
   )
 }

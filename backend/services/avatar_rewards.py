@@ -34,7 +34,7 @@ from models.user import User
 from models.vouch import Vouch
 from services import avatar_packs
 from services.billing import owned_pack_products
-from services.exercise_taxonomy import DUMBBELL_PAIR
+from services.exercise_taxonomy import DUMBBELL_PAIR, UNILATERAL, volume_factor
 from services.social_notifications import BODYWEIGHT_EXERCISES
 from services.stimulants import get_caffeine_curve
 
@@ -270,10 +270,14 @@ def count_prs(logs: list[tuple[str, date, float]]) -> int:
 async def _stats(user: User, db: AsyncSession) -> dict[str, float]:
     uid = user.id
     volume = await db.scalar(
-        # Dumbbell pairs are logged per dumbbell: x2, as in set_volume_kg.
+        # Dumbbell pairs and one-limb moves count x2 (both x4), as in set_volume_kg.
         select(func.coalesce(func.sum(
             TrainingLog.weight_kg * TrainingLog.reps
-            * case((TrainingLog.type.in_(DUMBBELL_PAIR), 2), else_=1)
+            * case(
+                (TrainingLog.type.in_(DUMBBELL_PAIR & UNILATERAL), 4),
+                (TrainingLog.type.in_(DUMBBELL_PAIR | UNILATERAL), 2),
+                else_=1,
+            )
         ), 0.0)).where(
             TrainingLog.user_id == uid, TrainingLog.weight_kg.is_not(None), TrainingLog.reps.is_not(None)
         )
@@ -359,7 +363,7 @@ async def _race_record(user: User, db: AsyncSession, today: date) -> tuple[int, 
         if ex_type in BODYWEIGHT_EXERCISES and bw:
             unloaded_kg = float(bw) * unloaded_reps
         kg = float(loaded_kg) + float(unloaded_kg)
-        volume[wk][uid] += kg * 2 if ex_type in DUMBBELL_PAIR else kg
+        volume[wk][uid] += kg * volume_factor(ex_type)
 
     won_weeks = [
         week for week, by_user in volume.items()

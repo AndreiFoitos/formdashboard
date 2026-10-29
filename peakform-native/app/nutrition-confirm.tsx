@@ -18,6 +18,7 @@ import { PressableScale } from '../components/PressableScale'
 import { hapticSuccess } from '../lib/haptics'
 import { extractErrorMessage } from '../lib/apiError'
 import { colors } from '../theme/tokens'
+import { draftItem, useMealDraft } from '../store/mealDraft'
 import { footerBottomPadding, totalsFooterClearance } from '../theme/layout'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -129,7 +130,7 @@ function MacroChip({ label, value, color }: { label: string; value: number; colo
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function NutritionConfirmScreen() {
-  const { estimate: raw } = useLocalSearchParams<{ estimate: string }>()
+  const { estimate: raw, for: forParam } = useLocalSearchParams<{ estimate: string; for?: string }>()
   // Guard against the brief moment where expo-router hasn't hydrated params
   // yet. Without it, useState below would lock items=[] for the lifetime of
   // the screen when raw is undefined on the very first render.
@@ -143,10 +144,12 @@ export default function NutritionConfirmScreen() {
       </SafeAreaView>
     )
   }
-  return <ConfirmContent raw={raw} />
+  return <ConfirmContent raw={raw} forMeal={forParam === 'meal'} />
 }
 
-function ConfirmContent({ raw }: { raw: string }) {
+/** forMeal: opened from the meal builder. Each food becomes its own
+ *  ingredient in the meal being built instead of a log entry. */
+function ConfirmContent({ raw, forMeal }: { raw: string; forMeal: boolean }) {
   const qc = useQueryClient()
 
   const initial = useMemo<Estimate>(() => {
@@ -199,6 +202,21 @@ function ConfirmContent({ raw }: { raw: string }) {
   function handleLog() {
     if (items.length === 0) {
       Alert.alert('Nothing to log', 'Add at least one ingredient or go back to retake.')
+      return
+    }
+    if (forMeal) {
+      useMealDraft.getState().add(
+        items.map((item) =>
+          draftItem(item.name, item.grams * multiplier, {
+            calories: item.calories * multiplier,
+            protein_g: item.protein_g * multiplier,
+            carbs_g: item.carbs_g * multiplier,
+            fat_g: item.fat_g * multiplier,
+          }),
+        ),
+      )
+      hapticSuccess()
+      router.back()
       return
     }
     // Decompose to one NutritionLog row per ingredient — each row's meal_name
@@ -364,7 +382,7 @@ function ConfirmContent({ raw }: { raw: string }) {
             <ActivityIndicator color={colors['on-accent']} />
           ) : (
             <Text className="text-on-accent font-semibold text-body">
-              {hasItems ? 'Log meal' : 'Retake photo'}
+              {hasItems ? (forMeal ? `Add ${items.length} to meal` : 'Log meal') : 'Retake photo'}
             </Text>
           )}
         </PressableScale>

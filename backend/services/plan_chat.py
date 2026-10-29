@@ -50,6 +50,7 @@ from services.plan_builder import (
     training_days,
 )
 from services.plan_context import build_context
+from services.plan_edit import this_week
 from services.plan_today import logged_meals, todays_meals
 
 log = logging.getLogger(__name__)
@@ -85,6 +86,16 @@ def _plan_summary(row: AiPlan | None, today: date) -> str:
     for d in p["training"]["days"]:
         exs = ", ".join(f"{e['key']} {e['sets']}x{e['reps_min']}-{e['reps_max']}" for e in d["exercises"])
         lines.append(f"{WEEKDAYS[d['weekday']]} {d['name']}: {exs}")
+    week = this_week(p, today)
+    if week["shifted"]:
+        names = {d["weekday"]: d["name"] for d in p["training"]["days"]}
+        runs = ", ".join(
+            f"{WEEKDAYS[x['weekday']]} " + (
+                "skipped" if x["skipped"] else names[x["source"]] if x["source"] is not None else "rest"
+            )
+            for x in week["days"]
+        )
+        lines.append(f"This week, after the user skipped a day (sessions slid forward): {runs}")
     n = p.get("nutrition")
     if n:
         t = n["targets"]

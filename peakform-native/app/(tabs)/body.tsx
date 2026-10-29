@@ -16,6 +16,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Svg, { Polyline, Line, Text as SvgText, Circle } from 'react-native-svg'
 import { api } from '../../api/client'
+import { useTourTarget } from '../../store/tour'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { useAuthStore } from '../../store/auth'
 import { CountUp } from '../../components/CountUp'
@@ -450,6 +451,7 @@ function HistoryRow({
 
 export default function BodyScreen() {
   const { user } = useRequireAuth()
+  const scanTarget = useTourTarget('body-scan')
   const [showLog, setShowLog] = useState(false)
   const [range, setRange] = useState<30 | 60 | 90>(90)
   const u = useUnits()
@@ -498,6 +500,7 @@ export default function BodyScreen() {
             {/* BF% estimator. The photo is sent to Claude and dropped after
                 the response — nothing is persisted server-side, so no privacy
                 exposure beyond the in-flight request. */}
+            <View {...scanTarget}>
             <PressableScale
               haptic
               onPress={() => router.push('/body-comp-snap')}
@@ -506,6 +509,7 @@ export default function BodyScreen() {
               <Camera size={14} color={colors.text} strokeWidth={2} />
               <Text className="text-text text-footnote font-semibold">Scan body fat</Text>
             </PressableScale>
+            </View>
             <PressableScale
               haptic
               onPress={() => setShowLog(true)}

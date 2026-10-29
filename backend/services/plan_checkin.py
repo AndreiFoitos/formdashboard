@@ -38,6 +38,7 @@ from services.ai_client import AINotConfigured, call_claude_json
 from services.plan_builder import allowed_exercises, meal_plan_allowed
 from services.plan_chat import ToolError, Turn, _plan_summary
 from services.plan_context import _slope_per_week
+from services.plan_edit import day_for_date
 from services.push import send_to_user
 
 log = logging.getLogger(__name__)
@@ -71,7 +72,9 @@ async def compute_stats(user: User, row: AiPlan, start: date, end: date, db: Asy
     first_day = max(start, row.created_at.astimezone(tz).date())
     dates = [first_day + timedelta(days=i) for i in range((end - first_day).days + 1)]
     tdays = {d["weekday"]: d for d in plan.get("training", {}).get("days", [])}
-    planned = [d for d in dates if d.weekday() in tdays]
+    # Skipped days moved their session, so count what actually ran each date.
+    ran = {d: day_for_date(plan, d) for d in dates}
+    planned = [d for d in dates if ran[d]]
 
     logs = (await db.execute(
         select(TrainingLog).where(
@@ -95,7 +98,7 @@ async def compute_stats(user: User, row: AiPlan, start: date, end: date, db: Asy
     skipped: dict[str, int] = defaultdict(int)
     included: dict[str, int] = defaultdict(int)
     for d in done:
-        for ex in tdays[d.weekday()]["exercises"]:
+        for ex in ran[d]["exercises"]:
             included[ex["key"]] += 1
             if ex["key"] not in by_date[d]:
                 skipped[ex["key"]] += 1

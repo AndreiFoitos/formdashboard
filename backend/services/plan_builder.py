@@ -435,6 +435,19 @@ async def allowed_exercises(
     return out
 
 
+async def catalog_exercises(user: User, db: AsyncSession) -> dict[str, tuple[str, str]]:
+    """Every exercise the user may put in their plan by hand: the whole
+    catalogue plus their custom ones. Unlike allowed_exercises() it doesn't
+    filter by equipment or injuries; picking one themselves is their call."""
+    out = {key: (_name(key), group) for key, group in EXERCISE_TO_GROUP.items()}
+    customs = (await db.execute(
+        select(CustomExercise).where(CustomExercise.user_id == user.id)
+    )).scalars().all()
+    for ex in customs:
+        out[f"custom_{ex.id}"] = (ex.name, ex.group_name if ex.group_name in VALID_GROUPS else "Other")
+    return out
+
+
 async def best_one_rms(user: User, today: date, db: AsyncSession) -> dict[str, float]:
     logs = (await db.execute(
         select(TrainingLog).where(

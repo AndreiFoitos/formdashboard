@@ -6,7 +6,7 @@ plan, and the chat that can change it.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -20,13 +20,15 @@ from middleware.auth import get_current_user
 from models.ai_checkin import AiCheckin
 from models.ai_message import AiMessage
 from models.ai_plan import AiPlan
+from models.training_log import TrainingLog
 from models.user import User
 from models.user_preference import UserPreference
 from routers.nutrition import BatchLogRequest, LogNutritionRequest, delete_nutrition, log_nutrition_batch
 from services.ai_client import AINotConfigured
 from services.ai_features import chat_history
-from services.plan_builder import clean_split, expire_stale, run_build
+from services.plan_builder import best_one_rms, catalog_exercises, clean_split, expire_stale, run_build
 from services.plan_chat import ToolError, chat_turn, undo_actions
+from services.plan_edit import EditError, apply_training, edit_meal, remove_meal, skip_today, this_week, undo_skip
 from services.plan_checkin import apply_suggestion, generate as generate_checkin, week_to_review
 from services.plan_shopping import build_list
 from services.plan_today import build_today, logged_meals, record_logged, todays_meals
@@ -135,7 +137,7 @@ async def update_preferences(
 # ─── Plans ────────────────────────────────────────────────────────────────────
 
 
-def _plan_out(row: AiPlan) -> dict:
+def _plan_out(row: AiPlan, today: date) -> dict:
     return {
         "id": str(row.id),
         "status": row.status,
@@ -145,6 +147,7 @@ def _plan_out(row: AiPlan) -> dict:
         "targets": row.targets,
         "rationale": row.rationale,
         "meal_plan_enabled": row.meal_plan_enabled,
+        "this_week": this_week(row.plan or {}, today),
     }
 
 
@@ -171,7 +174,7 @@ async def get_plan(
     if latest and ready and latest.created_at < ready.created_at:
         latest = None  # an older failure, already superseded
     return {
-        "plan": _plan_out(ready) if ready else None,
+        "plan": _plan_out(ready, user_today(current_user.timezone)) if ready else None,
         "building": bool(latest and latest.status == "generating"),
         "last_error": latest.error if latest and latest.status == "failed" else None,
     }
@@ -301,6 +304,133 @@ async def unlog_plan_meal(
     await db.refresh(row)
     record_logged(row, today, meal_id, None)
     await db.commit()
+
+
+# ─── Edits and skips ──────────────────────────────────────────────────────────
+
+
+async def _editable_plan(user: User, db: AsyncSession) -> AiPlan:
+    row = await _ready_plan(user, db)
+    if row is None or not row.plan:
+        raise HTTPException(404, "No plan yet")
+    return row
+
+
+def _edit(fn, *args):
+    try:
+        return fn(*args)
+    except EditError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/today/skip")
+async def skip_workout(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Skip today's session: it moves to tomorrow and the week slides up to
+    the next rest day (services/plan_edit.py)."""
+    row = await _editable_plan(current_user, db)
+    today = user_today(current_user.timezone)
+    started = (await db.execute(
+        select(TrainingLog.id).where(TrainingLog.user_id == current_user.id, TrainingLog.date == today).limit(1)
+    )).first()
+    if started:
+        raise HTTPException(409, "You've already logged training today")
+    plan, summary = _edit(skip_today, row.plan, today)
+    row.plan = plan
+    await db.commit()
+    return {"summary": summary, "plan": _plan_out(row, today)}
+
+
+@router.delete("/today/skip")
+async def unskip_workout(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Undo the latest skip this week."""
+    row = await _editable_plan(current_user, db)
+    today = user_today(current_user.timezone)
+    row.plan = _edit(undo_skip, row.plan, today)
+    await db.commit()
+    return {"plan": _plan_out(row, today)}
+
+
+class EditExercise(BaseModel):
+    key: str = Field(min_length=1, max_length=80)
+    sets: int = Field(ge=1, le=10)
+    reps_min: int = Field(ge=1, le=50)
+    reps_max: int = Field(ge=1, le=50)
+    rest_seconds: int = Field(ge=15, le=600)
+    note: str = Field(default="", max_length=120)
+
+
+class EditDay(BaseModel):
+    weekday: int = Field(ge=0, le=6)
+    name: str = Field(min_length=1, max_length=40)
+    focus: str = Field(default="", max_length=120)
+    exercises: list[EditExercise] = Field(max_length=15)
+
+
+class EditTraining(BaseModel):
+    days: list[EditDay] = Field(max_length=7)
+
+
+@router.put("/plan/training")
+async def edit_training(
+    body: EditTraining,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Replace the week's sessions with the user's edit: move days, rename
+    them, and add, remove, reorder or change exercises."""
+    row = await _editable_plan(current_user, db)
+    today = user_today(current_user.timezone)
+    catalog = await catalog_exercises(current_user, db)
+    one_rms = await best_one_rms(current_user, today, db)
+    row.plan = _edit(apply_training, row.plan, [d.model_dump() for d in body.days], catalog, one_rms, today)
+    await db.commit()
+    return {"plan": _plan_out(row, today)}
+
+
+class EditMeal(BaseModel):
+    grams: list[int] = Field(min_length=1, max_length=20)
+
+    @field_validator("grams")
+    @classmethod
+    def _range(cls, v: list[int]) -> list[int]:
+        if any(g < 0 or g > 2000 for g in v):
+            raise ValueError("grams must be 0-2000")
+        return v
+
+
+@router.put("/plan/meals/{weekday}/{meal_id}")
+async def edit_plan_meal(
+    weekday: int,
+    meal_id: str,
+    body: EditMeal,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Change one day's meal: grams per item (0 removes the item)."""
+    row = await _editable_plan(current_user, db)
+    row.plan = _edit(edit_meal, row.plan, weekday, meal_id, body.grams)
+    await db.commit()
+    return {"plan": _plan_out(row, user_today(current_user.timezone))}
+
+
+@router.delete("/plan/meals/{weekday}/{meal_id}")
+async def remove_plan_meal(
+    weekday: int,
+    meal_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Take a meal off one day of the plan."""
+    row = await _editable_plan(current_user, db)
+    row.plan = _edit(remove_meal, row.plan, weekday, meal_id)
+    await db.commit()
+    return {"plan": _plan_out(row, user_today(current_user.timezone))}
 
 
 # ─── Chat ─────────────────────────────────────────────────────────────────────

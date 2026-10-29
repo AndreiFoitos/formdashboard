@@ -14,7 +14,7 @@ import {
   Platform,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, Keyboard, X } from 'lucide-react-native'
@@ -23,6 +23,7 @@ import { PressableScale } from '../components/PressableScale'
 import { hapticMedium, hapticSuccess } from '../lib/haptics'
 import { extractErrorMessage } from '../lib/apiError'
 import { colors } from '../theme/tokens'
+import { draftItem, useMealDraft } from '../store/mealDraft'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -195,7 +196,9 @@ function LabelField({
   )
 }
 
-function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void }) {
+/** forMeal: opened from the meal builder, so the food goes into the meal
+ *  being built instead of today's log. */
+function ReviewProduct({ found, onRescan, forMeal }: { found: Found; onRescan: () => void; forMeal: boolean }) {
   const qc = useQueryClient()
   const { product, known } = found
   const unit = product.unit
@@ -253,6 +256,12 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
 
   function handleLog() {
     if (!canLog) return
+    if (forMeal) {
+      useMealDraft.getState().add([draftItem(name.trim(), qty, totals)])
+      hapticSuccess()
+      router.back()
+      return
+    }
     mutate({
       meal_name: name.trim(),
       calories: Math.round(totals.calories),
@@ -350,7 +359,7 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
         {/* Amount */}
         <View>
           <Text className="text-text-subtle text-caption mb-2">
-            How much did you have?
+            {forMeal ? 'How much goes in the meal?' : 'How much did you have?'}
           </Text>
           <View className="flex-row items-center bg-surface-raised border border-border rounded-md px-4" style={{ borderCurve: 'continuous' }}>
             <TextInput
@@ -413,7 +422,7 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
           {isPending ? (
             <ActivityIndicator color={colors['on-accent']} />
           ) : (
-            <Text className="text-on-accent font-semibold text-body">Log food</Text>
+            <Text className="text-on-accent font-semibold text-body">{forMeal ? 'Add to meal' : 'Log food'}</Text>
           )}
         </PressableScale>
       </ScrollView>
@@ -424,6 +433,7 @@ function ReviewProduct({ found, onRescan }: { found: Found; onRescan: () => void
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function NutritionBarcodeScreen() {
+  const forMeal = useLocalSearchParams<{ for?: string }>().for === 'meal'
   const [permission, requestPermission] = useCameraPermissions()
   const [typing, setTyping] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -477,7 +487,7 @@ export default function NutritionBarcodeScreen() {
   if (found) {
     return (
       <SafeAreaView className="flex-1 bg-bg" edges={['top', 'bottom']}>
-        <ReviewProduct found={found} onRescan={rescan} />
+        <ReviewProduct found={found} onRescan={rescan} forMeal={forMeal} />
       </SafeAreaView>
     )
   }

@@ -20,6 +20,7 @@ import { formatNumber } from '../../lib/format'
 import { AvatarBadge } from '../../components/avatar/AvatarBadge'
 import { SettingsGroup } from '../../components/settings/SettingsGroup'
 import { SettingsRow } from '../../components/settings/SettingsRow'
+import { useTourStore } from '../../store/tour'
 import { GOAL_LABEL, hourLabel } from '../../components/settings/labels'
 import { colors } from '../../theme/tokens'
 
@@ -475,6 +476,14 @@ export default function SettingsScreen() {
         <PrivacyGroup />
 
         <SettingsGroup header="Help">
+          <SettingsRow
+            title="Show app tour"
+            detail="A quick walk through every tab"
+            onPress={() => {
+              router.back()
+              useTourStore.getState().queue()
+            }}
+          />
           <SettingsRow
             title="How GainRace works"
             detail="Form score, DOTS, caffeine curve, PR detection — formulas and sources"

@@ -69,3 +69,9 @@ export const tabBarTotalHeight = (bottomInset: number) => TAB_BAR_HEIGHT + tabBa
  *  takes layout space below the pages (tabBarTotalHeight), so pages already end
  *  at its top edge and this is 0; kept so call sites stay explicit. */
 export const tabBarClearance = (_bottomInset: number) => 0
+
+// App tour (components/SpotlightTour).
+/** How far the spotlight hole reaches past its target (step 2). */
+export const TOUR_SPOTLIGHT_PAD = 8
+/** Gap between the spotlight and the tooltip card (step 3). */
+export const TOUR_CARD_GAP = 12

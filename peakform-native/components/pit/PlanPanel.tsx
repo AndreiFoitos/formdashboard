@@ -8,6 +8,8 @@ import {
   useBuildPlan,
   useLogPlanMeal,
   usePitPlan,
+  useSkipToday,
+  useUndoSkip,
   useCheckin,
   usePitToday,
   type Plan,
@@ -19,6 +21,7 @@ import { openPaywall, usePlan, type ScanUsage } from '../../hooks/usePlan'
 import { useExerciseName } from '../../hooks/useExerciseName'
 import { EXERCISE_NAME } from '../../lib/exercises'
 import { hapticLight } from '../../lib/haptics'
+import { extractErrorMessage } from '../../lib/apiError'
 import { enablePredictiveNudges } from '../../lib/notifications'
 import { ExerciseLogSheet } from './ExerciseLogSheet'
 import { CheckinCard } from './CheckinCard'
@@ -252,6 +255,46 @@ function MealRow({ meal, last }: { meal: Today['meals'][number]; last: boolean }
   )
 }
 
+/** Skipping moves today's session to tomorrow and slides the week up to the
+ *  next rest day (backend services/plan_edit.py). */
+function SkipRow({ name }: { name: string }) {
+  const skip = useSkipToday()
+  const undo = useUndoSkip()
+
+  function confirm() {
+    hapticLight()
+    Alert.alert(
+      `Skip ${name} today?`,
+      `${name} moves to tomorrow, and the rest of your week slides one day until a rest day takes up the shift.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Skip',
+          onPress: () =>
+            skip.mutate(undefined, {
+              onSuccess: ({ summary }) =>
+                Alert.alert('Skipped', summary, [
+                  { text: 'Undo', style: 'cancel', onPress: () => undo.mutate() },
+                  { text: 'OK' },
+                ]),
+              onError: (e) => Alert.alert("Couldn't skip", extractErrorMessage(e, 'Please try again.')),
+            }),
+        },
+      ],
+    )
+  }
+
+  return (
+    <TouchableOpacity onPress={confirm} disabled={skip.isPending} className="px-4 py-3 border-t border-divider items-center">
+      {skip.isPending ? (
+        <ActivityIndicator size="small" color={colors['text-subtle']} />
+      ) : (
+        <Text className="text-text-muted text-caption font-medium">Skip today, move it to tomorrow</Text>
+      )}
+    </TouchableOpacity>
+  )
+}
+
 function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
   const displayName = useExerciseName(EXERCISE_NAME)
   const [logging, setLogging] = useState<TodayExercise | null>(null)
@@ -267,6 +310,9 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
             <View className="px-4 pt-4 pb-3 border-b border-divider">
               <Text className="text-text text-body font-semibold">{w.name}</Text>
               {!!w.focus && <Text className="text-text-subtle text-caption mt-1">{w.focus}</Text>}
+              {w.moved_from != null && (
+                <Text className="text-text-subtle text-caption mt-1">Moved from {WEEKDAYS[w.moved_from]} after a skip</Text>
+              )}
             </View>
             {w.exercises.map((ex, i) => (
               <ExerciseRow
@@ -277,6 +323,7 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
                 onPress={() => setLogging(ex)}
               />
             ))}
+            {w.exercises.every((ex) => ex.logged_today.length === 0) && <SkipRow name={w.name} />}
           </Card>
         ) : (
           <Card className="p-4">

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { capitalize, formatNumber } from '../lib/format'
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import { ChevronRight, Pencil } from 'lucide-react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useRequireAuth } from '../hooks/useRequireAuth'
@@ -10,8 +11,9 @@ import { EXERCISE_NAME } from '../lib/exercises'
 import { useUnits } from '../lib/units'
 import { colors } from '../theme/tokens'
 
-// The whole Pit Crew week: each day's session and meals. Read-only; logging
-// happens from the Today card on the Pit tab.
+// The whole Pit Crew week: each day's session and meals, as they run this
+// week after any skip. Logging happens from the Today card on the Pit tab;
+// the pencil edits the plan itself (plan-day-edit, plan-meal-edit).
 
 const SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
@@ -23,7 +25,11 @@ export default function PlanWeekScreen() {
   const plan = data?.plan
   const [day, setDay] = useState(() => (new Date().getDay() + 6) % 7)
 
-  const training = plan?.plan.training.days.find((d) => d.weekday === day)
+  const week = plan?.this_week?.days[day]
+  // The session that runs on this day this week, and the plan day it comes from.
+  const source = week ? week.source : day
+  const training = source == null ? undefined : plan?.plan.training.days.find((d) => d.weekday === source)
+  const ownSession = plan?.plan.training.days.find((d) => d.weekday === day)
   const meals = plan?.plan.nutrition?.days.find((d) => d.weekday === day)
 
   return (
@@ -31,7 +37,7 @@ export default function PlanWeekScreen() {
       <View className="flex-row px-4 mb-4 gap-2">
         {SHORT.map((label, i) => {
           const active = i === day
-          const trains = plan?.plan.training.days.some((d) => d.weekday === i)
+          const trains = plan?.this_week ? plan.this_week.days[i].source != null : plan?.plan.training.days.some((d) => d.weekday === i)
           return (
             <TouchableOpacity
               key={label}
@@ -55,10 +61,26 @@ export default function PlanWeekScreen() {
         ) : (
           <>
             <View className="bg-surface border border-divider rounded-xl overflow-hidden" style={{ borderCurve: 'continuous' }}>
-              <View className="px-4 pt-4 pb-3 border-b border-divider">
-                <Text className="text-text-subtle text-caption">{WEEKDAYS[day]}</Text>
-                <Text className="text-text text-body font-semibold mt-1">{training ? training.name : 'Rest day'}</Text>
-                {!!training?.focus && <Text className="text-text-subtle text-caption mt-1">{training.focus}</Text>}
+              <View className="pl-4 pt-4 pb-3 border-b border-divider flex-row items-start">
+                <View className="flex-1 pr-2">
+                  <Text className="text-text-subtle text-caption">{WEEKDAYS[day]}</Text>
+                  <Text className="text-text text-body font-semibold mt-1">
+                    {training ? training.name : week?.skipped ? 'Skipped' : 'Rest day'}
+                  </Text>
+                  {!!training?.focus && <Text className="text-text-subtle text-caption mt-1">{training.focus}</Text>}
+                  {training && source !== day && (
+                    <Text className="text-text-subtle text-caption mt-1">Moved from {WEEKDAYS[source!]} after a skip</Text>
+                  )}
+                </View>
+                {training && (
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: '/plan-day-edit', params: { weekday: String(source) } })}
+                    className="w-11 h-11 items-center justify-center"
+                    accessibilityLabel="Edit session"
+                  >
+                    <Pencil size={18} color={colors['text-muted']} />
+                  </TouchableOpacity>
+                )}
               </View>
               {training?.exercises.map((e, i) => (
                 <View
@@ -78,7 +100,23 @@ export default function PlanWeekScreen() {
                   </Text>
                 </View>
               ))}
+              {!training && (
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: '/plan-day-edit', params: { weekday: String(day) } })}
+                  className="px-4 py-3 flex-row items-center justify-between"
+                >
+                  <Text className="text-text text-footnote font-medium">
+                    {ownSession ? `Edit ${WEEKDAYS[day]}'s ${ownSession.name}` : `Add a session on ${WEEKDAYS[day]}`}
+                  </Text>
+                  <ChevronRight size={18} color={colors['text-subtle']} />
+                </TouchableOpacity>
+              )}
             </View>
+            {plan.this_week?.shifted && (
+              <Text className="text-text-subtle text-caption -mt-2">
+                This week is shifted after a skip. Next week runs as planned.
+              </Text>
+            )}
 
             {meals && (
               <View>
@@ -90,14 +128,18 @@ export default function PlanWeekScreen() {
                 </View>
                 <View className="bg-surface border border-divider rounded-xl overflow-hidden" style={{ borderCurve: 'continuous' }}>
                   {meals.meals.map((m, i) => (
-                    <View
+                    <TouchableOpacity
                       key={m.id}
+                      onPress={() => router.push({ pathname: '/plan-meal-edit', params: { weekday: String(day), id: m.id } })}
                       className="px-4 py-3"
                       style={{ borderBottomWidth: i === meals.meals.length - 1 ? 0 : 1, borderBottomColor: colors.divider }}
                     >
                       <View className="flex-row justify-between">
                         <Text className="text-text text-footnote font-medium flex-1 pr-2">{capitalize(m.name)}</Text>
-                        <Text className="text-text-muted text-footnote">{formatNumber(m.totals.calories)} kcal</Text>
+                        <View className="flex-row items-center gap-2">
+                          <Text className="text-text-muted text-footnote">{formatNumber(m.totals.calories)} kcal</Text>
+                          <Pencil size={14} color={colors['text-subtle']} />
+                        </View>
                       </View>
                       {!!m.prep && <Text className="text-text-muted text-caption mt-1">{m.prep}</Text>}
                       {m.items.map((it) => (
@@ -105,7 +147,7 @@ export default function PlanWeekScreen() {
                           {it.food} · {it.grams} g
                         </Text>
                       ))}
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               </View>

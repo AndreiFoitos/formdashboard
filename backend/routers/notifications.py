@@ -29,7 +29,7 @@ from models.stimulant_log import StimulantLog
 from models.user import User
 from services.daily import increment_daily_field
 from services.log_patterns import get_patterns_for_user
-from services.stimulants import SUBSTANCES
+from services.stimulants import PRESETS as SUBSTANCES
 
 
 notif_router = APIRouter(prefix="/notifications", tags=["notifications"])

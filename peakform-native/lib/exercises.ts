@@ -251,8 +251,8 @@ export const EXERCISE_NAME: Record<string, string> = Object.fromEntries(
 
 // Logged per dumbbell: the weight field is ONE dumbbell, the way people say
 // "I press the 30s". Pairs (one in each hand) count both towards volume on
-// the server; one-dumbbell moves count once. Keep in sync with
-// backend/services/exercise_taxonomy.py DUMBBELL_PAIR / DUMBBELL_SINGLE.
+// the server. Keep in sync with backend/services/exercise_taxonomy.py
+// DUMBBELL_PAIR / DUMBBELL_SINGLE.
 export const DUMBBELL_PAIR = new Set([
   'dumbbell_press', 'incline_db_press', 'decline_db_press', 'chest_fly', 'incline_db_fly',
   'db_floor_press', 'db_shrug', 'chest_supported_row', 'db_lunge', 'db_rdl',
@@ -266,6 +266,27 @@ export const DUMBBELL_SINGLE = new Set([
 
 export function isPerDumbbell(key: string): boolean {
   return DUMBBELL_PAIR.has(key) || DUMBBELL_SINGLE.has(key)
+}
+
+// One arm or one leg at a time, logged per side. Both sides get done, so the
+// server counts the volume twice. Keep in sync with
+// backend/services/exercise_taxonomy.py UNILATERAL.
+export const UNILATERAL = new Set([
+  'one_arm_db_row', 'kroc_row', 'meadows_row', 'single_arm_cable_row', 'single_arm_pulldown',
+  'concentration_curl', 'kickback', 'single_arm_pushdown',
+  'bulgarian_split_squat', 'split_squat', 'walking_lunge', 'reverse_lunge', 'db_lunge',
+  'lateral_lunge', 'curtsy_lunge', 'step_up', 'pistol_squat', 'single_leg_rdl', 'cable_kickback',
+  'suitcase_carry', 'side_bend',
+])
+
+/** The hint above the set rows: how to log weight and reps for this move. */
+export function loggingHint(key: string): string | null {
+  const perDb = isPerDumbbell(key)
+  const perSide = UNILATERAL.has(key)
+  if (perDb && perSide) return 'Weight per dumbbell, reps per side'
+  if (perSide) return 'Weight and reps per side'
+  if (perDb) return 'Weight is per dumbbell'
+  return null
 }
 
 /** Lower-case, "dumbbell" → "db", so "dumbbell curl" finds "DB Curl". */

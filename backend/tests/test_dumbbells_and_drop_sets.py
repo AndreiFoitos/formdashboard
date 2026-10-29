@@ -3,6 +3,7 @@ from services.exercise_taxonomy import (
     DUMBBELL_PAIR,
     DUMBBELL_SINGLE,
     EXERCISE_TO_GROUP,
+    UNILATERAL,
 )
 from services.plan_builder import start_weight
 from services.progression import next_target
@@ -18,8 +19,18 @@ def test_dumbbell_pair_counts_both_hands():
     assert set_volume_kg("db_curl", 12, 10, 80) == 240
 
 
-def test_single_dumbbell_counts_once():
-    assert set_volume_kg("one_arm_db_row", 30, 10, 80) == 300
+def test_one_arm_and_one_leg_moves_count_both_sides():
+    # 30 kg for 10 reps per arm moved 600 kg.
+    assert set_volume_kg("one_arm_db_row", 30, 10, 80) == 600
+    assert set_volume_kg("single_arm_cable_row", 25, 10, 80) == 500
+    assert set_volume_kg("bulgarian_split_squat", 40, 8, 80) == 640
+    # A pair of dumbbells, per leg.
+    assert set_volume_kg("db_lunge", 20, 10, 80) == 800
+
+
+def test_unilateral_moves_are_real_exercises():
+    assert UNILATERAL <= set(EXERCISE_TO_GROUP)
+    assert DUMBBELL_SINGLE <= UNILATERAL
 
 
 def test_barbell_and_bodyweight_unchanged():

@@ -27,7 +27,7 @@ from models.custom_exercise import CustomExercise
 from models.friendship import Friendship
 from models.training_log import TrainingLog
 from models.user import User
-from services.exercise_taxonomy import DUMBBELL_PAIR
+from services.exercise_taxonomy import volume_factor
 from services import push
 
 
@@ -44,15 +44,14 @@ def set_volume_kg(
     user_weight_kg: Optional[float],
 ) -> float:
     """kg moved by one set: weight x reps. Bodyweight moves with no weight
-    count the lifter's own mass; dumbbell pairs are logged per dumbbell, so
-    they count twice. Every volume number (leaderboard, weekly chart,
-    sessions, milestones) goes through here so they all agree."""
+    count the lifter's own mass; dumbbell pairs (logged per dumbbell) and
+    one-arm / one-leg moves (logged per side) count twice, see
+    volume_factor. Every volume number (leaderboard, weekly chart, sessions,
+    milestones) goes through here so they all agree."""
     w = float(weight_kg) if weight_kg else 0.0
     if w <= 0 and exercise_key in BODYWEIGHT_EXERCISES and user_weight_kg:
         w = float(user_weight_kg)
-    if exercise_key in DUMBBELL_PAIR:
-        w *= 2
-    return w * (reps or 0)
+    return w * volume_factor(exercise_key) * (reps or 0)
 
 # 7-day TTL for dedupe keys — keys naturally cycle out as the week rolls over,
 # but we don't want a stuck key for someone who only logs once.

@@ -58,6 +58,9 @@ export interface CurveData {
     label: string
     caffeine_mg: number
     additions: string[]
+    /** Present on newer servers; used to repeat a custom energy drink. */
+    calories?: number
+    carbs_g?: number
   } | null
 }
 
@@ -125,6 +128,8 @@ interface Substance {
   fat_g: number
   serving: string
   supports_additions: boolean
+  /** Energy drinks only; already counted in carbs_g. */
+  sugar_g?: number
 }
 
 interface Addition {
@@ -139,6 +144,22 @@ interface Addition {
 interface SubstancesPayload {
   substances: Substance[]
   additions: Addition[]
+  /** Brands, shown when Energy Drink is tapped. Missing on older servers. */
+  energy_drinks?: Substance[]
+}
+
+type LogBody = { substance: string; caffeine_mg?: number; additions: string[]; calories?: number; sugar_g?: number }
+
+/** "Red Bull" for 'ed_red_bull', from the cached substances list. */
+function useSubstanceLabel() {
+  const { data } = useQuery<SubstancesPayload>({
+    queryKey: ['substances'],
+    queryFn: () => api.get('/stimulants/substances').then((r) => r.data),
+    staleTime: Infinity,
+  })
+  return (key: string) =>
+    [...(data?.substances ?? []), ...(data?.energy_drinks ?? [])].find((s) => s.key === key)?.label ??
+    key.replace(/_/g, ' ')
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -292,18 +313,24 @@ function LogModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
   const [selected, setSelected] = useState<string | null>(null)
   const [customMg, setCustomMg] = useState('')
+  const [customKcal, setCustomKcal] = useState('')
+  const [customSugar, setCustomSugar] = useState('')
   const [pickedAdditions, setPickedAdditions] = useState<string[]>([])
+  // Energy Drink tile opens the brand list; a brand is then the selection.
+  const [energyOpen, setEnergyOpen] = useState(false)
+  const needsMg = selected === 'custom' || selected === 'energy_custom'
 
   const { data: payload } = useQuery<SubstancesPayload>({
     queryKey: ['substances'],
     queryFn: () => api.get('/stimulants/substances').then((r) => r.data),
     staleTime: Infinity,
   })
-  const substances = payload?.substances ?? []
+  const energyDrinks = payload?.energy_drinks ?? []
+  const substances = [...(payload?.substances ?? []), ...energyDrinks]
   const additions = payload?.additions ?? []
 
   const { mutateAsync, isPending } = useMutation({
-    mutationFn: (body: { substance: string; caffeine_mg?: number; additions: string[] }) =>
+    mutationFn: (body: LogBody) =>
       api
         .post('/stimulants/log', body)
         .then((r) => r.data as {
@@ -325,16 +352,27 @@ function LogModal({ onClose }: { onClose: () => void }) {
   function selectSubstance(key: string) {
     setSelected(key)
     setPickedAdditions([])
+    if (!energyDrinks.some((d) => d.key === key) && key !== 'energy_drink') setEnergyOpen(false)
+  }
+
+  function openEnergy() {
+    setEnergyOpen(true)
+    setSelected(null)
+    setPickedAdditions([])
   }
 
   async function handleLog() {
     if (!selected) return
-    const body: { substance: string; caffeine_mg?: number; additions: string[] } = {
+    const body: LogBody = {
       substance: selected,
       additions: pickedAdditions,
     }
-    if (selected === 'custom' && customMg) {
+    if (needsMg && customMg) {
       body.caffeine_mg = parseInt(customMg)
+    }
+    if (selected === 'energy_custom') {
+      body.calories = parseInt(customKcal) || 0
+      body.sugar_g = parseFloat(customSugar.replace(',', '.')) || 0
     }
     try {
       const entry = await mutateAsync(body)
@@ -354,7 +392,9 @@ function LogModal({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const presets = substances.filter((s) => s.key !== 'custom')
+  const presets = (payload?.substances ?? []).filter((s) => s.key !== 'custom')
+  const brands = energyDrinks.filter((d) => d.key !== 'energy_custom')
+  const generic = presets.find((s) => s.key === 'energy_drink')
   const selectedSubstance = substances.find((s) => s.key === selected)
   const showAdditions = selectedSubstance?.supports_additions ?? false
 
@@ -406,31 +446,35 @@ function LogModal({ onClose }: { onClose: () => void }) {
 
         <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false} className="flex-1 px-4 pt-4" keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets>
           <View className="flex-row flex-wrap gap-2 mb-4">
-            {presets.map((s) => (
-              <TouchableOpacity
-                key={s.key}
-                onPress={() => selectSubstance(s.key)}
-                className="px-4 py-3 rounded-full border"
-                style={{
-                  borderCurve: 'continuous', backgroundColor: selected === s.key ? colors.text : colors['surface-raised'],
-                  borderColor: selected === s.key ? colors.text : colors.border,
-                  width: '47%',
-                }}
-              >
-                <Text
-                  className="text-footnote font-medium"
-                  style={{ color: selected === s.key ? colors.bg : colors.text }}
+            {presets.map((s) => {
+              const isEnergy = s.key === 'energy_drink' && brands.length > 0
+              const active = isEnergy ? energyOpen : selected === s.key
+              return (
+                <TouchableOpacity
+                  key={s.key}
+                  onPress={() => (isEnergy ? openEnergy() : selectSubstance(s.key))}
+                  className="px-4 py-3 rounded-full border"
+                  style={{
+                    borderCurve: 'continuous', backgroundColor: active ? colors.text : colors['surface-raised'],
+                    borderColor: active ? colors.text : colors.border,
+                    width: '47%',
+                  }}
                 >
-                  {s.label}
-                </Text>
-                <Text
-                  className="text-caption mt-1"
-                  style={{ color: colors['text-subtle'] }}
-                >
-                  {s.caffeine_mg} mg · {formatNumber(s.calories)} kcal
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    className="text-footnote font-medium"
+                    style={{ color: active ? colors.bg : colors.text }}
+                  >
+                    {s.label}
+                  </Text>
+                  <Text
+                    className="text-caption mt-1"
+                    style={{ color: colors['text-subtle'] }}
+                  >
+                    {isEnergy ? 'Pick your brand' : `${s.caffeine_mg} mg · ${formatNumber(s.calories)} kcal`}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
 
             <TouchableOpacity
               onPress={() => selectSubstance('custom')}
@@ -455,6 +499,80 @@ function LogModal({ onClose }: { onClose: () => void }) {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {energyOpen && (
+            <View className="mb-4">
+              <Text className="text-text-subtle text-caption mb-2">Which one?</Text>
+              <View className="gap-2">
+                {[...brands, ...(generic ? [{ ...generic, label: 'Other energy drink' }] : [])].map((d) => {
+                  const active = selected === d.key
+                  return (
+                    <TouchableOpacity
+                      key={d.key}
+                      onPress={() => selectSubstance(d.key)}
+                      className="px-4 py-3 rounded-xl border flex-row items-center justify-between"
+                      style={{
+                        borderCurve: 'continuous',
+                        backgroundColor: active ? colors.text : colors['surface-raised'],
+                        borderColor: active ? colors.text : colors.border,
+                      }}
+                    >
+                      <View className="flex-1 pr-2">
+                        <Text className="text-footnote font-medium" style={{ color: active ? colors.bg : colors.text }}>{d.label}</Text>
+                        <Text className="text-caption mt-1" style={{ color: active ? colors.bg : colors['text-subtle'] }}>{d.serving}</Text>
+                      </View>
+                      <Text className="text-caption" style={{ color: active ? colors.bg : colors['text-muted'] }}>
+                        {d.caffeine_mg} mg · {formatNumber(d.sugar_g ?? d.carbs_g)} g sugar · {formatNumber(d.calories)} kcal
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                })}
+                <TouchableOpacity
+                  onPress={() => selectSubstance('energy_custom')}
+                  className="px-4 py-3 rounded-xl border"
+                  style={{
+                    borderCurve: 'continuous',
+                    backgroundColor: selected === 'energy_custom' ? colors.text : colors['surface-raised'],
+                    borderColor: selected === 'energy_custom' ? colors.text : colors.border,
+                  }}
+                >
+                  <Text className="text-footnote font-medium" style={{ color: selected === 'energy_custom' ? colors.bg : colors.text }}>
+                    Something else
+                  </Text>
+                  <Text className="text-caption mt-1" style={{ color: selected === 'energy_custom' ? colors.bg : colors['text-subtle'] }}>
+                    Enter caffeine, sugar and calories from the can
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <Text className="text-text-subtle text-caption mt-2">Label values per can. Recipes vary a little by country.</Text>
+            </View>
+          )}
+
+          {selected === 'energy_custom' && (
+            <View className="mb-4 flex-row gap-2">
+              {([
+                ['Caffeine', customMg, setCustomMg, 'mg', '160'],
+                ['Sugar', customSugar, setCustomSugar, 'g', '0'],
+                ['Energy', customKcal, setCustomKcal, 'kcal', '10'],
+              ] as const).map(([label, value, set, unit, ph]) => (
+                <View key={label} className="flex-1">
+                  <Text className="text-text-subtle text-caption mb-2">{label}</Text>
+                  <View className="flex-row items-center bg-surface-raised border border-border rounded-md px-3" style={{ borderCurve: 'continuous' }}>
+                    <TextInput
+                      value={value}
+                      onChangeText={set}
+                      placeholder={ph}
+                      placeholderTextColor={colors['text-subtle']}
+                      keyboardType={unit === 'g' ? 'decimal-pad' : 'number-pad'}
+                      inputAccessoryViewID={KEYBOARD_DONE_ID}
+                      className="flex-1 py-4 text-text text-footnote"
+                    />
+                    <Text className="text-text-subtle text-caption">{unit}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
 
           {selected === 'custom' && (
             <View className="mb-4">
@@ -507,10 +625,12 @@ function LogModal({ onClose }: { onClose: () => void }) {
             </View>
           )}
 
-          {selectedSubstance && selected !== 'custom' && liveTotals && (
+          {selectedSubstance && !needsMg && liveTotals && (
             <View className="bg-surface-raised border border-border rounded-xl px-4 py-3 mb-4" style={{ borderCurve: 'continuous' }}>
               <Text className="text-text-subtle text-caption mb-1">
-                {selectedSubstance.caffeine_mg} mg caffeine · half-life {selectedSubstance.half_life}h · {selectedSubstance.serving}
+                {selectedSubstance.caffeine_mg} mg caffeine
+                {selectedSubstance.sugar_g != null ? ` · ${formatNumber(selectedSubstance.sugar_g)} g sugar` : ''} · half-life{' '}
+                {selectedSubstance.half_life}h · {selectedSubstance.serving}
               </Text>
               <Text className="text-text text-footnote font-semibold">
                 {formatNumber(liveTotals.calories)} kcal
@@ -523,10 +643,10 @@ function LogModal({ onClose }: { onClose: () => void }) {
 
           <TouchableOpacity
             onPress={handleLog}
-            disabled={!selected || isPending || (selected === 'custom' && !customMg)}
+            disabled={!selected || isPending || (needsMg && !customMg)}
             className="bg-accent rounded-md py-4 items-center mb-12"
             style={{
-              borderCurve: 'continuous', opacity: !selected || isPending || (selected === 'custom' && !customMg) ? 0.4 : 1,
+              borderCurve: 'continuous', opacity: !selected || isPending || (needsMg && !customMg) ? 0.4 : 1,
             }}
           >
             {isPending ? (
@@ -554,6 +674,7 @@ export function CaffeineCurve({ data, isLoading }: Props) {
   // Same gap hydration had: caffeine entries were only removable through the
   // undo toast, so a mistake outlived the toast permanently.
   const [showEntries, setShowEntries] = useState(false)
+  const labelFor = useSubstanceLabel()
 
   // GET /stimulants/today returns a bare array, not a wrapper object.
   const entriesQ = useQuery<StimulantEntry[]>({
@@ -573,7 +694,7 @@ export function CaffeineCurve({ data, isLoading }: Props) {
   const qc = useQueryClient()
 
   const { mutateAsync, isPending } = useMutation({
-    mutationFn: (body: { substance: string; caffeine_mg?: number; additions: string[] }) =>
+    mutationFn: (body: LogBody) =>
       api
         .post('/stimulants/log', body)
         .then((r) => r.data as { id: string; substance: string; caffeine_mg: number }),
@@ -598,10 +719,12 @@ export function CaffeineCurve({ data, isLoading }: Props) {
   const handleRepeat = async () => {
     if (!last) return
     hapticLight()
-    const body: { substance: string; caffeine_mg?: number; additions: string[] } =
+    const body: LogBody =
       last.substance === 'custom'
         ? { substance: 'custom', caffeine_mg: last.caffeine_mg, additions: last.additions }
-        : { substance: last.substance, additions: last.additions }
+        : last.substance === 'energy_custom'
+          ? { substance: 'energy_custom', caffeine_mg: last.caffeine_mg, additions: [], calories: last.calories, sugar_g: last.carbs_g }
+          : { substance: last.substance, additions: last.additions }
     try {
       const entry = await mutateAsync(body)
       hapticSuccess()
@@ -708,7 +831,7 @@ export function CaffeineCurve({ data, isLoading }: Props) {
                     }}
                   >
                     <Text className="text-text-muted text-caption">
-                      {e.substance.replace(/_/g, ' ')} · {e.caffeine_mg}mg
+                      {labelFor(e.substance)} · {e.caffeine_mg}mg
                     </Text>
                     <Text className="text-text-subtle text-caption">
                       {new Date(e.logged_at).toLocaleTimeString(undefined, {

@@ -9,12 +9,14 @@ import {
   Alert,
   Modal,
 } from 'react-native'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
+import { router, useFocusEffect } from 'expo-router'
 import { Bookmark, Camera, MoreHorizontal, ScanBarcode, Search as SearchIcon, X } from 'lucide-react-native'
 import { api } from '../../api/client'
+import { useTourTarget } from '../../store/tour'
+import { draftItem, useMealDraft } from '../../store/mealDraft'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { CountUp } from '../../components/CountUp'
 import { AnimatedBar } from '../../components/AnimatedBar'
@@ -295,15 +297,6 @@ function SearchResultRow({
 
 // ─── Build meal modal ────────────────────────────────────────────────────────
 
-interface DraftItem {
-  food_name: string
-  grams: number
-  calories: number
-  protein_g: number
-  carbs_g: number
-  fat_g: number
-}
-
 function BuildMealModal({
   onClose,
   onSaved,
@@ -311,10 +304,10 @@ function BuildMealModal({
   onClose: () => void
   onSaved: () => void
 }) {
-  const [name, setName] = useState('')
+  // The draft survives a trip to the barcode or photo screen (store/mealDraft).
+  const { name, setName, items: draft, add, remove, leaveTo } = useMealDraft()
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [draft, setDraft] = useState<DraftItem[]>([])
 
   // Debounce so we don't hit USDA on every keystroke. Same 300ms as Search tab.
   useEffect(() => {
@@ -333,22 +326,19 @@ function BuildMealModal({
   function addIngredient(result: SearchResult, grams: number) {
     if (grams <= 0) return
     const factor = grams / 100
-    setDraft((prev) => [
-      ...prev,
-      {
-        food_name: result.logged_name ?? result.name,
-        grams,
-        calories: Math.round(result.per_100g.calories * factor),
-        protein_g: Math.round(result.per_100g.protein_g * factor * 10) / 10,
-        carbs_g: Math.round(result.per_100g.carbs_g * factor * 10) / 10,
-        fat_g: Math.round(result.per_100g.fat_g * factor * 10) / 10,
-      },
+    add([
+      draftItem(result.logged_name ?? result.name, grams, {
+        calories: result.per_100g.calories * factor,
+        protein_g: result.per_100g.protein_g * factor,
+        carbs_g: result.per_100g.carbs_g * factor,
+        fat_g: result.per_100g.fat_g * factor,
+      }),
     ])
     setQuery('')
   }
 
   function removeIngredient(idx: number) {
-    setDraft((prev) => prev.filter((_, i) => i !== idx))
+    remove(idx)
   }
 
   // Aggregate totals shown at the bottom and used to compose the save payload.
@@ -459,6 +449,26 @@ function BuildMealModal({
             <Text className="text-text-subtle text-caption mb-2">
               Add ingredient
             </Text>
+            <View className="flex-row gap-2 mb-2">
+              <PressableScale
+                haptic
+                onPress={() => leaveTo('/nutrition-barcode')}
+                className="flex-1 bg-surface-raised border border-border rounded-md py-3 flex-row items-center justify-center gap-2"
+                style={{ borderCurve: 'continuous' }}
+              >
+                <ScanBarcode size={16} color={colors.text} strokeWidth={2} />
+                <Text className="text-text text-footnote font-semibold">Scan barcode</Text>
+              </PressableScale>
+              <PressableScale
+                haptic
+                onPress={() => leaveTo('/nutrition-snap')}
+                className="flex-1 bg-surface-raised border border-border rounded-md py-3 flex-row items-center justify-center gap-2"
+                style={{ borderCurve: 'continuous' }}
+              >
+                <Camera size={16} color={colors.text} strokeWidth={2} />
+                <Text className="text-text text-footnote font-semibold">Snap photo</Text>
+              </PressableScale>
+            </View>
             <View className="flex-row items-center bg-surface-raised border border-border rounded-xl px-4" style={{ borderCurve: 'continuous' }}>
               <TextInput
                 value={query}
@@ -740,11 +750,14 @@ function RenameSavedMealModal({
 function LogModal({
   onClose,
   initialTab = 'search',
+  initialBuilding = false,
 }: {
   onClose: () => void
   /** Which tab opens first. Set by the Nutrition page so each top-row
    *  button drops the user straight into the relevant view. */
   initialTab?: 'search' | 'saved' | 'photo' | 'barcode'
+  /** Reopen the meal builder, back from adding an ingredient by camera. */
+  initialBuilding?: boolean
 }) {
   const qc = useQueryClient()
 
@@ -754,7 +767,16 @@ function LogModal({
   // Open a rename modal for a specific saved meal. null = closed.
   const [renaming, setRenaming] = useState<SavedMeal | null>(null)
   // Open the meal builder modal.
-  const [building, setBuilding] = useState(false)
+  const [building, setBuilding] = useState(initialBuilding)
+  const leaving = useMealDraft((s) => s.leaving)
+  // The builder wants a camera screen: close both modals first, then the
+  // Nutrition page pushes it (a route can't show above an open Modal).
+  useEffect(() => {
+    if (leaving) {
+      setBuilding(false)
+      onClose()
+    }
+  }, [leaving])
 
   // Manual fallback fields — same shape as the previous LogModal.
   const [manualName, setManualName] = useState('')
@@ -1205,8 +1227,12 @@ function LogModal({
 
       {building && (
         <BuildMealModal
-          onClose={() => setBuilding(false)}
+          onClose={() => {
+            useMealDraft.getState().reset()
+            setBuilding(false)
+          }}
           onSaved={() => {
+            useMealDraft.getState().reset()
             setBuilding(false)
             qc.invalidateQueries({ queryKey: ['saved-meals'] })
           }}
@@ -1272,12 +1298,37 @@ function EntryRow({
 
 export default function NutritionScreen() {
   const { user } = useRequireAuth()
+  const scanTarget = useTourTarget('nutrition-scan')
   const [showLog, setShowLog] = useState(false)
   // Drives which tab the LogModal opens to. The top-row Search/Saved buttons
   // set this before opening; Photo bypasses the modal and routes directly
   // to the snap screen.
   const [logInitialTab, setLogInitialTab] = useState<'search' | 'saved'>('search')
+  const [resumeBuilder, setResumeBuilder] = useState(false)
   const qc = useQueryClient()
+
+  // Meal builder -> barcode / photo screen and back (store/mealDraft.ts).
+  // Push once the modals have finished closing, and reopen the builder on
+  // the way back, whether or not anything was added.
+  const leaving = useMealDraft((s) => s.leaving)
+  useEffect(() => {
+    if (!leaving) return
+    const t = setTimeout(() => {
+      useMealDraft.getState().left()
+      router.push({ pathname: leaving, params: { for: 'meal' } })
+    }, 450)
+    return () => clearTimeout(t)
+  }, [leaving])
+  useFocusEffect(
+    useCallback(() => {
+      const draft = useMealDraft.getState()
+      if (!draft.resume || draft.leaving) return
+      draft.resumed()
+      setLogInitialTab('saved')
+      setResumeBuilder(true)
+      setShowLog(true)
+    }, []),
+  )
 
   const { data, isLoading, refetch, isRefetching } = useQuery<NutritionToday>({
     queryKey: ['nutrition-today'],
@@ -1342,7 +1393,7 @@ export default function NutritionScreen() {
             equal-prominence on-page buttons. Search + Saved open LogModal
             pre-set to that tab; Barcode and Photo route straight to their
             camera screens, skipping the modal. */}
-        <View className="flex-row mb-5 gap-2">
+        <View className="flex-row mb-5 gap-2" {...scanTarget}>
           <PressableScale
             haptic
             onPress={() => {
@@ -1461,7 +1512,11 @@ export default function NutritionScreen() {
       {showLog && (
         <LogModal
           initialTab={logInitialTab}
-          onClose={() => setShowLog(false)}
+          initialBuilding={resumeBuilder}
+          onClose={() => {
+            setShowLog(false)
+            setResumeBuilder(false)
+          }}
         />
       )}
 

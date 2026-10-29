@@ -28,6 +28,7 @@ from models.nutrition_log import NutritionLog
 from models.training_log import TrainingLog
 from models.user import User
 from services.exercise_taxonomy import is_per_dumbbell
+from services.plan_edit import day_for_date
 from services.progression import next_target
 
 LOOKBACK = timedelta(weeks=8)
@@ -55,7 +56,7 @@ async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
     weekday = today.weekday()
     plan = row.plan or {}
 
-    day = next((d for d in plan.get("training", {}).get("days", []) if d["weekday"] == weekday), None)
+    day = day_for_date(plan, today)  # after any skip this week
     workout = None
     if day:
         keys = [e["key"] for e in day["exercises"]]
@@ -95,12 +96,11 @@ async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
 
     next_day = None
     if not day:
-        upcoming = sorted(
-            plan.get("training", {}).get("days", []),
-            key=lambda d: (d["weekday"] - weekday) % 7,
-        )
-        if upcoming:
-            next_day = {"weekday": upcoming[0]["weekday"], "name": upcoming[0]["name"]}
+        for ahead in range(1, 8):
+            upcoming = day_for_date(plan, today + timedelta(days=ahead))
+            if upcoming:
+                next_day = {"weekday": upcoming["weekday"], "name": upcoming["name"]}
+                break
 
     return {
         "date": today.isoformat(),

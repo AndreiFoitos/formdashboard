@@ -3,6 +3,7 @@ import { Animated, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } f
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs'
 import { TAB_ICONS } from './TabIcons'
+import { useTourTarget } from '../store/tour'
 import { hapticLight } from '../lib/haptics'
 import { TAB_BAR_HEIGHT, TAB_ICON_SIZE, TAB_INDICATOR, TAB_LABEL_GAP, tabBarBottomPadding } from '../theme/layout'
 import { colors } from '../theme/tokens'
@@ -83,23 +84,34 @@ export function BottomNav({ state, navigation, position }: MaterialTopTabBarProp
         }
 
         return (
-          <Pressable
+          <TabButton
             key={route.key}
+            name={route.name}
             onPress={onPress}
             onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
             accessibilityRole="tab"
             accessibilityState={{ selected: focused }}
             accessibilityLabel={label}
-            className="flex-1 items-center justify-center"
+            className="items-center justify-center"
             style={{ height: TAB_BAR_HEIGHT, gap: TAB_LABEL_GAP }}
           >
             {Icon ? <Icon color={color} size={TAB_ICON_SIZE} /> : null}
             <Text className={`text-caption ${focused ? 'font-semibold' : 'font-normal'}`} style={{ color }}>
               {label}
             </Text>
-          </Pressable>
+          </TabButton>
         )
       })}
+    </View>
+  )
+}
+
+/** A tab's Pressable, marked so the app tour can point at it ('tab-<name>'). */
+function TabButton({ name, ...props }: React.ComponentProps<typeof Pressable> & { name: string }) {
+  const target = useTourTarget(`tab-${name}`)
+  return (
+    <View {...target} className="flex-1">
+      <Pressable {...props} />
     </View>
   )
 }

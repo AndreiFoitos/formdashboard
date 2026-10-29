@@ -24,6 +24,16 @@ export interface TrainingDay {
   name: string
   focus: string
   exercises: PlanExercise[]
+  /** Set on today's workout when a skip moved it here from another day. */
+  moved_from?: number | null
+}
+
+/** What runs each day this week after any skips (services/plan_edit.py).
+ *  source = the template weekday whose session runs that day, or null. */
+export interface ThisWeek {
+  week_start: string
+  days: { weekday: number; source: number | null; skipped: boolean }[]
+  shifted: boolean
 }
 
 export interface Macros {
@@ -64,6 +74,7 @@ export interface Plan {
   created_at: string
   rationale: string
   meal_plan_enabled: boolean
+  this_week: ThisWeek
   targets: Targets & { notes: string[]; warnings: string[]; tdee: number | null; tdee_source: string | null }
   plan: {
     training: { days: TrainingDay[] }
@@ -251,6 +262,96 @@ export function useLogPlanExercise() {
       qc.invalidateQueries({ queryKey: ['exercise-history'] })
       qc.invalidateQueries({ queryKey: ['training-history'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+  })
+}
+
+/** Put a plan the server just returned into the cache and refresh today. */
+function usePutPlan() {
+  const qc = useQueryClient()
+  return (plan: Plan) => {
+    qc.setQueryData<PlanState>(PIT_PLAN_KEY, (prev) => (prev ? { ...prev, plan } : prev))
+    qc.invalidateQueries({ queryKey: PIT_TODAY_KEY })
+  }
+}
+
+/** Skip today's session: it moves to tomorrow and the week slides up to the
+ *  next rest day. Returns the server's one-line summary. */
+export function useSkipToday() {
+  const put = usePutPlan()
+  return useMutation({
+    mutationFn: () => api.post('/plan-ai/today/skip').then((r) => r.data as { summary: string; plan: Plan }),
+    onSuccess: (d) => put(d.plan),
+  })
+}
+
+export function useUndoSkip() {
+  const put = usePutPlan()
+  return useMutation({
+    mutationFn: () => api.delete('/plan-ai/today/skip').then((r) => r.data.plan as Plan),
+    onSuccess: put,
+  })
+}
+
+export interface EditExercise {
+  key: string
+  sets: number
+  reps_min: number
+  reps_max: number
+  rest_seconds: number
+  note: string
+}
+
+export interface EditDay {
+  weekday: number
+  name: string
+  focus: string
+  exercises: EditExercise[]
+}
+
+/** The whole training week in the shape PUT /plan-ai/plan/training takes. */
+export function toEditDays(days: TrainingDay[]): EditDay[] {
+  return days.map((d) => ({
+    weekday: d.weekday,
+    name: d.name,
+    focus: d.focus,
+    exercises: d.exercises.map(({ key, sets, reps_min, reps_max, rest_seconds, note }) => ({
+      key, sets, reps_min, reps_max, rest_seconds, note,
+    })),
+  }))
+}
+
+export function useEditTraining() {
+  const put = usePutPlan()
+  return useMutation({
+    mutationFn: (days: EditDay[]) => api.put('/plan-ai/plan/training', { days }).then((r) => r.data.plan as Plan),
+    onSuccess: put,
+  })
+}
+
+/** Change one day's meal: grams per item, 0 drops the item. */
+export function useEditPlanMeal() {
+  const put = usePutPlan()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ weekday, id, grams }: { weekday: number; id: string; grams: number[] }) =>
+      api.put(`/plan-ai/plan/meals/${weekday}/${id}`, { grams }).then((r) => r.data.plan as Plan),
+    onSuccess: (plan) => {
+      put(plan)
+      qc.invalidateQueries({ queryKey: ['plan-ai', 'shopping'] })
+    },
+  })
+}
+
+export function useRemovePlanMeal() {
+  const put = usePutPlan()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ weekday, id }: { weekday: number; id: string }) =>
+      api.delete(`/plan-ai/plan/meals/${weekday}/${id}`).then((r) => r.data.plan as Plan),
+    onSuccess: (plan) => {
+      put(plan)
+      qc.invalidateQueries({ queryKey: ['plan-ai', 'shopping'] })
     },
   })
 }
