@@ -15,6 +15,7 @@ import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ChevronLeft } from 'lucide-react-native'
 import { api } from '../api/client'
+import { queueTourOnce } from '../store/tour'
 import { useAuthStore } from '../store/auth'
 import { removeToken } from '../lib/storage'
 import { extractErrorMessage } from '../lib/apiError'
@@ -923,6 +924,8 @@ export default function OnboardingScreen() {
         } catch {
           updateUser({ onboarding_complete: true })
         }
+        // Show the app tour once onboarding hands over to the tabs.
+        queueTourOnce()
         setStep((s) => s + 1)
       } catch (err: any) {
         setError(extractErrorMessage(err))

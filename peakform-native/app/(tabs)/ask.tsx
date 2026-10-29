@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTourTarget } from '../../store/tour'
 import { Text, TouchableOpacity, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
@@ -16,6 +17,7 @@ type Segment = 'plan' | 'chat'
 export default function PitCrewScreen() {
   useRequireAuth()
   const [segment, setSegment] = useState<Segment>('plan')
+  const segmentTarget = useTourTarget('pit-segment')
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
@@ -24,7 +26,7 @@ export default function PitCrewScreen() {
         {/* Same header as the other tabs: date line, then the tab name. */}
         <Text className="text-text-muted text-caption font-semibold">{today}</Text>
         <Text className="text-text text-title font-bold mt-2">Pit</Text>
-        <View className="flex-row bg-surface border border-divider rounded-full p-1 mt-4" style={{ borderCurve: 'continuous' }}>
+        <View className="flex-row bg-surface border border-divider rounded-full p-1 mt-4" style={{ borderCurve: 'continuous' }} {...segmentTarget}>
           {(['plan', 'chat'] as Segment[]).map((s) => {
             const active = segment === s
             return (

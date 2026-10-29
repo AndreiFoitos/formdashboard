@@ -22,6 +22,7 @@ import { hapticLight, hapticSuccess } from '../../lib/haptics'
 import { router } from 'expo-router'
 import { Play, UserPlus, Settings } from 'lucide-react-native'
 import { AvatarBadge } from '../../components/avatar/AvatarBadge'
+import { useTourTarget } from '../../store/tour'
 import { FEATURES } from '../../lib/featureFlags'
 import { effectsForToday } from '../../lib/avatar/config'
 import { useRewards } from '../../hooks/useRewards'
@@ -585,6 +586,9 @@ function formatWeekShort(startISO: string, endISO: string): string {
 export default function DashboardScreen() {
   const u = useUnits()
   const { user } = useRequireAuth()
+  const scoreTarget = useTourTarget('home-score')
+  const raceTarget = useTourTarget('home-race')
+  const avatarTarget = useTourTarget('home-avatar')
 
   // Weekly Race card surfaces every day — the card itself switches between
   // hero (Sun-Mon) and compact (Tue-Sat) treatment.
@@ -643,7 +647,7 @@ export default function DashboardScreen() {
         {/* Header */}
         <View className="pt-6 pb-5 flex-row items-start justify-between">
           {FEATURES.avatar && (
-            <View className="mr-3 mt-1">
+            <View className="mr-3 mt-1" {...avatarTarget}>
               <AvatarBadge
                 size={48}
                 effects={avatarEffects}
@@ -688,9 +692,13 @@ export default function DashboardScreen() {
           </View>
         ) : (
           <View className="gap-3">
-            <FormScoreCard summary={summary} />
+            <View {...scoreTarget}>
+              <FormScoreCard summary={summary} />
+            </View>
 
-            <WeeklyRaceCard />
+            <View {...raceTarget}>
+              <WeeklyRaceCard />
+            </View>
 
             {/* 2-column stat grid */}
             <View className="flex-row gap-3">

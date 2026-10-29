@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { Bookmark, Camera, MoreHorizontal, ScanBarcode, Search as SearchIcon, X } from 'lucide-react-native'
 import { api } from '../../api/client'
+import { useTourTarget } from '../../store/tour'
 import { useRequireAuth } from '../../hooks/useRequireAuth'
 import { CountUp } from '../../components/CountUp'
 import { AnimatedBar } from '../../components/AnimatedBar'
@@ -1272,6 +1273,7 @@ function EntryRow({
 
 export default function NutritionScreen() {
   const { user } = useRequireAuth()
+  const scanTarget = useTourTarget('nutrition-scan')
   const [showLog, setShowLog] = useState(false)
   // Drives which tab the LogModal opens to. The top-row Search/Saved buttons
   // set this before opening; Photo bypasses the modal and routes directly
@@ -1342,7 +1344,7 @@ export default function NutritionScreen() {
             equal-prominence on-page buttons. Search + Saved open LogModal
             pre-set to that tab; Barcode and Photo route straight to their
             camera screens, skipping the modal. */}
-        <View className="flex-row mb-5 gap-2">
+        <View className="flex-row mb-5 gap-2" {...scanTarget}>
           <PressableScale
             haptic
             onPress={() => {
