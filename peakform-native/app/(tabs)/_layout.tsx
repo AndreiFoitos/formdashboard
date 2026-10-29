@@ -7,6 +7,7 @@ import {
 import type { ParamListBase, TabNavigationState } from '@react-navigation/native'
 import { BottomNav } from '../../components/BottomNav'
 import { useTabSwipeStore } from '../../store/tabSwipe'
+import { useInstantTabs } from '../../lib/widgetLinks'
 
 const { Navigator } = createMaterialTopTabNavigator()
 
@@ -24,13 +25,16 @@ export default function TabsLayout() {
   // A row swipe or horizontal scroll inside a tab holds a lock; tab swiping
   // pauses until it's released (store/tabSwipe.ts).
   const swipeLocked = useTabSwipeStore((s) => s.locks > 0)
+  // A widget tap jumps straight to its tab instead of sliding across the
+  // pager (lib/widgetLinks.ts).
+  const instant = useInstantTabs((s) => s.instant)
 
   return (
     <View className="flex-1 bg-bg">
       <MaterialTopTabs
         tabBarPosition="bottom"
         tabBar={(props) => <BottomNav {...props} />}
-        screenOptions={{ swipeEnabled: !swipeLocked, lazy: true }}
+        screenOptions={{ swipeEnabled: !swipeLocked, lazy: true, animationEnabled: !instant }}
       >
         <MaterialTopTabs.Screen name="index" />
         <MaterialTopTabs.Screen name="training" />

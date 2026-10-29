@@ -5,11 +5,13 @@ import WidgetKit
 // .widgetAccentable() so tinted (iOS 18) and clear (iOS 26) modes color them
 // as the accent group; text stays in the default group.
 
+/// Handled by app/+native-intent.tsx (lib/widgetLinks.ts), which switches
+/// screens without the push / pager animations a plain deep link causes.
 enum Links {
-  static let home = URL(string: "gainrace://")!
-  static let nutrition = URL(string: "gainrace://nutrition")!
-  static let pit = URL(string: "gainrace://ask")!
-  static let friends = URL(string: "gainrace://friends")!
+  static let home = URL(string: "gainrace://widget")!
+  static let nutrition = URL(string: "gainrace://widget/nutrition")!
+  static let pit = URL(string: "gainrace://widget/ask")!
+  static let friends = URL(string: "gainrace://widget/friends")!
 }
 
 extension View {
