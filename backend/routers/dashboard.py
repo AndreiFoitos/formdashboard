@@ -97,12 +97,16 @@ async def get_trends(
     today = user_today(current_user.timezone)
     since = today - timedelta(days=window - 1)
 
+    # Onboarding seeds the 7 days before signup with protein and water at
+    # target (is_estimated). Charting them shows a week of logs that never
+    # happened, so only real days are plotted.
     summaries = (await db.execute(
         select(DailySummary)
         .where(
             DailySummary.user_id == current_user.id,
             DailySummary.date >= since,
             DailySummary.date <= today,
+            DailySummary.is_estimated.is_not(True),
         )
         .order_by(DailySummary.date)
     )).scalars().all()
