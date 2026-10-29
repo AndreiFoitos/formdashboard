@@ -12,6 +12,8 @@ from models.stimulant_log import StimulantLog
 from services.daily import increment_daily_field
 from services.stimulants import (
     ADDITIONS,
+    ENERGY_DRINKS,
+    PRESETS,
     SUBSTANCES,
     SUBSTANCES_WITH_ADDITIONS,
     compute_nutrition,
@@ -23,9 +25,12 @@ router = APIRouter(prefix="/stimulants", tags=["stimulants"])
 
 class LogStimulantRequest(BaseModel):
     substance: str
-    caffeine_mg: int | None = None
+    caffeine_mg: int | None = Field(default=None, ge=0, le=1000)
     additions: list[str] = Field(default_factory=list)
     note: str | None = None
+    # Only for "energy_custom": what's on the can.
+    calories: int | None = Field(default=None, ge=0, le=2000)
+    sugar_g: float | None = Field(default=None, ge=0, le=300)
 
 
 async def _apply_nutrition_delta(
@@ -45,7 +50,7 @@ async def log_stimulant(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    preset = SUBSTANCES.get(body.substance)
+    preset = PRESETS.get(body.substance)
     if not preset and body.caffeine_mg is None:
         raise HTTPException(400, "Unknown substance — provide caffeine_mg explicitly")
 
@@ -59,6 +64,9 @@ async def log_stimulant(
         if a in ADDITIONS and body.substance in SUBSTANCES_WITH_ADDITIONS
     ]
     macros = compute_nutrition(body.substance, valid_additions)
+    if body.substance == "energy_custom":
+        macros["calories"] = body.calories or 0
+        macros["carbs_g"] = round(body.sugar_g or 0, 1)
 
     entry = StimulantLog(
         user_id=current_user.id,
@@ -167,4 +175,7 @@ async def list_substances():
             for k, v in SUBSTANCES.items()
         ],
         "additions": [{"key": k, **v} for k, v in ADDITIONS.items()],
+        "energy_drinks": [
+            {"key": k, "supports_additions": False, **v} for k, v in ENERGY_DRINKS.items()
+        ],
     }

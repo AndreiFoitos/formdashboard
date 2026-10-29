@@ -19,6 +19,35 @@ SUBSTANCES = {
     "custom":       {"label": "Custom",       "serving": "—",             "half_life": 5.5, "caffeine_mg": 100, "calories": 0,  "protein_g": 0.0, "carbs_g": 0.0, "fat_g": 0.0},
 }
 
+# Energy drinks by brand, per can as sold in the EU unless noted. Label
+# values; recipes differ a little by country. sugar_g is shown in the app and
+# counted in carbs_g. "energy_custom" takes caffeine, kcal and sugar from the
+# request. Kept apart from SUBSTANCES so older app builds, which list every
+# SUBSTANCES entry as a tile, don't grow a dozen new tiles.
+def _can(label, serving, mg, kcal, sugar, carbs=None):
+    return {"label": label, "serving": serving, "half_life": 5.5, "caffeine_mg": mg, "calories": kcal,
+            "sugar_g": sugar, "protein_g": 0.0, "carbs_g": float(sugar if carbs is None else carbs), "fat_g": 0.0}
+
+
+ENERGY_DRINKS = {
+    "ed_red_bull":          _can("Red Bull",            "250 ml can", 80,  113, 27.5),
+    "ed_red_bull_zero":     _can("Red Bull Sugarfree",  "250 ml can", 80,  8,   0, 1.5),
+    "ed_monster":           _can("Monster Energy",      "500 ml can", 160, 235, 55, 56),
+    "ed_monster_ultra":     _can("Monster Ultra",       "500 ml can", 150, 10,  0, 3),
+    "ed_hell":              _can("Hell Classic",        "250 ml can", 80,  115, 27),
+    "ed_burn":              _can("Burn",                "500 ml can", 160, 230, 54),
+    "ed_rockstar":          _can("Rockstar",            "500 ml can", 160, 225, 52),
+    "ed_celsius":           _can("Celsius",             "355 ml can", 200, 10,  0, 2),
+    "ed_nocco":             _can("NOCCO",               "330 ml can", 180, 13,  0, 1),
+    "ed_prime":             _can("Prime Energy",        "355 ml can", 200, 20,  0, 2),
+    "ed_reign":             _can("Reign",               "473 ml can", 300, 10,  0, 3),
+    "ed_bang":              _can("Bang",                "473 ml can", 300, 0,   0, 0),
+    "energy_custom":        _can("Custom energy drink", "—",          100, 0,   0),
+}
+
+# Every loggable key, for lookups (labels, half-life, macros).
+PRESETS = {**SUBSTANCES, **ENERGY_DRINKS}
+
 # Optional add-ons mixed into the drink. Calorie / macro values from USDA
 # FoodData Central (whole/skim milk per 100 ml scaled to 50 ml; sugar/honey
 # per tsp ≈ 4 g / 7 g). Oat milk uses the Oatly Original reference panel.
@@ -38,7 +67,7 @@ SUBSTANCES_WITH_ADDITIONS = {"coffee", "espresso", "green_tea", "black_tea"}
 
 def compute_nutrition(substance_key: str, additions: list[str] | None) -> dict:
     """Sum base substance + additions into a single nutrition dict."""
-    preset = SUBSTANCES.get(substance_key, SUBSTANCES["custom"])
+    preset = PRESETS.get(substance_key, SUBSTANCES["custom"])
     totals = {
         "calories": float(preset["calories"]),
         "protein_g": float(preset["protein_g"]),
@@ -156,12 +185,15 @@ async def get_caffeine_curve(
 
     last_log = None
     if last_log_obj is not None:
-        preset = SUBSTANCES.get(last_log_obj.substance)
+        preset = PRESETS.get(last_log_obj.substance)
         last_log = {
             "substance": last_log_obj.substance,
             "label": preset["label"] if preset else "Custom",
             "caffeine_mg": last_log_obj.caffeine_mg,
             "additions": list(last_log_obj.additions or []),
+            # For repeating a custom energy drink with the same macros.
+            "calories": last_log_obj.calories,
+            "carbs_g": last_log_obj.carbs_g,
         }
 
     return {

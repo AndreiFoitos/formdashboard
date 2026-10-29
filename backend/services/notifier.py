@@ -32,7 +32,7 @@ from services.log_patterns import (
     PatternSlot,
     get_patterns_for_user,
 )
-from services.stimulants import SUBSTANCES
+from services.stimulants import PRESETS as SUBSTANCES
 
 logger = logging.getLogger(__name__)
 
