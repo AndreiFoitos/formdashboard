@@ -8,7 +8,7 @@ import {
   Linking,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator'
 import { Check, X } from 'lucide-react-native'
@@ -135,6 +135,9 @@ function AnalyzingOverlay() {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function NutritionSnapScreen() {
+  // 'meal' when opened from the meal builder; the review screen adds the
+  // foods to the meal instead of logging them.
+  const forParam = useLocalSearchParams<{ for?: string }>().for
   const [permission, requestPermission] = useCameraPermissions()
   const [busy, setBusy] = useState(false)
   const cameraRef = useRef<CameraView>(null)
@@ -187,7 +190,7 @@ export default function NutritionSnapScreen() {
       refreshPlan()
       router.replace({
         pathname: '/nutrition-confirm',
-        params: { estimate: JSON.stringify(estimate) },
+        params: { estimate: JSON.stringify(estimate), ...(forParam === 'meal' ? { for: 'meal' } : {}) },
       })
     } catch (err: any) {
       setBusy(false)
