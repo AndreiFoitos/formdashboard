@@ -15,6 +15,7 @@ import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera'
 import * as Speech from 'expo-speech'
 import { setAudioModeAsync } from 'expo-audio'
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator'
+import { useKeepAwake } from 'expo-keep-awake'
 import { useQueryClient, useMutation } from '@tanstack/react-query'
 import { RotateCcw, SwitchCamera, X } from 'lucide-react-native'
 import { api } from '../api/client'
@@ -367,6 +368,9 @@ async function shrink(uri: string, width?: number, height?: number): Promise<str
 type Phase = 'intro' | 'capturing' | 'review'
 
 export default function BodyCompSnapScreen() {
+  // The self-timer sequence and the analysis both run with nobody touching
+  // the phone, long enough for auto-lock to black the screen mid-scan.
+  useKeepAwake('bf-scan')
   const [permission, requestPermission] = useCameraPermissions()
   const [phase, setPhase] = useState<Phase>('intro')
   const [facing, setFacing] = useState<CameraType>('front')
