@@ -153,7 +153,14 @@ Changed:
 
 | # | Command | Result | URL |
 |---|---|---|---|
-| — | `eas build --profile development --platform ios --non-interactive --no-wait` | Stopped before upload: "EAS CLI couldn't find any credentials suitable for internal distribution. Run this command again in interactive mode." **No build was created** (`eas build:list` confirms) and no quota was used. | none |
+| — | `eas build --profile development --platform ios --non-interactive --no-wait` (me) | Stopped before upload: "EAS CLI couldn't find any credentials suitable for internal distribution. Run this command again in interactive mode." **No build was created** and no quota was used. | none |
+| 1 | `eas build --profile development --platform ios` (you, interactive) | ✓ Compiled and signed: the widget Swift built on the first try. Couldn't be opened, because the dev client couldn't reach Metro on that network. | https://expo.dev/accounts/asky12346272/projects/gainrace-native/builds/e8bbbff3-66f3-406d-8fc3-34f3a5d20eb2 |
+| 2 | `eas build --profile production --platform ios --auto-submit` (you, build 20) | ✓ On TestFlight; first device test, see §10. | (not recorded) |
+
+**The next build needs the interactive login once more.** The round 2 fix adds
+Data Protection to the widget extension, which is a new App ID capability. Let
+EAS sync capabilities and regenerate the widget's provisioning profile when it
+asks.
 
 Why: the widget is a second target (`com.gainrace.app.widget`) that needs its
 own App ID and ad hoc provisioning profile. The app's profile also has to be
@@ -296,3 +303,22 @@ and training logged today, a ready Pit Crew plan, and at least one friend.
   though the refresh token is still valid.
 - `app/_layout.tsx` Sentry comment mentions Railway; the backend is on Render.
 - `npm audit` reports existing advisories in the dependency tree (not reviewed).
+
+## 10. Round 2: fixes from the first TestFlight pass (2026-10-29)
+
+| Report | Cause | Fix |
+|---|---|---|
+| "Hide numbers on lock screen" did nothing | iOS shows lock-screen widget content while locked unless the user turns off Face ID & Passcode → Lock Screen Widgets. `.privacySensitive()` alone only works with that off. | The extension now has Data Protection (`NSFileProtectionComplete`), so iOS redacts it while locked. Views opt back in with `.unredacted()` while the switch is **off**, so numbers still show by default (§0). With the switch on, all text is hidden while locked; rings keep their shape. |
+| Tinted / clear looked off | Outside full color iOS keeps only opacity. The opaque gray ring/bar tracks rendered solid white, so every ring and bar looked full (e.g. 2 g of protein). | Grays come from `ink()`: tokens in full color, white at 100/70/50/20% otherwise. Recorded in DESIGN.md §Widgets. |
+| Small ring too small and ugly | 48 pt ring with a "kcal" label. | 64 pt ring, 7 pt stroke, kcal left (or "over" in `warning`) inside; eaten and "of N kcal" beside it. Also used in Medium / Large / XL. |
+| Lock-screen circle showed "2.7..." | 4-digit numbers don't fit. | Compact numbers: "2.8k". |
+| Large / Medium showed sample data (1,640, Salmon bowl, #2 of 6) | That's the placeholder: iOS hadn't rendered our timeline. The likely cause is too many entries (every 15 min until midnight, ~55) for the larger sizes. | 15-min entries for the next 2 hours only, plus midnight when it falls inside; WidgetKit asks for a new timeline after that. Needs confirming on the device. |
+| Signed out, tapping a widget opened Today | After sign out the tabs stay mounted under `/login`. A deep link back to them doesn't change auth state, so `useRequireAuth` didn't redirect again. | `useRequireAuth` also checks on focus. Expect a brief flash of the tab before the login screen. This also fixes the same path for notification and invite links. |
+
+Retest on the next build: §6 steps 2–5, 11–13 and 18, plus the sizes in Tinted
+and Clear. Remove and re-add the lock-screen widgets once, since iOS can keep
+a stale copy.
+
+Not changed: the dev client couldn't reach Metro because the PC and phone were
+on a network that blocks device-to-device traffic. That's a network issue,
+not the app.
