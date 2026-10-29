@@ -9,6 +9,8 @@ Rules carried over from the old Ask context:
   protein to the targets and would read as perfect adherence.
 - Sleep / HRV are not included: no wearable feeds them any more, and nulls
   invite made-up numbers.
+- The signup date is stated and days before it read "before signup", or a
+  3-day-old account reads as weeks of skipped logging.
 """
 from __future__ import annotations
 
@@ -19,7 +21,7 @@ from datetime import date, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.timezone import user_today
+from core.timezone import resolve_tz, user_today
 from models.body_metric import BodyMetric
 from models.custom_exercise import CustomExercise
 from models.daily_summary import DailySummary
@@ -67,6 +69,23 @@ def _slope_per_week(points: list[tuple[date, float]]) -> float | None:
     return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / var * 7
 
 
+def signup_date(user: User) -> date | None:
+    """The day the account was made, in the user's timezone."""
+    if user.created_at is None:
+        return None
+    return user.created_at.astimezone(resolve_tz(user.timezone)).date()
+
+
+def _account_age(signup: date | None, today: date) -> list[str]:
+    if signup is None:
+        return []
+    age = (today - signup).days
+    return [
+        f"The user signed up on {signup} ({age} day{'' if age == 1 else 's'} ago). "
+        "Days before that are not missed logging: there was no account yet."
+    ]
+
+
 async def _exercise_names(keys: set[str], db: AsyncSession) -> dict[str, str]:
     names = {k: k.replace("_", " ").title() for k in keys if not k.startswith("custom_")}
     ids = []
@@ -112,7 +131,7 @@ def _profile(user: User, prefs: UserPreference | None, freq: str | None) -> list
     return lines
 
 
-async def _body(user: User, today: date, db: AsyncSession) -> list[str]:
+async def _body(user: User, today: date, signup: date | None, db: AsyncSession) -> list[str]:
     rows = (await db.execute(
         select(BodyMetric)
         .where(BodyMetric.user_id == user.id, BodyMetric.date >= today - timedelta(days=90))
@@ -126,6 +145,8 @@ async def _body(user: User, today: date, db: AsyncSession) -> list[str]:
         slope = _slope_per_week(recent)
         if slope is not None:
             lines.append(f"weight trend, last 28 days: {slope:+.2f} kg/week ({len(recent)} weigh-ins)")
+        elif signup is not None and signup > today - timedelta(days=28):
+            lines.append(f"weight trend: not enough weigh-ins yet (account only exists since {signup})")
         else:
             lines.append("weight trend: not enough weigh-ins in the last 28 days")
     else:
@@ -140,7 +161,9 @@ async def _body(user: User, today: date, db: AsyncSession) -> list[str]:
     return lines
 
 
-def _days(rows: list[DailySummary], today: date, days: int, names: dict[str, str]) -> list[str]:
+def _days(
+    rows: list[DailySummary], today: date, days: int, names: dict[str, str], signup: date | None = None,
+) -> list[str]:
     real = {r.date: r for r in rows if not r.is_estimated}
     lines = [
         f"## Daily log, last {DAILY_DAYS} days",
@@ -151,7 +174,8 @@ def _days(rows: list[DailySummary], today: date, days: int, names: dict[str, str
         r = real.get(d)
         label = f"{d} {WEEKDAYS[d.weekday()]}" + (" (today, so far)" if d == today else "")
         if r is None:
-            lines.append(f"{label} | nothing logged")
+            # Imported data (Apple Health) can predate signup, so only empty days get the label.
+            lines.append(f"{label} | {'before signup' if signup and d < signup else 'nothing logged'}")
             continue
         # training_type is the day's first exercise key ("bench_press").
         trained = names.get(r.training_type, r.training_type or "yes") if r.trained else "no"
@@ -294,11 +318,12 @@ async def build_context(user: User, db: AsyncSession, days: int = 30) -> str:
     )).scalars().all()
 
     names = await _exercise_names({r.training_type for r in summaries if r.training_type}, db)
+    signup = signup_date(user)
     sections = [
-        [f"Today is {today} ({WEEKDAYS[today.weekday()]}) in the user's timezone."],
+        [f"Today is {today} ({WEEKDAYS[today.weekday()]}) in the user's timezone.", *_account_age(signup, today)],
         _profile(user, prefs, freq),
-        await _body(user, today, db),
-        _days(list(summaries), today, days, names),
+        await _body(user, today, signup, db),
+        _days(list(summaries), today, days, names, signup),
         await _strength(user, today, db),
         await _split(user, db),
         await _foods(user, today, db),
