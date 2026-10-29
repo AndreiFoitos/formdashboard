@@ -250,8 +250,8 @@ EXERCISE_TO_GROUP: dict[str, str] = {
 
 # Logged per dumbbell (peakform-native/lib/exercises.ts): weight_kg is ONE
 # dumbbell. Pairs, one in each hand, move twice that per rep, so volume
-# doubles; one-dumbbell moves count once. PRs, 1RM and progression stay per
-# dumbbell, which is how people talk about them ("I press the 30s").
+# doubles. PRs, 1RM and progression stay per dumbbell, which is how people
+# talk about them ("I press the 30s").
 DUMBBELL_PAIR: set[str] = {
     "dumbbell_press", "incline_db_press", "decline_db_press", "chest_fly", "incline_db_fly",
     "db_floor_press", "db_shrug", "chest_supported_row", "db_lunge", "db_rdl",
@@ -266,6 +266,23 @@ DUMBBELL_SINGLE: set[str] = {
 
 def is_per_dumbbell(exercise_key: str) -> bool:
     return exercise_key in DUMBBELL_PAIR or exercise_key in DUMBBELL_SINGLE
+
+
+# One arm or one leg at a time, logged as weight and reps per side. Both
+# sides get done, so volume doubles, like a dumbbell pair. A dumbbell lunge
+# is both (a pair, per leg): x4. PRs and progression stay per side.
+UNILATERAL: set[str] = {
+    "one_arm_db_row", "kroc_row", "meadows_row", "single_arm_cable_row", "single_arm_pulldown",
+    "concentration_curl", "kickback", "single_arm_pushdown",
+    "bulgarian_split_squat", "split_squat", "walking_lunge", "reverse_lunge", "db_lunge",
+    "lateral_lunge", "curtsy_lunge", "step_up", "pistol_squat", "single_leg_rdl", "cable_kickback",
+    "suitcase_carry", "side_bend",
+}
+
+
+def volume_factor(exercise_key: str) -> int:
+    """How many times weight x reps one logged set moved."""
+    return (2 if exercise_key in DUMBBELL_PAIR else 1) * (2 if exercise_key in UNILATERAL else 1)
 
 
 async def group_for_exercise(

@@ -5,7 +5,7 @@ import { useLogPlanExercise, type TodayExercise } from '../../hooks/usePitCrew'
 import { hapticLight, hapticSuccess } from '../../lib/haptics'
 import { extractErrorMessage } from '../../lib/apiError'
 import { cleanReps, cleanWeight, useUnits } from '../../lib/units'
-import { isPerDumbbell } from '../../lib/exercises'
+import { isPerDumbbell, loggingHint, UNILATERAL } from '../../lib/exercises'
 import { KEYBOARD_DONE_ID, KeyboardDoneBar } from '../KeyboardDoneBar'
 import { colors } from '../../theme/tokens'
 
@@ -108,7 +108,7 @@ export function ExerciseLogSheet({
 
           <View className="flex-row items-baseline justify-between mb-2">
             <Text className="text-text-subtle text-caption">What you did</Text>
-            {perDb && <Text className="text-text-subtle text-caption">Weight is per dumbbell</Text>}
+            {!!loggingHint(exercise.key) && <Text className="text-text-subtle text-caption">{loggingHint(exercise.key)}</Text>}
           </View>
           <View className="gap-2">
             {rows.map((r, i) => (
@@ -117,7 +117,7 @@ export function ExerciseLogSheet({
                 <TextInput
                   value={r.reps}
                   onChangeText={(v) => update(i, 'reps', v)}
-                  placeholder="reps"
+                  placeholder={UNILATERAL.has(exercise.key) ? 'reps/side' : 'reps'}
                   placeholderTextColor={colors['text-subtle']}
                   keyboardType="number-pad"
                   inputAccessoryViewID={KEYBOARD_DONE_ID}

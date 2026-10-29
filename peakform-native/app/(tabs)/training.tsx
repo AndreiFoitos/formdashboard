@@ -24,7 +24,7 @@ import { PressableScale } from '../../components/PressableScale'
 import { hapticSuccess, hapticLight } from '../../lib/haptics'
 import { TrustedShield } from '../../components/icons/TrustedShield'
 import { SusFace } from '../../components/icons/SusFace'
-import { ALL_EXERCISES, EXERCISE_NAME, GROUPS, isPerDumbbell, type Exercise, type Group } from '../../lib/exercises'
+import { ALL_EXERCISES, EXERCISE_NAME, GROUPS, isPerDumbbell, loggingHint, UNILATERAL, type Exercise, type Group } from '../../lib/exercises'
 import {
   KIND_COLOUR,
   KIND_LABEL,
@@ -427,8 +427,8 @@ function ExerciseBlock({
 
       <View className="flex-row items-baseline justify-between mb-2">
         <Text className="text-text-subtle text-caption">Sets</Text>
-        {perDb && (
-          <Text className="text-text-subtle text-caption">Weight is per dumbbell</Text>
+        {!!loggingHint(block.key) && (
+          <Text className="text-text-subtle text-caption">{loggingHint(block.key)}</Text>
         )}
       </View>
 
@@ -443,7 +443,7 @@ function ExerciseBlock({
               <TextInput
                 value={s.reps}
                 onChangeText={v => updateSet(i, 'reps', v)}
-                placeholder="reps"
+                placeholder={UNILATERAL.has(block.key) ? 'reps/side' : 'reps'}
                 placeholderTextColor={colors['text-subtle']}
                 keyboardType="number-pad"
                 inputAccessoryViewID={KEYBOARD_DONE_ID}
