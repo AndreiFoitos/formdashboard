@@ -244,6 +244,8 @@ function RootLayout() {
               <Stack.Screen name="friends" options={{ ...pushedHeader, title: 'Friends' }} />
               {/* Pit Crew: the whole week of the current plan */}
               <Stack.Screen name="plan-week" options={{ ...pushedHeader, title: 'This week' }} />
+              <Stack.Screen name="plan-day-edit" options={{ ...modalHeader, title: 'Edit session' }} />
+              <Stack.Screen name="plan-meal-edit" options={{ ...modalHeader, title: 'Edit meal' }} />
               <Stack.Screen name="shopping-list" options={{ ...pushedHeader, title: 'Shopping list' }} />
               {/* Deep-link target for gainrace://invite/<token> */}
               <Stack.Screen name="invite/[token]" options={{ ...pushedHeader, title: 'Invite' }} />
