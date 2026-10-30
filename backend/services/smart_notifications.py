@@ -37,6 +37,7 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import settings
 from core.database import AsyncSessionLocal
 from core.timezone import user_now
 from models.ai_plan import AiPlan
@@ -44,7 +45,7 @@ from models.push_event import NotificationSettings, PushEvent
 from models.push_token import PushToken
 from models.user import User
 from services import push
-from services.behavior import MEALS, Profile, load_profile
+from services.behavior import MEALS, Profile, load_profile, meal_of
 from services.plan_edit import day_for_date
 from services.plan_today import target_lines, todays_targets
 
@@ -126,84 +127,209 @@ def preview_minute(p: Profile) -> int:
     return max(DAY_START, t.start_minute - 90) if t else 9 * 60
 
 
-def due(p: Profile, ctx: Context) -> list[Reminder]:
-    """Reminders that would make sense right now, most urgent first.
-    Switches, caps, dedupe and backoff are the caller's job."""
+def clock(minute: int) -> str:
+    """Minute of the day → "1:30 PM", the app's format."""
+    h, m = divmod(minute % 1440, 60)
+    return f"{h % 12 or 12}:{m:02d} {'AM' if h < 12 else 'PM'}"
+
+
+# The texts. Real reminders and the tester's "Send a test" share them.
+
+def preview_reminder(day_name: str, lines: list[str], today: date) -> Reminder:
+    body = " · ".join(lines) or "Open your plan for today's weights."
+    return Reminder("workout_preview", f"workout_preview:{today}", f"{day_name} today", body, "/ask")
+
+
+def meal_reminder(meal: str, today: date) -> Reminder:
+    return Reminder(
+        "meal", f"meal:{meal}:{today}", f"{meal.capitalize()} not logged yet",
+        "You usually have it logged by now. A photo takes a few seconds.", "/nutrition-snap",
+    )
+
+
+def workout_log_reminder(plan_day: str | None, today: date) -> Reminder:
+    body = (
+        f"{plan_day} is still open in your plan. Log your sets so next session's targets update."
+        if plan_day else
+        f"You usually train on {WEEKDAY_NAMES[today.weekday()]}s. Log your sets so your next targets update."
+    )
+    return Reminder("workout_log", f"workout_log:{today}", "Trained today?", body, "/ask" if plan_day else "/training")
+
+
+def protein_reminder(eaten: float, target: float, today: date) -> Reminder:
+    return Reminder(
+        "protein", f"protein:{today}", f"{round(target - eaten)} g of protein to go",
+        f"You're at {round(eaten)} of {round(target)} g today. "
+        "A protein-rich snack this evening closes most of the gap.",
+        "/nutrition",
+    )
+
+
+def weigh_in_reminder(days: int, last: date) -> Reminder:
+    return Reminder(
+        "weigh_in", f"weigh_in:{last}", "Time for a weigh-in",
+        f"It's been {days} days. Same time of day as usual keeps your trend accurate.", "/body",
+    )
+
+
+def comeback_reminder(stage: int, last: date, has_plan: bool) -> Reminder:
+    if stage == 3:
+        title = "Pick up where you left off"
+        body = "3 days since your last log. Log one thing today, a meal or a glass of water, to get going again."
+    else:
+        title = "Your plan is still here" if has_plan else "Your progress is still here"
+        body = "A week off happens. Log one thing today and everything picks up from there."
+    return Reminder("comeback", f"comeback:{last}:{stage}", title, body, "/")
+
+
+@dataclass(frozen=True)
+class Check:
+    """One reminder's verdict right now: `due` sends the ones with a
+    reminder, and testers see every reason (GET /notifications/debug)."""
+    kind: str
+    label: str
+    reminder: Reminder | None
+    reason: str
+
+
+def _days(n: int) -> str:
+    return f"{n} day" if n == 1 else f"{n} days"
+
+
+def checks(p: Profile, ctx: Context) -> list[Check]:
+    """Every kind of reminder, most urgent first, each with why it is or
+    isn't due right now. Ignores quiet hours (see `due`)."""
     now, today = p.minute, p.today
-    if now < DAY_START or now > ctx.last_minute:
-        return []
-    out: list[Reminder] = []
+    out: list[Check] = []
     t = p.training
 
-    if ctx.plan_day and not p.trained_today:
+    label = "Training targets"
+    if not ctx.plan_day:
+        out.append(Check("workout_preview", label, None, "No Pit Crew session in your plan today."))
+    elif p.trained_today:
+        out.append(Check("workout_preview", label, None, "Training is already logged today."))
+    else:
         at = preview_minute(p)
-        if at <= now <= at + 120:
-            body = " · ".join(ctx.plan_lines) or "Open your plan for today's weights."
-            out.append(Reminder("workout_preview", f"workout_preview:{today}", f"{ctx.plan_day} today", body, "/ask"))
+        when = f"90 minutes before you usually train ({clock(t.start_minute)})" if t else "no usual training time yet"
+        if now < at:
+            out.append(Check("workout_preview", label, None, f"Goes out at {clock(at)}: {when}."))
+        elif now <= at + 120:
+            out.append(Check("workout_preview", label, preview_reminder(ctx.plan_day, ctx.plan_lines, today),
+                             f"Due: {ctx.plan_day} is on your plan today, {when}."))
+        else:
+            out.append(Check("workout_preview", label, None, f"Its window was {clock(at)} to {clock(at + 120)}."))
 
     order = list(MEALS)
-    for meal, h in p.meals.items():
-        later_logged = any(m in p.meals_today for m in order[order.index(meal):])
-        if later_logged or h.share < MIN_MEAL_SHARE:
-            continue
-        at = max(h.late_minute + 20, h.usual_minute + 30)
-        if at <= now <= MEALS[meal][1] + 60:
-            out.append(Reminder(
-                "meal", f"meal:{meal}:{today}", f"{meal.capitalize()} not logged yet",
-                "You usually have it logged by now. A photo takes a few seconds.",
-                "/nutrition-snap",
-            ))
+    for meal in order:
+        h, label = p.meals.get(meal), meal.capitalize()
+        if h is None:
+            reason = "Not a habit yet: it needs logging on 6 or more days in 4 weeks."
+        elif h.share < MIN_MEAL_SHARE:
+            reason = f"Logged on {round(h.share * 100)}% of days. Reminders start at 50%."
+        elif meal in p.meals_today:
+            reason = "Already logged today."
+        elif any(m in p.meals_today for m in order[order.index(meal) + 1:]):
+            reason = "A later meal is already logged today."
+        else:
+            at, end = max(h.late_minute + 20, h.usual_minute + 30), MEALS[meal][1] + 60
+            if now < at:
+                reason = f"You usually log it around {clock(h.usual_minute)}. Reminder after {clock(at)} if it's still missing."
+            elif now <= end:
+                out.append(Check("meal", label, meal_reminder(meal, today),
+                                 f"Due: you usually have it logged by {clock(h.late_minute)}."))
+                continue
+            else:
+                reason = f"Too late to be useful today (until {clock(end)})."
+        out.append(Check("meal", label, None, reason))
 
-    expected = bool(ctx.plan_day) or bool(t and t.weekday_share[today.weekday()] >= TRAIN_DAY_SHARE)
-    if expected and t and t.sessions >= MIN_SESSIONS and not p.trained_today:
-        if now >= max(t.end_minute + 60, 18 * 60):
-            body = (
-                f"{ctx.plan_day} is still open in your plan. Log your sets so next session's targets update."
-                if ctx.plan_day else
-                f"You usually train on {WEEKDAY_NAMES[today.weekday()]}s. Log your sets so your next targets update."
-            )
-            out.append(Reminder("workout_log", f"workout_log:{today}", "Trained today?", body,
-                                "/ask" if ctx.plan_day else "/training"))
+    label = "Log your sets"
+    share = t.weekday_share[today.weekday()] if t else 0.0
+    if not t or t.sessions < MIN_SESSIONS:
+        out.append(Check("workout_log", label, None,
+                         f"Needs 4 logged sessions in 4 weeks ({t.sessions if t else 0} so far)."))
+    elif not (ctx.plan_day or share >= TRAIN_DAY_SHARE):
+        out.append(Check("workout_log", label, None,
+                         f"Not a usual training day: {WEEKDAY_NAMES[today.weekday()]}s {round(share * 100)}% of weeks."))
+    elif p.trained_today:
+        out.append(Check("workout_log", label, None, "Training is already logged today."))
+    else:
+        at = max(t.end_minute + 60, 18 * 60)
+        if now < at:
+            out.append(Check("workout_log", label, None, f"Reminder after {clock(at)} if nothing is logged."))
+        else:
+            out.append(Check("workout_log", label, workout_log_reminder(ctx.plan_day, today),
+                             f"Due: you're usually done by {clock(t.end_minute)}."))
 
-    target = ctx.protein_target
-    if target and p.food_entries_today >= 2 and len(p.meals_today) >= 2:
-        gap = target - p.protein_today
-        if now >= max(18 * 60, ctx.last_minute - 120) and p.protein_today < PROTEIN_SHORT * target and gap >= PROTEIN_MIN_GAP_G:
-            out.append(Reminder(
-                "protein", f"protein:{today}", f"{round(gap)} g of protein to go",
-                f"You're at {round(p.protein_today)} of {round(target)} g today. "
-                "A protein-rich snack this evening closes most of the gap.",
-                "/nutrition",
-            ))
+    label, target = "Protein check", ctx.protein_target
+    if not target:
+        out.append(Check("protein", label, None, "No protein target set."))
+    elif p.food_entries_today < 2 or len(p.meals_today) < 2:
+        out.append(Check("protein", label, None, "Needs at least 2 meals logged today."))
+    else:
+        eaten, at = p.protein_today, max(18 * 60, ctx.last_minute - 120)
+        so_far = f"{round(eaten)} of {round(target)} g so far."
+        if eaten >= PROTEIN_SHORT * target or target - eaten < PROTEIN_MIN_GAP_G:
+            out.append(Check("protein", label, None, f"On track: {so_far}"))
+        elif now < at:
+            out.append(Check("protein", label, None, f"{so_far} Checks again after {clock(at)}."))
+        else:
+            out.append(Check("protein", label, protein_reminder(eaten, target, today), f"Due: {so_far}"))
 
-    w = p.weigh_in
-    if w and not w.synced and not p.weighed_today:
-        days = (today - w.last).days
-        if days >= max(2, round(w.gap_days * 2)):
-            at = max(DAY_START, w.usual_minute + 30)
-            if at <= now <= at + 180:
-                out.append(Reminder(
-                    "weigh_in", f"weigh_in:{w.last}", "Time for a weigh-in",
-                    f"It's been {days} days. Same time of day as usual keeps your trend accurate.",
-                    "/body",
-                ))
+    label, w = "Weigh-in", p.weigh_in
+    if not w:
+        out.append(Check("weigh_in", label, None, "Needs 4 weigh-ins in the last 4 weeks."))
+    elif w.synced:
+        out.append(Check("weigh_in", label, None, "A connected scale logs your weigh-ins."))
+    elif p.weighed_today:
+        out.append(Check("weigh_in", label, None, "Already weighed in today."))
+    else:
+        days, after = (today - w.last).days, max(2, round(w.gap_days * 2))
+        at = max(DAY_START, w.usual_minute + 30)
+        if days < after:
+            out.append(Check("weigh_in", label, None,
+                             f"Last one {_days(days)} ago. Reminder once it's been {_days(after)}."))
+        elif now < at:
+            out.append(Check("weigh_in", label, None, f"Overdue. Goes out at {clock(at)}."))
+        elif now <= at + 180:
+            out.append(Check("weigh_in", label, weigh_in_reminder(days, w.last),
+                             f"Due: {_days(days)} since the last one."))
+        else:
+            out.append(Check("weigh_in", label, None,
+                             f"Overdue, but its window was {clock(at)} to {clock(at + 180)}. Tries again tomorrow."))
 
+    label = "After a break"
     last = max(p.active_dates) if p.active_dates else None
-    if last and last < today:
+    if last is None:
+        out.append(Check("comeback", label, None, "No logs yet."))
+    elif last >= today:
+        out.append(Check("comeback", label, None, "You've logged today."))
+    else:
         quiet = (today - last).days
         stage = 7 if quiet >= 7 else 3 if quiet >= 3 else None
         before = sum(1 for d in p.active_dates if last - timedelta(days=28) <= d <= last)
         at = min(max(p.usual_active_minute or 18 * 60, 9 * 60), 20 * 60)
-        if stage and quiet <= 14 and before >= 5 and now >= at:
-            if stage == 3:
-                title, body = "Pick up where you left off", (
-                    "3 days since your last log. Log one thing today, a meal or a glass of water, to get going again."
-                )
-            else:
-                title = "Your plan is still here" if ctx.has_plan else "Your progress is still here"
-                body = "A week off happens. Log one thing today and everything picks up from there."
-            out.append(Reminder("comeback", f"comeback:{last}:{stage}", title, body, "/"))
+        if stage is None:
+            reason = f"Last log {_days(quiet)} ago. Starts after 3 quiet days."
+        elif quiet > 14:
+            reason = "More than 2 weeks away: it has stopped."
+        elif before < 5:
+            reason = "Only for people who were logging regularly before."
+        elif now < at:
+            reason = f"{_days(quiet)} without a log. Goes out at {clock(at)}."
+        else:
+            out.append(Check("comeback", label, comeback_reminder(stage, last, ctx.has_plan),
+                             f"Due: {_days(quiet)} without a log."))
+            return out
+        out.append(Check("comeback", label, None, reason))
     return out
+
+
+def due(p: Profile, ctx: Context) -> list[Reminder]:
+    """Reminders that would make sense right now, most urgent first.
+    Switches, caps, dedupe and backoff are the caller's job."""
+    if p.minute < DAY_START or p.minute > ctx.last_minute:
+        return []
+    return [c.reminder for c in checks(p, ctx) if c.reminder]
 
 
 def mark_acted(events: list[PushEvent], p: Profile) -> None:
@@ -261,7 +387,7 @@ async def _ready_plan(user_id: uuid.UUID, db: AsyncSession) -> AiPlan | None:
     )).scalar_one_or_none()
 
 
-async def build_context(user: User, p: Profile, db: AsyncSession) -> Context:
+async def build_context(user: User, p: Profile, db: AsyncSession, all_lines: bool = False) -> Context:
     ctx = Context(
         last_minute=quiet_after(user.sleep_hour),
         protein_target=user.protein_target_g or (user.weight_kg * 2 if user.weight_kg else None),
@@ -274,9 +400,10 @@ async def build_context(user: User, p: Profile, db: AsyncSession) -> Context:
     if day is None:
         return ctx
     ctx.plan_day = day["name"]
-    # The per-lift targets need a log query: only when the preview is due.
+    # The per-lift targets need a log query: only when the preview is due
+    # (or a tester asks).
     at = preview_minute(p)
-    if not p.trained_today and at <= p.minute <= at + 120:
+    if all_lines or (not p.trained_today and at <= p.minute <= at + 120):
         found = await todays_targets(user, row, p.today, db)
         if found:
             ctx.plan_lines = target_lines(found[1], user.units)
@@ -375,3 +502,90 @@ def habits_summary(p: Profile) -> dict:
             "every_days": w.gap_days,
         } if w and not w.synced else None,
     }
+
+
+# ─── Testing tools (Settings > Notifications > Reminders, testers only) ──────
+
+TEST_KINDS = ("workout_preview", "meal", "workout_log", "protein", "weigh_in", "comeback")
+
+
+def is_tester(user: User) -> bool:
+    """Accounts that see the testing tools: the emails in REMINDER_TESTERS."""
+    allowed = {e.strip().lower() for e in settings.REMINDER_TESTERS.split(",") if e.strip()}
+    return bool(user.email) and user.email.lower() in allowed
+
+
+async def debug_report(user: User, db: AsyncSession) -> dict:
+    """Each kind of reminder with what it would do right now and why, plus
+    anything holding all of them back (quiet hours, the daily limit, the
+    gap since the last one)."""
+    now = user_now(user.timezone)
+    p = await load_profile(user, db, now)
+    ctx = await build_context(user, p, db, all_lines=True)
+    off = await switched_off(user.id, db)
+    events = await recent_events(user.id, db)
+    mark_acted(events, p)
+    await db.commit()
+
+    blocked = []
+    if p.minute < DAY_START or p.minute > ctx.last_minute:
+        blocked.append(f"Quiet hours: reminders go out between {clock(DAY_START)} and {clock(ctx.last_minute)}.")
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+    sent_today = sum(1 for e in events if e.sent_at >= day_start)
+    if sent_today >= MAX_PER_DAY:
+        blocked.append(f"{MAX_PER_DAY} already sent today, the daily limit.")
+    last = max((e.sent_at for e in events), default=None)
+    if last and datetime.now(timezone.utc) - last < MIN_GAP:
+        nxt = (last + MIN_GAP).astimezone(now.tzinfo)
+        blocked.append(f"The last one went out less than 90 minutes ago. Next one from {clock(nxt.hour * 60 + nxt.minute)}.")
+
+    sent_keys = {e.dedupe_key for e in events}
+    rows = []
+    for c in checks(p, ctx):
+        if KIND_CATEGORY[c.kind] in off:
+            status = "off"
+        elif c.reminder and c.reminder.key in sent_keys:
+            status = "sent"
+        elif paused_until(c.kind, events):
+            status = "paused"
+        else:
+            status = "due" if c.reminder else "waiting"
+        rows.append({"kind": c.kind, "label": c.label, "status": status, "reason": c.reason})
+    return {
+        "local_time": clock(p.minute),
+        "timezone": user.timezone or "UTC",
+        "sent_today": sent_today,
+        "blocked": blocked,
+        "checks": rows,
+    }
+
+
+async def send_test(user: User, kind: str, db: AsyncSession) -> tuple[int, Reminder]:
+    """Send one reminder of `kind` right now, with the user's own numbers
+    where there are any. Not recorded, so it doesn't count towards the daily
+    limit, dedupe or backoff."""
+    now = user_now(user.timezone)
+    p = await load_profile(user, db, now)
+    ctx = await build_context(user, p, db, all_lines=True)
+    today = p.today
+    if kind == "workout_preview":
+        r = (preview_reminder(ctx.plan_day, ctx.plan_lines, today) if ctx.plan_day else
+             preview_reminder("Push day", ["Bench press ↑ 82.5 kg", "Rows +1 rep at 60 kg"], today))
+    elif kind == "meal":
+        r = meal_reminder(meal_of(p.minute) or "lunch", today)
+    elif kind == "workout_log":
+        r = workout_log_reminder(ctx.plan_day, today)
+    elif kind == "protein":
+        target = ctx.protein_target or 150
+        eaten = p.protein_today if p.protein_today < PROTEIN_SHORT * target else target / 2
+        r = protein_reminder(eaten, target, today)
+    elif kind == "weigh_in":
+        w = p.weigh_in
+        r = weigh_in_reminder(max(2, (today - w.last).days) if w else 3, w.last if w else today)
+    else:
+        r = comeback_reminder(3, today - timedelta(days=3), ctx.has_plan)
+    delivered = await push.send_to_user(
+        user.id, db, title=r.title, body=r.body,
+        data={"type": "smart", "kind": r.kind, "event_id": str(uuid.uuid4()), "route": r.route},
+    )
+    return delivered, r

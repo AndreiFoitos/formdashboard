@@ -21,6 +21,7 @@ import { syncPurchasesUser } from '../lib/purchases'
 import { colors } from '../theme/tokens'
 import { formSheet, modalHeader, pushedHeader } from '../theme/navigation'
 import { loadUnits, syncUnits } from '../lib/units'
+import { syncTimezone } from '../lib/timezone'
 import { OfflineBanner } from '../components/OfflineBanner'
 import { PolicyUpdateNotice } from '../components/PolicyUpdateNotice'
 import { useWidgetSync } from '../hooks/useWidgetSync'
@@ -98,10 +99,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [hydrated, user?.id])
 
   // Units follow the profile: reconcile the device cache with the server once
-  // per sign-in / app start.
+  // per sign-in / app start. The timezone goes the other way: the phone's is
+  // saved to the account, so reminders and "today" run on local time.
   useEffect(() => {
     if (!hydrated || !user) return
     syncUnits(useAuthStore.getState().user?.units)
+    syncTimezone()
   }, [hydrated, user?.id])
 
   // Once a user is authed, re-register the push token if notifications are

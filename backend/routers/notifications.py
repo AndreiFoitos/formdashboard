@@ -13,6 +13,8 @@
   what the app has learned about the user's habits (services/behavior.py).
 - POST /notifications/opened/{event_id} — the app reports a tapped smart
   reminder; ignored ones pause on their own (services/smart_notifications.py).
+- GET /notifications/debug, POST /notifications/debug/send — testers only
+  (REMINDER_TESTERS): what would fire now and why, and a test of each kind.
 """
 from __future__ import annotations
 
@@ -38,10 +40,14 @@ from services.behavior import load_profile
 from services.smart_notifications import (
     CATEGORIES,
     KIND_CATEGORY,
+    TEST_KINDS,
+    debug_report,
     habits_summary,
+    is_tester,
     mark_acted,
     paused_until,
     recent_events,
+    send_test,
     switched_off,
 )
 from services.stimulants import PRESETS as SUBSTANCES
@@ -158,7 +164,7 @@ async def _settings_out(user: User, db: AsyncSession) -> dict:
             # Set when the user ignored the last few: it resumes on its own.
             "paused_until": until.isoformat() if until else None,
         })
-    return {"categories": categories, "habits": habits_summary(profile)}
+    return {"categories": categories, "habits": habits_summary(profile), "tester": is_tester(user)}
 
 
 @notif_router.get("/settings")
@@ -200,6 +206,41 @@ async def mark_opened(
     if event is not None and event.user_id == current_user.id and event.opened_at is None:
         event.opened_at = datetime.now(timezone.utc)
         await db.commit()
+
+
+# ── Testing tools (testers only) ───────────────────────────────────────────────
+
+class TestSend(BaseModel):
+    kind: str
+
+
+def _require_tester(user: User) -> None:
+    if not is_tester(user):
+        raise HTTPException(404, "Not found")
+
+
+@notif_router.get("/debug")
+async def reminder_debug(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _require_tester(current_user)
+    return await debug_report(current_user, db)
+
+
+@notif_router.post("/debug/send")
+async def reminder_test_send(
+    body: TestSend,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _require_tester(current_user)
+    if body.kind not in TEST_KINDS:
+        raise HTTPException(400, "Unknown reminder")
+    delivered, r = await send_test(current_user, body.kind, db)
+    if not delivered:
+        raise HTTPException(409, "No phone is registered for notifications. Turn on Smart reminders first.")
+    return {"sent": delivered, "title": r.title, "body": r.body}
 
 
 # ── Quick-log from notification action ─────────────────────────────────────────

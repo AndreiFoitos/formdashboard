@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # users. HIGH-28. Empty by default to keep dev frictionless.
     EXPO_ACCESS_TOKEN: str = ""
 
+    # Comma-separated account emails that see the reminder testing tools
+    # (Settings > Notifications > Reminders): what would fire now and why,
+    # and a "Send a test" per kind. The default is the throwaway demo account.
+    REMINDER_TESTERS: str = "demo@gainrace.com"
+
     # Sentry DSN for backend error reporting. Empty disables Sentry. HIGH-19.
     SENTRY_DSN: str = ""
 

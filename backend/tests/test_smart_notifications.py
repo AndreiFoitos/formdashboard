@@ -344,3 +344,66 @@ def test_target_lines_put_weight_jumps_first():
         "Bench press ↑ 82.5 kg", "Rows +1 rep at 60 kg", "Squat: add a set",
     ]
     assert plan_today.target_lines(exs, "imperial")[0] == "Bench press ↑ 182 lb"
+
+
+# ─── Testing tools ───────────────────────────────────────────────────────────
+
+
+def test_every_kind_explains_itself():
+    p = profile(13, 0, meals={"lunch": LUNCH})
+    rows = sn.checks(p, ctx(protein_target=160))
+    assert [c.kind for c in rows] == [
+        "workout_preview", "meal", "meal", "meal", "workout_log", "protein", "weigh_in", "comeback",
+    ]
+    lunch = next(c for c in rows if c.label == "Lunch")
+    assert lunch.reminder is None
+    assert lunch.reason == "You usually log it around 1:00 PM. Reminder after 1:50 PM if it's still missing."
+    assert all(c.reason for c in rows)
+    due_lunch = next(c for c in sn.checks(profile(14, 0, meals={"lunch": LUNCH}), ctx()) if c.label == "Lunch")
+    assert due_lunch.reminder is not None and due_lunch.reason.startswith("Due:")
+
+
+def test_clock_matches_the_app():
+    assert sn.clock(0) == "12:00 AM" and sn.clock(13 * 60 + 5) == "1:05 PM" and sn.clock(12 * 60) == "12:00 PM"
+
+
+def test_testers_come_from_settings(monkeypatch):
+    monkeypatch.setattr(sn.settings, "REMINDER_TESTERS", "demo@gainrace.com, Me@Example.com")
+    assert sn.is_tester(User(email="me@example.com"))
+    assert sn.is_tester(User(email="DEMO@gainrace.com"))
+    assert not sn.is_tester(User(email="someone@else.com"))
+    assert not sn.is_tester(User(email=None))
+
+
+def test_send_test_uses_the_users_numbers(monkeypatch):
+    sent = []
+
+    async def load(user, db, now):
+        return profile(15, 0, protein_today=60.0)
+
+    async def context(user, p, db, all_lines=False):
+        return ctx(protein_target=160)
+
+    async def send(user_id, db, **kw):
+        sent.append(kw)
+        return 1
+
+    monkeypatch.setattr(sn, "load_profile", load)
+    monkeypatch.setattr(sn, "build_context", context)
+    monkeypatch.setattr(sn.push, "send_to_user", send)
+    user = User(id=uuid.uuid4(), timezone="UTC")
+    delivered, r = asyncio.run(sn.send_test(user, "protein", FakeDB()))
+    assert delivered == 1 and r.title == "100 g of protein to go"
+    assert sent[0]["data"]["route"] == "/nutrition" and sent[0]["data"]["type"] == "smart"
+    _, r = asyncio.run(sn.send_test(user, "workout_preview", FakeDB()))
+    assert r.title == "Push day today"  # no plan: a sample
+
+
+def test_timezone_must_be_real():
+    from pydantic import ValidationError
+    from schemas.user import UserUpdate
+
+    assert UserUpdate(timezone="Europe/Bucharest").timezone == "Europe/Bucharest"
+    assert UserUpdate().timezone is None
+    with pytest.raises(ValidationError):
+        UserUpdate(timezone="Mars/Olympus")

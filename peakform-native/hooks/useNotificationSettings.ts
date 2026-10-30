@@ -22,6 +22,25 @@ export interface LearnedHabits {
 export interface ReminderSettings {
   categories: ReminderCategory[]
   habits: LearnedHabits
+  /** Sees the testing tools (backend REMINDER_TESTERS). */
+  tester?: boolean
+}
+
+export type TestKind = 'workout_preview' | 'meal' | 'workout_log' | 'protein' | 'weigh_in' | 'comeback'
+
+/** Testers: each reminder with what it would do right now and why. */
+export interface ReminderCheck {
+  local_time: string
+  timezone: string
+  sent_today: number
+  /** Things holding every reminder back (quiet hours, daily limit). */
+  blocked: string[]
+  checks: {
+    kind: TestKind
+    label: string
+    status: 'due' | 'waiting' | 'off' | 'paused' | 'sent'
+    reason: string
+  }[]
 }
 
 const KEY = ['notification-settings']
@@ -55,5 +74,20 @@ export function useSetReminder() {
       if (ctx?.before) qc.setQueryData(KEY, ctx.before)
     },
     onSuccess: (data) => qc.setQueryData(KEY, data),
+  })
+}
+
+export function useReminderCheck(enabled: boolean) {
+  return useQuery<ReminderCheck>({
+    queryKey: ['notification-debug'],
+    queryFn: () => api.get('/notifications/debug').then((r) => r.data),
+    enabled,
+  })
+}
+
+export function useSendTestReminder() {
+  return useMutation({
+    mutationFn: (kind: TestKind) =>
+      api.post<{ sent: number; title: string; body: string }>('/notifications/debug/send', { kind }).then((r) => r.data),
   })
 }
