@@ -194,7 +194,8 @@ Avatar
 
 Notifications
   Notifications              On/Off      >   (permission status; deep-links to iOS Settings if denied)
-  Smart nudges               [switch]
+  Smart reminders            [switch]
+  Reminders                              >   (a switch per kind, learned habit times, water/coffee times)
 
 Subscription
   Plan                       Free        >   (paywall / manage)

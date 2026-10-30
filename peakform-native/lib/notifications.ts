@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { router } from 'expo-router'
 import { colors } from '../theme/tokens'
 import { getToken, removeToken, setToken } from './storage'
+import { openFromWidget } from './widgetLinks'
 
 // Same lazy-load pattern as healthkit.ts: importing expo-notifications at the
 // top level is fine, but `getExpoPushTokenAsync` no longer works in Expo Go
@@ -107,7 +108,7 @@ export async function registerPushTokenWithBackend(): Promise<{ token: string } 
 
 const NUDGES_OFF_KEY = 'nudges_off'
 
-/** True after the user switched Smart nudges off in Settings. */
+/** True after the user switched Smart reminders off in Settings. */
 export async function nudgesOptedOut(): Promise<boolean> {
   try {
     return (await getToken(NUDGES_OFF_KEY)) === '1'
@@ -273,5 +274,35 @@ export function handlePlanReadyResponse(
   if (!data || (data.type !== 'plan_ready' && data.type !== 'checkin_ready')) return false
   qc?.invalidateQueries({ queryKey: ['plan-ai'] })
   router.navigate('/ask')
+  return true
+}
+
+/** Tab screens a smart reminder may open (backend services/smart_notifications.ROUTES). */
+const SMART_TABS = new Set(['/', '/ask', '/training', '/nutrition', '/body'])
+
+/**
+ * Smart reminders (meals, training, protein, weigh-in, after a break; backend
+ * services/smart_notifications.py). Tells the backend it was opened, so
+ * reminders that keep being ignored pause on their own, then opens the
+ * screen it's about. The meal reminder goes to the camera, on top of
+ * Nutrition so closing it lands there.
+ */
+export function handleSmartResponse(
+  response: { actionIdentifier?: string; notification: { request: { content: { data: unknown } } } },
+  qc?: { invalidateQueries: (filters: { queryKey: readonly unknown[] }) => unknown },
+): boolean {
+  const data = response.notification.request.content.data as Record<string, unknown> | null
+  if (!data || data.type !== 'smart') return false
+  if (typeof data.event_id === 'string') {
+    api.post(`/notifications/opened/${data.event_id}`).catch(() => {})
+  }
+  const route = typeof data.route === 'string' ? data.route : '/'
+  if (data.kind === 'workout_preview' || data.kind === 'workout_log') qc?.invalidateQueries({ queryKey: ['plan-ai'] })
+  if (route === '/nutrition-snap') {
+    openFromWidget('/nutrition')
+    setTimeout(() => router.push('/nutrition-snap'), 50)
+  } else {
+    openFromWidget(SMART_TABS.has(route) ? route : '/')
+  }
   return true
 }

@@ -9,6 +9,10 @@
   (Redis-or-memory dedupe, 5 min) so a double-tap from the lock screen doesn't double-log.
 - GET /notifications/patterns — debug/preview endpoint; lets the app show
   "these are the times we'd nudge you" inside Settings.
+- GET / PUT /notifications/settings — the smart reminder switches, and
+  what the app has learned about the user's habits (services/behavior.py).
+- POST /notifications/opened/{event_id} — the app reports a tapped smart
+  reminder; ignored ones pause on their own (services/smart_notifications.py).
 """
 from __future__ import annotations
 
@@ -24,11 +28,22 @@ from core.database import get_db
 from core.redis import cache_set_nx
 from middleware.auth import get_current_user
 from models.hydration_log import HydrationLog
+from models.push_event import NotificationSettings, PushEvent
 from models.push_token import PushToken
 from models.stimulant_log import StimulantLog
 from models.user import User
 from services.daily import increment_daily_field
 from services.log_patterns import get_patterns_for_user
+from services.behavior import load_profile
+from services.smart_notifications import (
+    CATEGORIES,
+    KIND_CATEGORY,
+    habits_summary,
+    mark_acted,
+    paused_until,
+    recent_events,
+    switched_off,
+)
 from services.stimulants import PRESETS as SUBSTANCES
 
 
@@ -114,6 +129,77 @@ async def get_patterns(
         }
         for s in slots
     ]
+
+
+# ── Smart reminders ────────────────────────────────────────────────────────────
+
+class SettingUpdate(BaseModel):
+    key: str
+    enabled: bool
+
+
+async def _settings_out(user: User, db: AsyncSession) -> dict:
+    off = await switched_off(user.id, db)
+    events = await recent_events(user.id, db)
+    profile = await load_profile(user, db)
+    mark_acted(events, profile)
+    await db.commit()
+    categories = []
+    for key, (title, description) in CATEGORIES.items():
+        until = max(
+            (u for kind, cat in KIND_CATEGORY.items() if cat == key if (u := paused_until(kind, events))),
+            default=None,
+        )
+        categories.append({
+            "key": key,
+            "title": title,
+            "description": description,
+            "enabled": key not in off,
+            # Set when the user ignored the last few: it resumes on its own.
+            "paused_until": until.isoformat() if until else None,
+        })
+    return {"categories": categories, "habits": habits_summary(profile)}
+
+
+@notif_router.get("/settings")
+async def get_settings(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await _settings_out(current_user, db)
+
+
+@notif_router.put("/settings")
+async def update_setting(
+    body: SettingUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.key not in CATEGORIES:
+        raise HTTPException(400, "Unknown notification type")
+    row = await db.get(NotificationSettings, current_user.id)
+    if row is None:
+        row = NotificationSettings(user_id=current_user.id, off=[])
+        db.add(row)
+    off = set(row.off or [])
+    off.discard(body.key) if body.enabled else off.add(body.key)
+    row.off = sorted(off)  # reassigned so SQLAlchemy sees the JSONB change
+    await db.commit()
+    return await _settings_out(current_user, db)
+
+
+@notif_router.post("/opened/{event_id}", status_code=204)
+async def mark_opened(
+    event_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from datetime import datetime, timezone
+
+    event = await db.get(PushEvent, event_id)
+    if event is not None and event.user_id == current_user.id and event.opened_at is None:
+        event.opened_at = datetime.now(timezone.utc)
+        await db.commit()
 
 
 # ── Quick-log from notification action ─────────────────────────────────────────
