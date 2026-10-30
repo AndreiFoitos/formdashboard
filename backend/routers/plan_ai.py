@@ -37,6 +37,7 @@ from services.plans import ASK, PLAN, consume_scan, plan_for, refund_scan
 router = APIRouter(prefix="/plan-ai", tags=["plan-ai"])
 
 Goal = Literal["cut", "maintain", "bulk"]
+Pace = Literal["slow", "steady", "fast"]
 Equipment = Literal["gym", "home_weights", "bodyweight"]
 Experience = Literal["new", "some", "experienced"]
 DietStyle = Literal["anything", "vegetarian", "vegan", "pescatarian", "halal", "kosher"]
@@ -48,7 +49,7 @@ MAX_ITEM_LEN = 40
 
 FREE_TEXT_LISTS = ("injuries", "allergies", "dislikes", "notes")
 FIELDS = (
-    "goal", "equipment", "experience", "session_minutes", "training_days", "split",
+    "goal", "pace", "adaptive_calories", "equipment", "experience", "session_minutes", "training_days", "split",
     "injuries", "diet_style", "allergies", "dislikes", "cooking", "health_flags", "notes",
 )
 
@@ -69,6 +70,8 @@ class PreferencesIn(BaseModel):
     stored list rather than appending, so the client sends the full set."""
 
     goal: Goal | None = None
+    pace: Pace | None = None
+    adaptive_calories: bool | None = None
     equipment: Equipment | None = None
     experience: Experience | None = None
     session_minutes: int | None = Field(default=None, ge=15, le=180)
@@ -101,7 +104,7 @@ class PreferencesIn(BaseModel):
 
 def _out(p: UserPreference | None) -> dict:
     if p is None:
-        return {f: ([] if f in FREE_TEXT_LISTS else None) for f in FIELDS}
+        return {**{f: ([] if f in FREE_TEXT_LISTS else None) for f in FIELDS}, "adaptive_calories": True}
     return {f: getattr(p, f) for f in FIELDS}
 
 
@@ -126,7 +129,7 @@ async def update_preferences(
     for field, value in body.model_dump(exclude_unset=True).items():
         # An explicit null clears a single-choice answer. A list field sent
         # as null is ignored; send [] to empty it.
-        if value is None and field in FREE_TEXT_LISTS:
+        if value is None and field in (*FREE_TEXT_LISTS, "adaptive_calories"):
             continue
         setattr(prefs, field, value)
     await db.commit()

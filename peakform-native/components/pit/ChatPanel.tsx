@@ -13,6 +13,7 @@ import { api } from '../../api/client'
 import { Check, RotateCcw, SquarePen } from 'lucide-react-native'
 import { handleLimitError, openPaywall, usePlan, useSetPlan } from '../../hooks/usePlan'
 import { PREFERENCES_KEY } from '../../hooks/usePreferences'
+import { ADAPTIVE_KEY } from '../../hooks/useAdaptiveCalories'
 import { useKeyboardOverlap } from '../../hooks/useKeyboardOverlap'
 import { colors } from '../../theme/tokens'
 import { tabBarClearance } from '../../theme/layout'
@@ -87,6 +88,7 @@ export function ChatPanel() {
   function refreshAfterChanges() {
     qc.invalidateQueries({ queryKey: ['plan-ai'] })
     qc.invalidateQueries({ queryKey: PREFERENCES_KEY })
+    qc.invalidateQueries({ queryKey: ADAPTIVE_KEY })
     qc.invalidateQueries({ queryKey: ['nutrition-today'] })
     qc.invalidateQueries({ queryKey: ['dashboard'] })
   }

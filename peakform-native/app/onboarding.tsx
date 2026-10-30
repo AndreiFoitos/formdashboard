@@ -28,7 +28,8 @@ import { NOTIFICATION_REASONS } from '../components/NotificationsCard'
 import { enablePredictiveNudges } from '../lib/notifications'
 import { Bell } from 'lucide-react-native'
 import { colors } from '../theme/tokens'
-import { DEFICIT_KCAL, SURPLUS_KCAL, daysFromFreq, tdee, type Sex, type TrainingFreq } from '../lib/targets'
+import { PACES, calorieTarget, daysFromFreq, paceKgPerWeek, type Pace, type Sex, type TrainingFreq } from '../lib/targets'
+import { PACE_LABEL } from '../components/settings/labels'
 import { unitsFor, useUnits, useUnitsStore, type UnitSystem, type Units } from '../lib/units'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -457,12 +458,19 @@ function CalorieGoalChips({
   options,
   selected,
   onPick,
+  pace,
+  onPace,
+  weightKg,
 }: {
   options: CalorieOption[]
   selected: CalorieOption['key'] | null
   onPick: (o: CalorieOption) => void
+  pace: Pace
+  onPace: (p: Pace) => void
+  weightKg: number | null
 }) {
   const u = useUnits()
+  const paced = selected === 'cut' || selected === 'bulk' ? selected : null
   return (
     <View>
       <Text className="text-text-muted text-caption mb-2">
@@ -506,8 +514,41 @@ function CalorieGoalChips({
           )
         })}
       </View>
+      {paced && (
+        <View className="mt-4">
+          <Text className="text-text-muted text-caption mb-2">Pace</Text>
+          <View className="flex-row gap-2">
+            {PACES.map((p) => {
+              const active = pace === p
+              return (
+                <TouchableOpacity
+                  key={p}
+                  onPress={() => onPace(p)}
+                  className="flex-1 items-center justify-center py-3 rounded-full border"
+                  style={{
+                    borderCurve: 'continuous',
+                    minHeight: 44,
+                    backgroundColor: active ? colors.text : colors.surface,
+                    borderColor: active ? colors.text : colors.border,
+                  }}
+                >
+                  <Text className="text-footnote font-semibold" style={{ color: active ? colors.bg : colors.text }}>
+                    {PACE_LABEL[p]}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+          {weightKg != null && (
+            <Text className="text-text-subtle text-caption mt-2">
+              About {u.weightLabel(Math.abs(paceKgPerWeek(paced, pace, weightKg)))} a week.{' '}
+              {pace === 'steady' ? 'Recommended for most people.' : pace === 'slow' ? 'Easier to stick to.' : paced === 'cut' ? 'Hungrier, more muscle at risk.' : 'More fat comes with it.'}
+            </Text>
+          )}
+        </View>
+      )}
       <Text className="text-text-subtle text-caption mt-2">
-        Mifflin-St Jeor BMR × your training-day activity factor. Cut: −500 kcal/day (~{u.weightLabel(0.45)}/week loss). Bulk: +300 kcal/day (lean-mass focus).
+        Estimated from your stats and training days. Each week GainRace checks it against your weigh-ins and food logs and suggests a new target when it should move. You can change the pace later in Settings.
       </Text>
     </View>
   )
@@ -520,10 +561,16 @@ function Step4Targets({
   onChange,
   onChangeBedtime,
   onPickGoal,
+  pace,
+  onPace,
+  weightKg,
 }: {
   form: FormState
   options: CalorieOption[] | null
   selectedGoal: CalorieOption['key'] | null
+  pace: Pace
+  onPace: (p: Pace) => void
+  weightKg: number | null
   onChange: (key: 'protein_target_g' | 'water_target_ml' | 'calorie_target', value: string) => void
   onChangeBedtime: (delta: 1 | -1) => void
   onPickGoal: (o: CalorieOption) => void
@@ -569,6 +616,9 @@ function Step4Targets({
           options={options}
           selected={selectedGoal}
           onPick={onPickGoal}
+          pace={pace}
+          onPace={onPace}
+          weightKg={weightKg}
         />
       )}
 
@@ -648,6 +698,7 @@ export default function OnboardingScreen() {
   const [error, setError] = useState<string | null>(null)
   const [usernameState, setUsernameState] = useState<UsernameState>('idle')
   const [selectedGoal, setSelectedGoal] = useState<CalorieOption['key'] | null>(null)
+  const [pace, setPace] = useState<Pace>('steady')
   const [prefs, setPrefs] = useState<Preferences>(EMPTY_PREFERENCES)
   // Only what the user touched is sent, so a skipped step writes nothing.
   const [prefsPatch, setPrefsPatch] = useState<Partial<Preferences>>({})
@@ -748,13 +799,16 @@ export default function OnboardingScreen() {
     ) {
       return null
     }
-    const t = tdee(form.sex, weightKg, heightCm, age, form.training_frequency)
+    const sex = form.sex
+    const freq = form.training_frequency
+    const kcal = (goal: Goal) => calorieTarget(goal, pace, sex, weightKg, heightCm, age, freq)
+    const kg = (goal: 'cut' | 'bulk') => u.weightLabel(Math.abs(paceKgPerWeek(goal, pace, weightKg)))
     return [
-      { key: 'cut',      label: 'Cut',      desc: `Lose fat (~${u.weightLabel(0.45)}/week)`, kcal: Math.round((t - DEFICIT_KCAL) / 10) * 10 },
-      { key: 'maintain', label: 'Maintain', desc: 'Hold current weight',     kcal: Math.round(t / 10) * 10 },
-      { key: 'bulk',     label: 'Bulk',     desc: `Lean gain (~${u.weightLabel(0.25)}/week)`, kcal: Math.round((t + SURPLUS_KCAL) / 10) * 10 },
+      { key: 'cut',      label: 'Cut',      desc: `Lose fat (~${kg('cut')}/week)`,  kcal: kcal('cut') },
+      { key: 'maintain', label: 'Maintain', desc: 'Hold current weight',            kcal: kcal('maintain') },
+      { key: 'bulk',     label: 'Bulk',     desc: `Lean gain (~${kg('bulk')}/week)`, kcal: kcal('bulk') },
     ]
-  }, [form.sex, form.training_frequency, form.age, form.height_cm, form.height_in, form.weight_kg, u.system])
+  }, [form.sex, form.training_frequency, form.age, form.height_cm, form.height_in, form.weight_kg, u.system, pace])
 
   // The goal used to be thrown away once it had set calorie_target. Keep it
   // for Pit Crew; if the user typed their own number instead of tapping a
@@ -773,6 +827,12 @@ export default function OnboardingScreen() {
     setSelectedGoal(o.key)
     setField('calorie_target', String(o.kcal))
   }
+
+  // The pace moves the picked goal's number, so the target follows it.
+  useEffect(() => {
+    const o = calorieOptions?.find((x) => x.key === selectedGoal)
+    if (o) setField('calorie_target', String(o.kcal))
+  }, [pace])
 
   // Training step: start Days a week from the frequency already answered, so
   // it isn't asked twice from scratch. It saves on Continue, not on Skip.
@@ -913,7 +973,8 @@ export default function OnboardingScreen() {
         const goal = goalFromTargets()
         if (goal) {
           // Not worth blocking setup over: the user can set it in Settings.
-          api.put('/plan-ai/preferences', { goal }).catch(() => {})
+          const body = goal === 'maintain' ? { goal } : { goal, pace }
+          api.put('/plan-ai/preferences', body).catch(() => {})
         }
         // Re-read the profile so the store carries the targets we just wrote.
         // Settings seeds its fields from the store; without this it renders
@@ -1031,6 +1092,9 @@ export default function OnboardingScreen() {
               onChange={(key, value) => setField(key, value as any)}
               onChangeBedtime={bumpBedtime}
               onPickGoal={pickGoal}
+              pace={pace}
+              onPace={setPace}
+              weightKg={metricStats(form, u).weightKg}
             />
           )}
           {step === 4 && <TrainingPrefsFields value={prefs} onChange={patchPrefs} />}

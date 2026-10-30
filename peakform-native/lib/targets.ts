@@ -37,11 +37,25 @@ export function tdee(
   return mifflinStJeorBMR(sex, weightKg, heightCm, ageYears) * ACTIVITY_MULTIPLIER[freq]
 }
 
-// Cut: 500 kcal/day deficit ≈ 0.45 kg/week (ACSM position stand, Donnelly et al. 2009).
-// Bulk: 300 kcal/day surplus — conservative lean-mass-gain target backed by
-//   Aragon & Schoenfeld (J Int Soc Sports Nutr 2013) and Helms et al. (2014).
-export const DEFICIT_KCAL = 500
-export const SURPLUS_KCAL = 300
+// Pace: the share of bodyweight to lose (cut) or gain (bulk) a week. Mirrors
+// backend/services/energy.py PACE_RATES; the server works out the weekly
+// suggestions, this is only for onboarding, before there's any data.
+// Steady cut 0.5%/week (Helms et al. 2014: 0.5–1%/week keeps lean mass);
+// steady bulk 0.25%/week (Iraki et al. 2019: 0.25–0.5%/week off-season).
+export type Pace = 'slow' | 'steady' | 'fast'
+export const PACES: Pace[] = ['slow', 'steady', 'fast']
+export const PACE_RATES: Record<'cut' | 'bulk', Record<Pace, number>> = {
+  cut: { slow: 0.0025, steady: 0.005, fast: 0.0075 },
+  bulk: { slow: 0.001, steady: 0.0025, fast: 0.004 },
+}
+export const KCAL_PER_KG = 7700
+
+/** kg a week for a goal and pace: negative on a cut, 0 when maintaining. */
+export function paceKgPerWeek(goal: GoalKey, pace: Pace, weightKg: number): number {
+  if (goal === 'maintain') return 0
+  const kg = PACE_RATES[goal][pace] * weightKg
+  return goal === 'cut' ? -kg : kg
+}
 
 /** Training days per week (Pit preferences) → the onboarding frequency bucket. */
 export function freqFromDays(days: number | null | undefined): TrainingFreq {
@@ -58,16 +72,21 @@ export function daysFromFreq(freq: TrainingFreq): number {
   return { '0-1x': 1, '2-3x': 3, '4-5x': 4, '6x+': 6 }[freq]
 }
 
-/** Daily calorie target for a goal, rounded to 10 kcal. */
+/** Daily calorie target for a goal and pace, rounded to 10 kcal, inside the
+ *  same safety limits as the server: at least the higher of 1,500 kcal (men) /
+ *  1,200 (women), BMR and 75% of maintenance; at most maintenance + 500. */
 export function calorieTarget(
   goal: GoalKey,
+  pace: Pace,
   sex: Sex,
   weightKg: number,
   heightCm: number,
   ageYears: number,
   freq: TrainingFreq,
 ): number {
-  const t = tdee(sex, weightKg, heightCm, ageYears, freq)
-  const kcal = goal === 'cut' ? t - DEFICIT_KCAL : goal === 'bulk' ? t + SURPLUS_KCAL : t
-  return Math.round(kcal / 10) * 10
+  const bmr = mifflinStJeorBMR(sex, weightKg, heightCm, ageYears)
+  const t = bmr * ACTIVITY_MULTIPLIER[freq]
+  const floor = Math.max(sex === 'male' ? 1500 : 1200, bmr, 0.75 * t)
+  const raw = t + (paceKgPerWeek(goal, pace, weightKg) * KCAL_PER_KG) / 7
+  return Math.round(Math.min(Math.max(raw, floor), t + 500) / 10) * 10
 }

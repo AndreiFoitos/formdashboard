@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, SmallInteger, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, SmallInteger, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -26,6 +26,14 @@ class UserPreference(Base):
     # cut / maintain / bulk. Onboarding used to compute calorie_target from
     # this and throw it away.
     goal: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    # slow / steady / fast: how quickly a cut or bulk should go
+    # (services/energy.py PACE_RATES). Null means steady.
+    pace: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    # Weekly calorie suggestions from weigh-ins and food logs
+    # (services/adaptive_calories.py). Typing your own target turns it off.
+    adaptive_calories: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
     # gym / home_weights / bodyweight
     equipment: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # new / some / experienced

@@ -22,7 +22,7 @@ import { AvatarBadge } from '../../components/avatar/AvatarBadge'
 import { SettingsGroup } from '../../components/settings/SettingsGroup'
 import { SettingsRow } from '../../components/settings/SettingsRow'
 import { useTourStore } from '../../store/tour'
-import { GOAL_LABEL, hourLabel } from '../../components/settings/labels'
+import { GOAL_LABEL, PACE_LABEL, hourLabel } from '../../components/settings/labels'
 import { colors } from '../../theme/tokens'
 
 // Settings hub (DESIGN.md §6). Every row edits on its own screen or sheet and
@@ -61,10 +61,14 @@ function GoalsGroup() {
   return (
     <SettingsGroup header="Goals & targets">
       <SettingsRow title="Goal" value={prefs?.goal ? GOAL_LABEL[prefs.goal] : 'Not set'} onPress={() => choose('goal')} />
+      {(prefs?.goal === 'cut' || prefs?.goal === 'bulk') && (
+        <SettingsRow title="Pace" value={PACE_LABEL[prefs.pace ?? 'steady']} onPress={() => choose('pace')} />
+      )}
       <SettingsRow
         title="Calories"
+        detail={prefs?.goal && prefs.adaptive_calories ? 'Weekly suggestions on' : undefined}
         value={user?.calorie_target != null ? `${formatNumber(user.calorie_target)} kcal` : 'Not set'}
-        onPress={() => edit('calories')}
+        onPress={() => router.push('/settings/calories')}
       />
       <SettingsRow
         title="Protein"

@@ -225,13 +225,72 @@ stalled = same top weight and no more total reps across 3 sessions
     ],
   },
   {
+    slug: 'calories',
+    title: 'Calorie target',
+    summary:
+      'How your daily burn is estimated from your weigh-ins, food logs, body fat and training, and how the weekly suggestions work.',
+    prose: `Your calorie target is your daily burn plus or minus what your goal needs. The burn is estimated two ways, and the app blends them.
+
+The formula. Your resting burn comes from your lean mass when you've logged a body-fat reading in the last 90 days (Katch-McArdle), otherwise from your age, height, weight and sex (Mifflin-St Jeor). It's multiplied by an activity factor for how many days a week you actually train. For your first 2 weeks that's the number you told us. After that it's the days you logged a workout in Training over the last 4 weeks, so log every session: a session you don't log doesn't count, and a plan you don't follow doesn't either.
+
+Your logs. Over the last 4 weeks, the app takes what you ate on fully logged days (days under 800 kcal are treated as half-logged and skipped) and compares it with your weight trend. If you ate 2,600 kcal a day and lost 0.5 kg a week, you burned about 2,600 + 550 = 3,150 kcal a day, since a kilo of body weight is roughly 7,700 kcal. This needs at least 10 logged days and 4 weigh-ins spread over 2 weeks. It counts for more as the data grows, and fully after 3 weeks of both. A number far from the formula (more than 30% off) is pulled back, because missed logs are the usual cause.
+
+Your goal and pace. Cutting at a steady pace aims to lose 0.5% of your bodyweight a week (slow 0.25%, fast 0.75%). Bulking aims to gain 0.25% a week (slow 0.1%, fast 0.4%). Below 12% body fat for men or 20% for women, a fast cut is held to steady pace to protect muscle.
+
+Weekly suggestions. Each Monday the app compares your target with this estimate. When they're 75 kcal or more apart, a card on Nutrition offers the new number and says why. Nothing changes until you tap Use, and you can undo it. A suggestion moves at most 300 kcal a week, so one odd week can't swing your target. If you tap Keep, the same number isn't offered again until your data moves it. Typing your own target in Settings, or asking the Pit Crew for one, turns suggestions off. You can turn them back on in Settings → Calories.
+
+Safety limits. A target never goes below the higher of 1,500 kcal (men) or 1,200 kcal (women), your resting burn, and 75% of your daily burn. It never goes more than 500 kcal above your burn. Anyone under 18, or who answered yes to a health question, doesn't get calorie suggestions.
+
+This is general fitness guidance, not medical advice.`,
+    formula: `Burn (formula)  = BMR × activity
+  BMR (body fat known) = 370 + 21.6 × lean mass kg
+  BMR (otherwise)      = 10·kg + 6.25·cm − 5·age + (5 men, −161 women)
+  activity: ≤1 day 1.2 · 2-3 days 1.375 · 4-5 days 1.55 · 6+ 1.725
+  training days: as stated for 2 weeks, then days logged
+                 in the last 4 weeks × 7 / 28
+
+Burn (logs)     = avg intake − weight trend (kg/wk) × 7,700 / 7
+Weight on logs  = min(1, logged days / 21) × min(1, weigh-in span / 21)
+Burn            = weight × logs + (1 − weight) × formula
+
+Target = burn + pace × bodyweight × 7,700 / 7
+  cut:  slow −0.25% · steady −0.5% · fast −0.75% a week
+  bulk: slow +0.1%  · steady +0.25% · fast +0.4% a week
+  clamped to max(1,500 men / 1,200 women, BMR, 0.75 × burn)
+          … burn + 500
+
+Weekly suggestion: only when ≥ 75 kcal away, at most ± 300 kcal`,
+    sources: [
+      // Resting burn
+      { name: 'Mifflin, M.D. et al. (1990). A new predictive equation for resting energy expenditure in healthy individuals. Am J Clin Nutr 51(2).' },
+      { name: 'Frankenfield, D., Roth-Yousey, L., Compher, C. (2005). Comparison of predictive equations for resting metabolic rate in healthy nonobese and obese adults: a systematic review. J Am Diet Assoc 105(5) — Mifflin-St Jeor was the most accurate, usually within 10% of measured.' },
+      { name: 'McArdle, W.D., Katch, F.I., Katch, V.L. Exercise Physiology: Energy, Nutrition, and Human Performance — the Katch-McArdle resting energy equation.' },
+      { name: 'Cunningham, J.J. (1980). A reanalysis of the factors influencing basal metabolic rate in normal adults. Am J Clin Nutr 33(11) — lean mass as the main driver of resting burn.' },
+      { name: 'ten Haaf, T., Weijs, P.J.M. (2014). Resting energy expenditure prediction in recreational athletes of 18–35 years: confirmation of Cunningham equation and an improved weight-based alternative. PLoS One 9(9).' },
+      // Burn measured from food logs and weight change
+      { name: 'de Jonge, L. et al. (2007). Validation study of energy expenditure and intake during calorie restriction using doubly labeled water and changes in body composition. Am J Clin Nutr 85(1) — intake plus change in body stores matched doubly labeled water.' },
+      { name: 'Racette, S.B. et al. (2012). Approaches for quantifying energy intake and %calorie restriction during calorie restriction interventions in humans: the multicenter CALERIE study. Am J Physiol Endocrinol Metab 302(4).' },
+      { name: 'Wishnofsky, M. (1958). Caloric equivalents of gained or lost weight. Am J Clin Nutr 6(5).' },
+      { name: 'Hall, K.D. (2008). What is the required energy deficit per unit weight loss? Int J Obes 32(3).' },
+      { name: 'Thomas, D.M. et al. (2013). Can a weight loss of one pound a week be achieved with a 3500-kcal deficit? Commentary on a commonly accepted rule. Int J Obes 37(12) — why the target is re-measured every week rather than fixed.' },
+      { name: 'Hall, K.D. et al. (2011). Quantification of the effect of energy imbalance on bodyweight. Lancet 378(9793).' },
+      { name: 'Lichtman, S.W. et al. (1992). Discrepancy between self-reported and actual caloric intake and exercise in obese subjects. N Engl J Med 327(27) — why logged training days count over stated ones.' },
+      // Pace
+      { name: 'Helms, E.R. et al. (2014). Evidence-based recommendations for natural bodybuilding contest preparation: nutrition and supplementation. J Int Soc Sports Nutr 11 — 0.5–1% bodyweight loss a week to keep muscle.' },
+      { name: 'Garthe, I. et al. (2011). Effect of two different weight-loss rates on body composition and strength and power-related performance in elite athletes. Int J Sport Nutr Exerc Metab 21(2) — slower loss kept more lean mass and strength.' },
+      { name: 'Iraki, J. et al. (2019). Nutrition recommendations for bodybuilders in the off-season: a narrative review. Sports 7(7) — 0.25–0.5% bodyweight gain a week.' },
+      // Safety limits
+      { name: 'National Heart, Lung, and Blood Institute (1998). Clinical Guidelines on the Identification, Evaluation, and Treatment of Overweight and Obesity in Adults — low-calorie diet floors of about 1,200 kcal (women) and 1,500 kcal (men).' },
+    ],
+  },
+  {
     slug: 'plans',
     title: 'Pit Crew plans',
     summary:
       'How your training and meal plan is built: what the AI chooses, what our code calculates, and the limits it can never cross.',
     prose: `Claude (Anthropic's AI model) chooses the exercises and the foods. Every number you see is calculated by our code, not by the AI: your calorie and macro targets, your starting weights, and the grams and macros of every meal.
 
-Targets. The plan uses your own calorie and protein targets from Settings, checked against an estimate of your maintenance calories. With 14+ days of logged food and two weeks of weigh-ins, we measure it: what you ate minus what the scale says you stored (about 7,700 kcal per kg). Otherwise we use the Mifflin-St Jeor equation times an activity factor from your training days. Fat is set to 27% of calories and carbs fill the rest.
+Targets. The plan uses your own calorie and protein targets from Settings, checked against the app's estimate of your daily burn (see "Calorie target": it blends a formula with what your food logs and weigh-ins show). Fat is set to 27% of calories and carbs fill the rest.
 
 Safety limits. A plan never goes below your safe minimum: the higher of 1,500 kcal (men) or 1,200 kcal (women), your resting metabolic rate, and 75% of maintenance. It never goes more than 500 kcal above maintenance. Protein stays between 1.6 and 2.4 g per kg. If your target is outside these limits the plan moves it inside and tells you why under "Why this plan?". The chat runs through the same limits. Anyone under 18, or who answered yes to a health question (pregnancy, eating disorder, diabetes, kidney disease), gets a training plan only, and the chat won't change their calories.
 
@@ -241,7 +300,7 @@ Progression. When you hit the top of the rep range on every set at a weight, the
 
 Meals. Foods are looked up in the USDA FoodData Central database. Each day's portions are then scaled to hit your calorie and protein targets together: protein-rich foods and everything else get their own scaling, so a low-protein day leans on its tofu or chicken rather than just shrinking. Portions are rounded to 5 g. If USDA doesn't know a food, the AI's estimate is used and the plan says so. Allergies and your diet style are checked by our code, not trusted to the AI: a plan that breaks one is rebuilt once, and if it still does, the build fails and isn't counted.
 
-Weekly check-in. On Sunday evening the app counts your week (sessions done, exercises you skipped every time, lifts that went up, meals logged, average intake, weight trend) and the AI writes a short review with up to two suggestions: a new calorie target when your weight trend disagrees with your goal, swapping an exercise you keep skipping, or building a fresh plan. Nothing changes until you tap Apply, and applied changes go through the same safety limits.
+Weekly check-in. On Sunday evening the app counts your week (sessions done, exercises you skipped every time, lifts that went up, meals logged, average intake, weight trend) and the AI writes a short review with up to two suggestions: swapping an exercise you keep skipping, building a fresh plan, or (only if weekly calorie suggestions are off) a new calorie target when your weight trend disagrees with your goal. Nothing changes until you tap Apply, and applied changes go through the same safety limits.
 
 These plans are general fitness guidance, not medical advice.`,
     formula: `Maintenance (measured) = avg intake − weight trend (kg/wk) × 7,700 / 7
@@ -283,8 +342,10 @@ export function allSources(): Source[] {
   const out: Source[] = []
   for (const t of TOPICS) {
     for (const s of t.sources) {
-      if (seen.has(s.name)) continue
-      seen.add(s.name)
+      // The same paper can carry a different " — why it matters" note per topic.
+      const key = s.name.split(' — ')[0].replace(/\.$/, '')
+      if (seen.has(key)) continue
+      seen.add(key)
       out.push(s)
     }
   }

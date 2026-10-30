@@ -9,14 +9,17 @@ import { extractErrorMessage } from '../../../lib/apiError'
 import { hapticLight } from '../../../lib/haptics'
 import { SettingsGroup } from '../../../components/settings/SettingsGroup'
 import { SettingsRow } from '../../../components/settings/SettingsRow'
-import { GOAL_DETAIL, GOAL_LABEL, hourLabel } from '../../../components/settings/labels'
+import { GOAL_DETAIL, GOAL_LABEL, PACE_DETAIL, PACE_LABEL, hourLabel } from '../../../components/settings/labels'
+import { useAdaptiveCalories } from '../../../hooks/useAdaptiveCalories'
+import { PACES, paceKgPerWeek } from '../../../lib/targets'
+import { useUnits } from '../../../lib/units'
 
 // Short pick-one choices in a form sheet (DESIGN.md §5). Tapping an option
 // saves it and closes the sheet; a server rejection shows inline.
 
-type Field = 'goal' | 'sex' | 'bedtime'
+type Field = 'goal' | 'pace' | 'sex' | 'bedtime'
 
-const TITLES: Record<Field, string> = { goal: 'Goal', sex: 'Sex', bedtime: 'Bedtime' }
+const TITLES: Record<Field, string> = { goal: 'Goal', pace: 'Pace', sex: 'Sex', bedtime: 'Bedtime' }
 const GOALS: Goal[] = ['cut', 'maintain', 'bulk']
 const HOURS = Array.from({ length: 24 }, (_, i) => (i + 18) % 24) // evening first
 
@@ -27,6 +30,8 @@ export default function ChooseScreen() {
   const update = useUpdateMe()
   const { data: prefs } = usePreferences()
   const savePrefs = useSavePreferences()
+  const u = useUnits()
+  const { data: adaptive } = useAdaptiveCalories(field === 'pace')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState<string | null>(null)
 
@@ -35,7 +40,7 @@ export default function ChooseScreen() {
     setError(extractErrorMessage(e, "Couldn't save. Try again."))
   }
 
-  // Goal and sex both move the calorie estimate.
+  // Goal, pace and sex all move the calorie estimate.
   const recompute = (u: User) =>
     offerCalorieRecompute(
       u,
@@ -67,6 +72,26 @@ export default function ChooseScreen() {
         }
       />
     ))
+  } else if (field === 'pace') {
+    const goal = prefs?.goal === 'bulk' ? 'bulk' : 'cut'
+    const weight = adaptive?.estimate.weight_kg ?? user?.weight_kg ?? null
+    rows = PACES.map((p) => {
+      const kg = weight ? Math.abs(paceKgPerWeek(goal, p, weight)) : null
+      return (
+        <SettingsRow
+          key={p}
+          title={PACE_LABEL[p]}
+          detail={kg ? `About ${u.weightLabel(kg)} a week · ${PACE_DETAIL[goal][p]}` : PACE_DETAIL[goal][p]}
+          checked={(prefs?.pace ?? 'steady') === p}
+          loading={pending === p}
+          onPress={() =>
+            pick(p, () =>
+              savePrefs.mutate({ pace: p }, { onSuccess: () => (user ? recompute(user) : router.back()), onError: fail }),
+            )
+          }
+        />
+      )
+    })
   } else if (field === 'sex') {
     rows = (['male', 'female'] as const).map((s) => (
       <SettingsRow
@@ -96,7 +121,9 @@ export default function ChooseScreen() {
       ? 'Used for your calorie estimate and your avatar only.'
       : field === 'bedtime'
         ? 'Caffeine late in the day counts against your Form score relative to this time.'
-        : 'Changing your goal can update your calorie target.'
+        : field === 'pace'
+          ? `How fast to ${prefs?.goal === 'bulk' ? 'gain' : 'lose'} weight. Changing it can update your calorie target.`
+          : 'Changing your goal can update your calorie target.'
 
   return (
     <>
