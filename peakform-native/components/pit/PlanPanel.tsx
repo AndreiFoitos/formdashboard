@@ -13,19 +13,21 @@ import {
   useCheckin,
   usePitToday,
   type Plan,
+  type Suggestion,
   type Today,
   type TodayExercise,
 } from '../../hooks/usePitCrew'
 import { usePreferences } from '../../hooks/usePreferences'
 import { openPaywall, usePlan, type ScanUsage } from '../../hooks/usePlan'
 import { useExerciseName } from '../../hooks/useExerciseName'
-import { EXERCISE_NAME } from '../../lib/exercises'
+import { EXERCISE_NAME, isPerDumbbell } from '../../lib/exercises'
 import { hapticLight } from '../../lib/haptics'
 import { extractErrorMessage } from '../../lib/apiError'
 import { enablePredictiveNudges } from '../../lib/notifications'
 import { ExerciseLogSheet } from './ExerciseLogSheet'
 import { CheckinCard } from './CheckinCard'
-import { useUnits } from '../../lib/units'
+import { TargetBadge } from '../TargetBadge'
+import { useUnits, type Units } from '../../lib/units'
 import { colors } from '../../theme/tokens'
 
 // The Plan segment of the Pit tab: build a plan, then today's workout and
@@ -150,6 +152,16 @@ function Building() {
 
 // ─── Today ────────────────────────────────────────────────────────────────────
 
+/** "82.5 kg × 6", "Bodyweight × 9". */
+function headline(s: Suggestion, key: string, u: Units): string {
+  if (s.weight_kg == null) return `Bodyweight × ${s.reps}`
+  return `${u.liftLabel(s.weight_kg)}${isPerDumbbell(key) ? ' each' : ''} × ${s.reps}`
+}
+
+function repsLabel(ex: { reps_min: number; reps_max: number }): string {
+  return ex.reps_min === ex.reps_max ? String(ex.reps_max) : `${ex.reps_min}–${ex.reps_max}`
+}
+
 function ExerciseRow({
   ex,
   name,
@@ -164,6 +176,8 @@ function ExerciseRow({
   const u = useUnits()
   const done = ex.logged_today.length > 0
   const w = ex.suggestion.weight_kg
+  // Before: is today about more weight or one more rep. After: the call for next time.
+  const call = done ? ex.next : ex.suggestion
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -173,21 +187,61 @@ function ExerciseRow({
       <View className="flex-1 pr-3">
         <Text className={`text-footnote font-medium ${done ? 'text-text-subtle' : 'text-text'}`}>{name}</Text>
         <Text className="text-text-subtle text-caption mt-1">
-          {ex.sets} × {ex.reps_min === ex.reps_max ? ex.reps_max : `${ex.reps_min}–${ex.reps_max}`}
+          {ex.sets} × {repsLabel(ex)}
           {w != null ? ` · ${u.liftLabel(w)}` : ex.basis === 'bodyweight' ? ' · bodyweight' : ''}
         </Text>
+        {done && ex.next && ex.next.kind !== 'first' && (
+          <Text className="text-text-muted text-caption mt-1">Next time: {headline(ex.next, ex.key, u)}</Text>
+        )}
       </View>
-      {done ? (
-        <View className="flex-row items-center gap-1">
-          <Check size={16} color={colors.success} strokeWidth={3} />
-          <Text className="text-success text-caption font-medium">{ex.logged_today.length} sets</Text>
-        </View>
-      ) : (
-        <View className="bg-accent rounded-full px-3 py-2" style={{ borderCurve: 'continuous' }}>
-          <Text className="text-on-accent text-caption font-semibold">Log</Text>
-        </View>
-      )}
+      <View className="items-end gap-1">
+        {done ? (
+          <View className="flex-row items-center gap-1">
+            <Check size={16} color={colors.success} strokeWidth={3} />
+            <Text className="text-success text-caption font-medium">{ex.logged_today.length} sets</Text>
+          </View>
+        ) : (
+          <View className="bg-accent rounded-full px-3 py-2" style={{ borderCurve: 'continuous' }}>
+            <Text className="text-on-accent text-caption font-semibold">Log</Text>
+          </View>
+        )}
+        {call && call.kind !== 'first' && <TargetBadge kind={call.kind} />}
+      </View>
     </TouchableOpacity>
+  )
+}
+
+/** The next training day, with targets that already count today's sets:
+ *  which lifts go up in weight and which aim for one more rep. */
+function UpNextCard({ next }: { next: NonNullable<Today['up_next']> }) {
+  const u = useUnits()
+  const displayName = useExerciseName(EXERCISE_NAME)
+  return (
+    <View>
+      <SectionLabel>{`Up next · ${next.in_days === 1 ? 'Tomorrow' : WEEKDAYS[next.weekday]}`}</SectionLabel>
+      <Card>
+        <View className="px-4 pt-4 pb-3 border-b border-divider">
+          <Text className="text-text text-body font-semibold">{next.name}</Text>
+        </View>
+        {next.exercises.map((ex, i) => (
+          <View
+            key={ex.key}
+            className="px-4 py-3 flex-row items-center"
+            style={{ borderBottomWidth: i === next.exercises.length - 1 ? 0 : 1, borderBottomColor: colors.divider }}
+          >
+            <View className="flex-1 pr-3">
+              <Text className="text-text text-footnote font-medium">{displayName(ex.key)}</Text>
+              <Text className="text-text-subtle text-caption mt-1">
+                {ex.suggestion.kind === 'first'
+                  ? `${ex.sets} × ${repsLabel(ex)} · first time`
+                  : `${ex.sets} × ${repsLabel(ex)} · ${headline(ex.suggestion, ex.key, u)}`}
+              </Text>
+            </View>
+            {ex.suggestion.kind !== 'first' && <TargetBadge kind={ex.suggestion.kind} />}
+          </View>
+        ))}
+      </Card>
+    </View>
   )
 }
 
@@ -328,7 +382,7 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
         ) : (
           <Card className="p-4">
             <Text className="text-text text-body font-semibold">Rest day</Text>
-            {today.next_workout && (
+            {today.next_workout && !today.up_next && (
               <Text className="text-text-subtle text-footnote mt-1">
                 Next: {today.next_workout.name} on {WEEKDAYS[today.next_workout.weekday]}.
               </Text>
@@ -336,6 +390,9 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
           </Card>
         )}
       </View>
+
+      {/* After today's session (or on a rest day): what the next one looks like. */}
+      {today.up_next && (!w || w.exercises.every((ex) => ex.logged_today.length > 0)) && <UpNextCard next={today.up_next} />}
 
       {today.meals.length > 0 && today.targets && (
         <View>

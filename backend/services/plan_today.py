@@ -2,7 +2,9 @@
 
 Progression is plain code, no AI: double progression, shared with the
 Training tab (services/progression.py). Lifts with no history use the plan's
-starting weight.
+starting weight. Once an exercise is logged today, "next" is the call for
+next time (more weight or one more rep, from what was just lifted), and
+"up_next" previews the next training day the same way.
 
 When the chat rescales the rest of a day (adjust_today, after an off-plan
 meal), the factors live in plan["today_scale"][date][meal_id] and every
@@ -51,27 +53,65 @@ def suggest(ex: dict, sessions: list[list[TrainingLog]]) -> dict:
     return {"weight_kg": t["weight_kg"], "reps": t["reps"], "reason": t["reason"], "kind": t["kind"]}
 
 
+async def _sessions_by_key(
+    user: User, keys: set[str], today: date, db: AsyncSession
+) -> dict[str, dict[date, list[TrainingLog]]]:
+    """{exercise key: {date: sets}} over the lookback, today included."""
+    by_key: dict[str, dict[date, list[TrainingLog]]] = defaultdict(lambda: defaultdict(list))
+    if not keys:
+        return by_key
+    logs = (await db.execute(
+        select(TrainingLog)
+        .where(
+            TrainingLog.user_id == user.id,
+            TrainingLog.type.in_(keys),
+            TrainingLog.date >= today - LOOKBACK,
+        )
+        .order_by(TrainingLog.date, TrainingLog.volume_sets)
+    )).scalars().all()
+    for log in logs:
+        by_key[log.type][log.date].append(log)
+    return by_key
+
+
+def _upcoming(plan: dict, today: date) -> tuple[dict, int] | None:
+    """The next training day after today, and how many days away."""
+    for ahead in range(1, 8):
+        day = day_for_date(plan, today + timedelta(days=ahead))
+        if day:
+            return day, ahead
+    return None
+
+
+def _history(sessions: dict[date, list[TrainingLog]], until: date, include: bool) -> list[list[TrainingLog]]:
+    return [sessions[d] for d in sorted(sessions) if d < until or (include and d == until)]
+
+
+async def todays_targets(user: User, row: AiPlan, today: date, db: AsyncSession) -> tuple[dict, list[dict]] | None:
+    """Today's plan day and its exercises with suggestions, for the
+    training-day notification (services/smart_notifications.py)."""
+    day = day_for_date(row.plan or {}, today)
+    if not day:
+        return None
+    by_key = await _sessions_by_key(user, {e["key"] for e in day["exercises"]}, today, db)
+    return day, [
+        {**ex, "suggestion": suggest(ex, _history(by_key.get(ex["key"], {}), today, include=False))}
+        for ex in day["exercises"]
+    ]
+
+
 async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
     today = user_today(user.timezone)
     weekday = today.weekday()
     plan = row.plan or {}
 
     day = day_for_date(plan, today)  # after any skip this week
+    upcoming = _upcoming(plan, today)
+    keys = {e["key"] for d in (day, upcoming[0] if upcoming else None) if d for e in d["exercises"]}
+    by_key = await _sessions_by_key(user, keys, today, db)
+
     workout = None
     if day:
-        keys = [e["key"] for e in day["exercises"]]
-        logs = (await db.execute(
-            select(TrainingLog)
-            .where(
-                TrainingLog.user_id == user.id,
-                TrainingLog.type.in_(keys),
-                TrainingLog.date >= today - LOOKBACK,
-            )
-            .order_by(TrainingLog.date, TrainingLog.volume_sets)
-        )).scalars().all()
-        by_key: dict[str, dict[date, list[TrainingLog]]] = defaultdict(lambda: defaultdict(list))
-        for log in logs:
-            by_key[log.type][log.date].append(log)
         exercises = []
         for ex in day["exercises"]:
             sessions = by_key.get(ex["key"], {})
@@ -80,12 +120,36 @@ async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
             last = sessions[past[-1]] if past else []
             exercises.append({
                 **ex,
-                "suggestion": suggest(ex, [sessions[d] for d in past]),
+                "suggestion": suggest(ex, _history(sessions, today, include=False)),
+                # From what was just lifted: more weight or one more rep next time.
+                "next": suggest(ex, _history(sessions, today, include=True)) if done else None,
                 "last": [{"weight_kg": s.weight_kg, "reps": s.reps} for s in last],
                 "last_date": max(past).isoformat() if past else None,
                 "logged_today": [{"weight_kg": s.weight_kg, "reps": s.reps} for s in done],
             })
         workout = {**day, "exercises": exercises}
+
+    up_next = None
+    if upcoming:
+        nday, ahead = upcoming
+        up_next = {
+            "date": (today + timedelta(days=ahead)).isoformat(),
+            "weekday": nday["weekday"],
+            "name": nday["name"],
+            "in_days": ahead,
+            "exercises": [
+                {
+                    "key": ex["key"],
+                    "name": ex["name"],
+                    "sets": ex["sets"],
+                    "reps_min": ex["reps_min"],
+                    "reps_max": ex["reps_max"],
+                    "basis": ex.get("basis"),
+                    "suggestion": suggest(ex, _history(by_key.get(ex["key"], {}), today, include=True)),
+                }
+                for ex in nday["exercises"]
+            ],
+        }
 
     nutrition = plan.get("nutrition")
     meals, targets = [], None
@@ -95,12 +159,8 @@ async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
         meals = [{**m, "logged": m["id"] in logged} for m in todays_meals(row, today)]
 
     next_day = None
-    if not day:
-        for ahead in range(1, 8):
-            upcoming = day_for_date(plan, today + timedelta(days=ahead))
-            if upcoming:
-                next_day = {"weekday": upcoming["weekday"], "name": upcoming["name"]}
-                break
+    if not day and upcoming:
+        next_day = {"weekday": upcoming[0]["weekday"], "name": upcoming[0]["name"]}
 
     return {
         "date": today.isoformat(),
@@ -108,9 +168,41 @@ async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
         "workout": workout,
         "rest_day": day is None,
         "next_workout": next_day,
+        "up_next": up_next,
         "meals": meals,
         "targets": targets,
     }
+
+
+LB_PER_KG = 2.20462
+
+
+def _lift(kg: float, units: str) -> str:
+    return f"{kg * LB_PER_KG:.0f} lb" if units == "imperial" else f"{kg:g} kg"
+
+
+# Order the training-day notification lists lifts in: news first.
+_LINE_ORDER = {"weight": 0, "start": 1, "reps": 2, "bodyweight_harder": 3, "bodyweight_reps": 4, "stall": 5}
+
+
+def target_lines(exercises: list[dict], units: str, limit: int = 3) -> list[str]:
+    """"Bench press ↑ 82.5 kg", "Rows +1 rep at 60 kg": the progression
+    call per lift, for a notification. First-time lifts are left out."""
+    lines = []
+    for ex in sorted(exercises, key=lambda e: _LINE_ORDER.get(e["suggestion"]["kind"], 9)):
+        s, name = ex["suggestion"], ex["name"]
+        w = s["weight_kg"]
+        line = {
+            "weight": f"{name} ↑ {_lift(w, units)}" if w else None,
+            "start": f"{name} start at {_lift(w, units)}" if w else None,
+            "reps": f"{name} +1 rep at {_lift(w, units)}" if w else f"{name} +1 rep",
+            "bodyweight_reps": f"{name} +1 rep",
+            "bodyweight_harder": f"{name}: make it harder",
+            "stall": f"{name}: add a set",
+        }.get(s["kind"])
+        if line:
+            lines.append(line)
+    return lines[:limit]
 
 
 def _scale_meal(meal: dict, factor: float) -> dict:

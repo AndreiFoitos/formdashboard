@@ -7,6 +7,7 @@ import { extractErrorMessage } from '../../lib/apiError'
 import { cleanReps, cleanWeight, useUnits } from '../../lib/units'
 import { isPerDumbbell, loggingHint, UNILATERAL } from '../../lib/exercises'
 import { KEYBOARD_DONE_ID, KeyboardDoneBar } from '../KeyboardDoneBar'
+import { TargetBadge } from '../TargetBadge'
 import { colors } from '../../theme/tokens'
 
 // Log one exercise from today's plan. Sets come pre-filled with the
@@ -96,7 +97,10 @@ export function ExerciseLogSheet({
           automaticallyAdjustKeyboardInsets
         >
           <View className="bg-surface-raised border border-border rounded-xl p-3 mb-4" style={{ borderCurve: 'continuous' }}>
-            <Text className="text-text-subtle text-caption mb-2">Today's target</Text>
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-text-subtle text-caption">Today's target</Text>
+              {suggestion.kind !== 'first' && <TargetBadge kind={suggestion.kind} />}
+            </View>
             <Text className="text-text text-footnote">{suggestion.reason}</Text>
             {exercise.last.length > 0 && (
               <Text className="text-text-subtle text-caption mt-2">
