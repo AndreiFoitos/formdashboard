@@ -5,9 +5,10 @@ calorie suggestions (services/adaptive_calories.py), plan builds
 (plan_builder.compute_targets), the Pit Crew context and Settings.
 
 Daily burn (TDEE) comes from two places:
-- a formula: BMR times an activity factor for training days a week. BMR is
-  Katch-McArdle from lean mass when there's a body-fat reading from the last
-  90 days, otherwise Mifflin-St Jeor;
+- a formula: BMR times an activity factor for training days a week: the
+  days logged in Training once the account is two weeks old, the stated
+  number before that. BMR is Katch-McArdle from lean mass when there's a
+  body-fat reading from the last 90 days, otherwise Mifflin-St Jeor;
 - the logs: average intake minus what the weight trend says was stored or
   burned (7,700 kcal per kg), over the last 28 days.
 They're blended by how much data backs the measured number: it counts fully
@@ -41,6 +42,7 @@ MIN_DAY_KCAL = 800  # a day under this is taken as not fully logged
 
 ACTIVITY = [(1, 1.2), (3, 1.375), (5, 1.55), (7, 1.725)]  # max days/week -> factor
 FREQ_DAYS = {"0-1x": 2, "2-3x": 3, "4-5x": 4, "6x+": 5}
+LOG_HISTORY_DAYS = 14  # before this, the training days the user stated are used
 
 PACES = ("slow", "steady", "fast")
 # Share of bodyweight to lose (cut) or gain (bulk) a week. Mirrored in the
@@ -59,8 +61,21 @@ def training_days(prefs: UserPreference | None, freq: str | None) -> int:
     return FREQ_DAYS.get(freq or "", 3)
 
 
-def activity_factor(days: int) -> float:
-    return next(f for d, f in ACTIVITY if days <= d)
+def activity_factor(days: float) -> float:
+    """Logged days come as a weekly average (2.4); round to the nearest day."""
+    return next(f for d, f in ACTIVITY if days < d + 0.5)
+
+
+def effective_training_days(stated: int, logged_dates: int, history_days: int) -> tuple[float, str]:
+    """Training days a week for the activity factor, and where they came from.
+
+    Once there are two weeks of history, the days logged in Training win over
+    what the user said, in both directions: people are optimistic about how
+    often they train, and an active user logs their sessions. Until then the
+    stated number is all there is."""
+    if history_days < LOG_HISTORY_DAYS:
+        return float(stated), "stated"
+    return round(logged_dates * 7 / min(WINDOW_DAYS, history_days), 1), "logged"
 
 
 def slope_per_week(points: list[tuple[date, float]]) -> float | None:
@@ -97,10 +112,13 @@ class EnergyInputs:
     weights: list[tuple[date, float]]  # weigh-ins in the window, oldest first
     body_fat: tuple[date, float] | None  # latest reading
     intake: list[tuple[date, int]]  # logged calories per day, today excluded
-    training_days: int
+    training_days: float
     goal: str | None
     pace: str | None
     today: date
+    # "logged" (weekly average from Training) or "stated" (onboarding /
+    # preferences, used for the first two weeks or when passed in).
+    training_days_source: str = "stated"
 
 
 @dataclass
@@ -109,7 +127,8 @@ class Estimate:
     bmr: int | None
     bmr_method: str | None  # "katch" (lean mass) / "mifflin"
     body_fat_pct: float | None
-    training_days: int
+    training_days: float
+    training_days_source: str
     formula_tdee: int | None
     measured_tdee: int | None
     # 0-1: how much the measured burn counts in tdee.
@@ -213,6 +232,7 @@ def estimate(i: EnergyInputs) -> Estimate:
         bmr_method=method,
         body_fat_pct=round(bf, 1) if bf is not None else None,
         training_days=i.training_days,
+        training_days_source=i.training_days_source,
         formula_tdee=round(formula) if formula else None,
         measured_tdee=round(measured) if measured is not None else None,
         confidence=round(confidence, 2),
@@ -234,7 +254,8 @@ def estimate(i: EnergyInputs) -> Estimate:
 async def gather(
     user: User, prefs: UserPreference | None, today: date, db: AsyncSession, days: int | None = None
 ) -> EnergyInputs:
-    """Read what estimate() needs. `days` overrides training days a week."""
+    """Read what estimate() needs. `days` overrides training days a week
+    (as stated; the logs aren't read then)."""
     metrics = (await db.execute(
         select(BodyMetric)
         .where(BodyMetric.user_id == user.id, BodyMetric.date >= today - timedelta(days=BF_MAX_AGE_DAYS))
@@ -257,23 +278,22 @@ async def gather(
         if r.calories_eaten
     ]
 
+    source = "stated"
     if days is None:
         freq = (await db.execute(
             select(OnboardingBaseline.training_frequency).where(OnboardingBaseline.user_id == user.id)
         )).scalar_one_or_none()
-        days = training_days(prefs, freq)
-        # If they log more sessions than they said they'd do, believe the logs.
-        # Fewer is left to the measured burn: not every session gets logged.
-        age = (today - user.created_at.date()).days if user.created_at else 0
-        if age >= 14:
+        history = (today - user.created_at.date()).days if user.created_at else 0
+        logged = 0
+        if history >= LOG_HISTORY_DAYS:
             logged = (await db.execute(
                 select(func.count(func.distinct(TrainingLog.date))).where(
                     TrainingLog.user_id == user.id,
-                    TrainingLog.date >= today - timedelta(days=WINDOW_DAYS),
+                    TrainingLog.date >= today - timedelta(days=min(WINDOW_DAYS, history)),
                     TrainingLog.date < today,
                 )
             )).scalar_one()
-            days = min(7, max(days, round(logged * 7 / min(WINDOW_DAYS, age))))
+        days, source = effective_training_days(training_days(prefs, freq), logged, history)
 
     return EnergyInputs(
         sex=user.sex,
@@ -287,6 +307,7 @@ async def gather(
         goal=prefs.goal if prefs else None,
         pace=prefs.pace if prefs else None,
         today=today,
+        training_days_source=source,
     )
 
 

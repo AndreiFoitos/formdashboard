@@ -3,7 +3,7 @@ services/adaptive_calories.py)."""
 from datetime import date, timedelta
 
 from services.adaptive_calories import MAX_STEP, explain, propose
-from services.energy import EnergyInputs, estimate
+from services.energy import EnergyInputs, activity_factor, effective_training_days, estimate
 
 TODAY = date(2026, 10, 30)
 
@@ -108,6 +108,34 @@ def test_propose_skips_small_moves_and_caps_big_ones():
     assert propose(1500, est) == (full, full)
 
 
+def test_logged_training_days_win_after_two_weeks():
+    # Said 6, logs 2 a week: the logs are reality.
+    assert effective_training_days(6, 8, 30) == (2.0, "logged")
+    # Said 3, logs 5: same rule the other way.
+    assert effective_training_days(3, 20, 60) == (5.0, "logged")
+    # A 3-week-old account averages over the 21 days it has.
+    assert effective_training_days(6, 6, 21) == (2.0, "logged")
+    # Nothing logged in 4 weeks counts as not training.
+    assert effective_training_days(6, 0, 40) == (0.0, "logged")
+    # First two weeks: only the stated number exists.
+    assert effective_training_days(6, 1, 10) == (6.0, "stated")
+
+
+def test_activity_factor_rounds_weekly_averages():
+    assert activity_factor(1.4) == 1.2
+    assert activity_factor(1.5) == activity_factor(3) == 1.375
+    assert activity_factor(5.4) == 1.55
+    assert activity_factor(6) == 1.725
+
+
+def test_fewer_logged_days_lower_the_burn():
+    said = estimate(inputs(training_days=6))
+    logged = estimate(inputs(training_days=2.0, training_days_source="logged"))
+    assert logged.formula_tdee == round(said.bmr * 1.375)
+    assert logged.target_kcal < said.target_kcal
+    assert logged.training_days_source == "logged"
+
+
 def test_explain_says_where_the_number_comes_from():
     weights, intake = logged(28, 2600, 0.5)
     est = estimate(inputs(weights=weights, intake=intake))
@@ -118,3 +146,6 @@ def test_explain_says_where_the_number_comes_from():
     text = explain(formula, formula.target_kcal - 300, formula.target_kcal, "imperial")
     assert "226.2 lb" in text and "6 training days a week" in text
     assert "step towards it" in text and "gets more accurate" in text
+    from_logs = estimate(inputs(training_days=2.4, training_days_source="logged"))
+    text = explain(from_logs, from_logs.target_kcal, from_logs.target_kcal, "metric")
+    assert "2.4 logged training days a week" in text

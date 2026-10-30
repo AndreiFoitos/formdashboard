@@ -31,10 +31,14 @@ function Breakdown({ est }: { est: EnergyEstimate }) {
         ? 'From your food logs and weigh-ins'
         : `${Math.round(est.confidence * 100)}% from your logs, the rest from a formula`
   const logsDetail = `${est.logged_days} days of food logged, ${est.weigh_ins} weigh-ins in the last 4 weeks`
+  const days =
+    est.training_days_source === 'logged'
+      ? `${formatNumber(est.training_days, 1)} training days a week logged in the last 4 weeks`
+      : `${formatNumber(est.training_days)} training days a week, as you told us (your logs count after 2 weeks)`
   const formulaDetail =
     est.bmr_method === 'katch'
-      ? `Lean mass at ${est.body_fat_pct}% body fat, ${est.training_days} training days a week`
-      : `Age, height, weight and ${est.training_days} training days a week`
+      ? `Lean mass at ${est.body_fat_pct}% body fat, ${days}`
+      : `Age, height, weight, ${days}`
   const trend = est.weight_trend_kg_week
   const footer = [
     ...est.notes,

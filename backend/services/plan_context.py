@@ -133,7 +133,8 @@ async def _energy(user: User, prefs: UserPreference | None, today: date, db: Asy
         lines.append(f"pace: {est.pace} (aim {est.rate_kg_week:+.2f} kg/week)")
     if est.tdee:
         formula = (
-            f"formula {est.formula_tdee} ({est.bmr_method} BMR {est.bmr} x activity for {est.training_days} training days/week)"
+            f"formula {est.formula_tdee} ({est.bmr_method} BMR {est.bmr} x activity for {est.training_days:g} training days/week, "
+            f"{'from their training logs, last 4 weeks' if est.training_days_source == 'logged' else 'as stated; logs count after 2 weeks'})"
             if est.formula_tdee else "formula: missing age/height/sex"
         )
         measured = (

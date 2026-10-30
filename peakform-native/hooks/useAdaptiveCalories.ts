@@ -10,7 +10,9 @@ export interface EnergyEstimate {
   bmr: number | null
   bmr_method: 'katch' | 'mifflin' | null
   body_fat_pct: number | null
+  /** Weekly average: from Training logs once the account is 2 weeks old. */
   training_days: number
+  training_days_source: 'logged' | 'stated'
   formula_tdee: number | null
   measured_tdee: number | null
   /** 0–1: how much the measured burn counts. */

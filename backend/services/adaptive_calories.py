@@ -58,6 +58,11 @@ def _n(v: float) -> str:
     return f"{round(v / 10) * 10:,}"
 
 
+def _training(est: Estimate) -> str:
+    days = f"{est.training_days:g}"
+    return f"{days} logged training days a week" if est.training_days_source == "logged" else f"{days} training days a week"
+
+
 def explain(est: Estimate, new_kcal: int, full_kcal: int, units: str) -> str:
     """One or two plain sentences: what the burn is based on, then what the
     goal and pace need. Shown on the suggestion card."""
@@ -75,7 +80,7 @@ def explain(est: Estimate, new_kcal: int, full_kcal: int, units: str) -> str:
     else:
         bits = [f"{_kg(est.weight_kg, units)}" if est.weight_kg else None,
                 f"{est.body_fat_pct:.0f}% body fat" if est.body_fat_pct is not None else None,
-                f"{est.training_days} training days a week"]
+                _training(est)]
         parts.append(f"At {', '.join(b for b in bits if b)}, you burn about {_n(est.tdee)} kcal a day.")
     if est.goal == "maintain" or not est.rate_kg_week:
         parts.append(f"To hold your weight, eat about {_n(full_kcal)}.")

@@ -231,7 +231,7 @@ stalled = same top weight and no more total reps across 3 sessions
       'How your daily burn is estimated from your weigh-ins, food logs, body fat and training, and how the weekly suggestions work.',
     prose: `Your calorie target is your daily burn plus or minus what your goal needs. The burn is estimated two ways, and the app blends them.
 
-The formula. Your resting burn comes from your lean mass when you've logged a body-fat reading in the last 90 days (Katch-McArdle), otherwise from your age, height, weight and sex (Mifflin-St Jeor). It's multiplied by an activity factor for how many days a week you train. If you log more sessions than you said you'd do, the logged number is used.
+The formula. Your resting burn comes from your lean mass when you've logged a body-fat reading in the last 90 days (Katch-McArdle), otherwise from your age, height, weight and sex (Mifflin-St Jeor). It's multiplied by an activity factor for how many days a week you actually train. For your first 2 weeks that's the number you told us. After that it's the days you logged a workout in Training over the last 4 weeks, so log every session: a session you don't log doesn't count, and a plan you don't follow doesn't either.
 
 Your logs. Over the last 4 weeks, the app takes what you ate on fully logged days (days under 800 kcal are treated as half-logged and skipped) and compares it with your weight trend. If you ate 2,600 kcal a day and lost 0.5 kg a week, you burned about 2,600 + 550 = 3,150 kcal a day, since a kilo of body weight is roughly 7,700 kcal. This needs at least 10 logged days and 4 weigh-ins spread over 2 weeks. It counts for more as the data grows, and fully after 3 weeks of both. A number far from the formula (more than 30% off) is pulled back, because missed logs are the usual cause.
 
@@ -246,6 +246,8 @@ This is general fitness guidance, not medical advice.`,
   BMR (body fat known) = 370 + 21.6 × lean mass kg
   BMR (otherwise)      = 10·kg + 6.25·cm − 5·age + (5 men, −161 women)
   activity: ≤1 day 1.2 · 2-3 days 1.375 · 4-5 days 1.55 · 6+ 1.725
+  training days: as stated for 2 weeks, then days logged
+                 in the last 4 weeks × 7 / 28
 
 Burn (logs)     = avg intake − weight trend (kg/wk) × 7,700 / 7
 Weight on logs  = min(1, logged days / 21) × min(1, weigh-in span / 21)
