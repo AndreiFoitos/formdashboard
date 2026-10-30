@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { handleLimitError, useSetPlan } from './usePlan'
+import type { TargetKind } from './useProgression'
 
 // Pit Crew plans: backend/routers/plan_ai.py. Shapes match what
 // services/plan_builder.py stores and services/plan_today.py returns.
@@ -99,8 +100,18 @@ export interface SetLog {
   reps: number | null
 }
 
+/** A progressive overload call (backend services/plan_today.suggest). */
+export interface Suggestion {
+  weight_kg: number | null
+  reps: number
+  reason: string
+  kind: TargetKind
+}
+
 export interface TodayExercise extends PlanExercise {
-  suggestion: { weight_kg: number | null; reps: number; reason: string }
+  suggestion: Suggestion
+  /** Once logged today: what to aim for next time, from what was lifted. */
+  next: Suggestion | null
   last: SetLog[]
   last_date: string | null
   logged_today: SetLog[]
@@ -112,6 +123,14 @@ export interface Today {
   workout: (Omit<TrainingDay, 'exercises'> & { exercises: TodayExercise[] }) | null
   rest_day: boolean
   next_workout: { weekday: number; name: string } | null
+  /** The next training day after today, with targets that count today's sets. */
+  up_next: {
+    date: string
+    weekday: number
+    name: string
+    in_days: number
+    exercises: (Pick<PlanExercise, 'key' | 'name' | 'sets' | 'reps_min' | 'reps_max' | 'basis'> & { suggestion: Suggestion })[]
+  } | null
   meals: (PlanMeal & { logged: boolean })[]
   targets: Targets | null
 }

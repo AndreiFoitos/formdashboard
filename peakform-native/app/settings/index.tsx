@@ -111,31 +111,8 @@ function WidgetsGroup() {
 
 // ─── Notifications ─────────────────────────────────────────────────────────────
 
-interface PatternSlot {
-  log_type: 'hydration' | 'stimulant'
-  weekday: number
-  slot_minute: number
-  time_label: string
-  confidence: number
-  sample_count: number
-  suggested_amount_ml: number | null
-  suggested_substance: string | null
-  suggested_caffeine_mg: number | null
-}
-
-const WEEKDAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
-function formatTime12h(slotMin: number): string {
-  const h = Math.floor(slotMin / 60)
-  const m = slotMin % 60
-  const period = h < 12 ? 'AM' : 'PM'
-  const display = h % 12 === 0 ? 12 : h % 12
-  return `${display}:${m.toString().padStart(2, '0')} ${period}`
-}
-
 function NotificationsGroup() {
   const qc = useQueryClient()
-  const u = useUnits()
 
   const { data: status, refetch: refetchStatus } = useQuery({
     queryKey: ['nudge-status'],
@@ -144,19 +121,12 @@ function NotificationsGroup() {
   const granted = !!status?.granted
   const nudgesOn = granted && !status?.optedOut
 
-  // Only fetch patterns when nudges are on — saves a roundtrip.
-  const { data: slots, isLoading: slotsLoading } = useQuery<PatternSlot[]>({
-    queryKey: ['notif-patterns'],
-    queryFn: () => api.get('/notifications/patterns').then((r) => r.data),
-    enabled: nudgesOn,
-  })
-
   const enable = useMutation({
     mutationFn: enablePredictiveNudges,
     onSuccess: (result) => {
-      if (result.enabled) qc.invalidateQueries({ queryKey: ['notif-patterns'] })
+      if (result.enabled) qc.invalidateQueries({ queryKey: ['notification-settings'] })
       else if (result.reason === 'permission_denied') {
-        Alert.alert('Notifications are off', 'Allow notifications for GainRace in Settings to get nudges.', [
+        Alert.alert('Notifications are off', 'Allow notifications for GainRace in Settings to get reminders.', [
           { text: 'Not now', style: 'cancel' },
           { text: 'Open Settings', onPress: () => Linking.openSettings() },
         ])
@@ -179,56 +149,22 @@ function NotificationsGroup() {
     else enable.mutate()
   }
 
-  function slotSummary(s: PatternSlot): string {
-    if (s.log_type === 'hydration') {
-      return s.suggested_amount_ml ? `${formatNumber(u.water(s.suggested_amount_ml))} ${u.waterUnit} water` : 'Water'
-    }
-    const label = s.suggested_substance
-      ? s.suggested_substance.charAt(0).toUpperCase() + s.suggested_substance.slice(1)
-      : 'Coffee'
-    return s.suggested_caffeine_mg ? `${label} (${s.suggested_caffeine_mg} mg)` : label
-  }
-
-  // A preview of what we'd nudge for, not the full list.
-  const previewSlots = (slots ?? []).slice(0, 6)
   const busy = enable.isPending || disable.isPending
 
   return (
-    <>
-      <SettingsGroup
-        header="Notifications"
-        footer="Smart nudges remind you when you usually log water or coffee, with a Log button in the notification."
-      >
-        <SettingsRow title="Notifications" value={status ? (granted ? 'On' : 'Off') : undefined} onPress={onNotificationsRow} />
-        <SettingsRow
-          title="Smart nudges"
-          switchValue={nudgesOn}
-          loading={busy}
-          onSwitch={(on) => (on ? enable.mutate() : disable.mutate())}
-        />
-      </SettingsGroup>
-      {nudgesOn && (
-        <SettingsGroup header="Nudge times">
-          {slotsLoading ? (
-            <View className="py-3 items-center">
-              <ActivityIndicator color={colors['text-subtle']} />
-            </View>
-          ) : previewSlots.length === 0 ? (
-            <Text className="text-text-subtle text-footnote px-4 py-3">
-              Not enough log history yet. Times appear after about 3 weeks of regular logging.
-            </Text>
-          ) : (
-            previewSlots.map((s) => (
-              <SettingsRow
-                key={`${s.log_type}-${s.weekday}-${s.slot_minute}`}
-                title={`${WEEKDAY_SHORT[s.weekday]} ${formatTime12h(s.slot_minute)}`}
-                value={slotSummary(s)}
-              />
-            ))
-          )}
-        </SettingsGroup>
-      )}
-    </>
+    <SettingsGroup
+      header="Notifications"
+      footer="Smart reminders learn when you usually log meals, workouts, weigh-ins, water and coffee, and remind you only when you're later than usual."
+    >
+      <SettingsRow title="Notifications" value={status ? (granted ? 'On' : 'Off') : undefined} onPress={onNotificationsRow} />
+      <SettingsRow
+        title="Smart reminders"
+        switchValue={nudgesOn}
+        loading={busy}
+        onSwitch={(on) => (on ? enable.mutate() : disable.mutate())}
+      />
+      {nudgesOn && <SettingsRow title="Reminders" onPress={() => router.push('/settings/notifications')} />}
+    </SettingsGroup>
   )
 }
 

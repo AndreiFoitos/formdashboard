@@ -33,6 +33,7 @@ from services.log_patterns import (
     get_patterns_for_user,
 )
 from services.stimulants import PRESETS as SUBSTANCES
+from services.smart_notifications import switched_off
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +146,9 @@ async def _user_has_active_tokens(db: AsyncSession, user_id: uuid.UUID) -> bool:
 async def _process_user(user: User, db: AsyncSession) -> int:
     """Returns how many pushes were sent for this user."""
     if not await _user_has_active_tokens(db, user.id):
+        return 0
+    # Settings > Notifications > Water and coffee.
+    if "water_coffee" in await switched_off(user.id, db):
         return 0
 
     tz_name = user.timezone or "UTC"

@@ -58,6 +58,11 @@ def pushes(monkeypatch):
 
     monkeypatch.setattr(notifier.push, "send_to_user", fake_send)
     monkeypatch.setattr(notifier, "_user_has_active_tokens", yes)
+
+    async def none_off(*a, **kw):
+        return set()
+
+    monkeypatch.setattr(notifier, "switched_off", none_off)
     monkeypatch.setattr(notifier, "_already_logged_near_slot", no)
     return sent
 

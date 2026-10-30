@@ -329,6 +329,43 @@ Next weight, once every set hits the top of the range:
       { name: 'USDA FoodData Central', url: 'https://fdc.nal.usda.gov/' },
     ],
   },
+  {
+    slug: 'reminders',
+    title: 'Smart reminders',
+    summary: 'How the app learns when you usually log things, and when it decides a reminder is worth sending.',
+    prose: `Reminders are timed by your own habits, not a fixed schedule. The app looks at your last 4 weeks of logs (recent weeks count more) and works out, for each meal, your training and your weigh-ins, how often you do it and at what time. Only things logged on the day they happened count, so catching up on last week doesn't teach it wrong times.
+
+When a reminder goes out. A meal counts as a habit when you log it on at least half of days. Its reminder waits until you're later than you are on most days (later than 80% of your logs, and at least 30 minutes after your usual time), because by then a missing log is more likely forgotten than skipped. Things you rarely log never get a reminder.
+
+Training. On a day your plan has a session, you get your targets about 90 minutes before you usually train: which lifts go up in weight and which aim for one more rep, worked out from what you lifted last time (see "Progressive overload targets"). On a day you usually train, if nothing is logged an hour after you usually finish, you get one reminder to log your sets.
+
+Protein. In the evening, if you're tracking food today and you're under 75% of your protein target (and at least 30 g short), one reminder.
+
+Weigh-ins. If you weigh in regularly, a reminder at your usual time once it's been twice as long as usual since the last one.
+
+After a break. If you were logging regularly and then nothing for 3 days, one reminder, and one more at 7 days. Then nothing until you're back.
+
+Limits. At most 3 a day, at least 90 minutes apart, nothing before 8:00 AM or in the hour before your bedtime. If you ignore the last 4 of a kind (not opened, and nothing logged after), that kind pauses for a week by itself. Every kind has its own switch in Settings → Notifications → Reminders.`,
+    formula: `Habit share = weighted days with it / weighted days (half-life 14 days)
+Meal is a habit:  share ≥ 50% and seen on ≥ 6 days
+Meal reminder at: max(80th percentile of log times + 20 min,
+                      usual time + 30 min), until the meal window + 1 h
+  breakfast 5-11 · lunch 11-15 · dinner 15-22
+
+Training day:     in your plan, or share for that weekday ≥ 60%
+Targets:          usual start − 90 min (9:00 AM without one)
+Log reminder:     max(usual finish + 1 h, 6:00 PM), needs ≥ 4 sessions in 4 weeks
+
+Protein:          after max(6:00 PM, bedtime − 3 h), < 75% and ≥ 30 g short
+Weigh-in:         days since last ≥ max(2, 2 × usual gap)
+After a break:    3 and 7 quiet days, if ≥ 5 active days in the 4 weeks before
+
+Backoff: last 4 of a kind unopened and not acted on → paused 7 days`,
+    sources: [
+      { name: 'Nahum-Shani, I. et al. (2018). Just-in-Time Adaptive Interventions (JITAIs) in Mobile Health: key components and design principles for ongoing health behavior support. Ann Behav Med 52(6).' },
+      { name: 'Lally, P. et al. (2010). How are habits formed: modelling habit formation in the real world. Eur J Soc Psychol 40(6).' },
+    ],
+  },
 ]
 
 export function getTopic(slug: string): Topic | undefined {

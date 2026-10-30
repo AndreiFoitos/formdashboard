@@ -9,6 +9,11 @@
 - dispatch_predictive_nudges (every 15 min): pushes log-reminder notifications
   to users at the slots where they typically log water / coffee.
 
+- dispatch_smart_notifications (every 15 min, offset from the nudges):
+  meal, training, protein, weigh-in and comeback reminders timed by each
+  user's habits (services/smart_notifications.py). Its push log is pruned
+  nightly.
+
 - dispatch_weekly_checkins (hourly at :05): Pit Crew weekly check-in and push
   for users whose local time is past 6 pm on Sunday.
 
@@ -31,6 +36,7 @@ from services.ai_features import generate_daily_digest
 from services.notifier import dispatch_predictive_nudges
 from services.plan_checkin import dispatch_weekly_checkins
 from services.saved_meals import detect_all_saved_meals
+from services.smart_notifications import dispatch_smart_notifications, prune_push_events
 from services.split_detection import detect_all_user_splits
 
 logger = logging.getLogger(__name__)
@@ -143,6 +149,27 @@ def start_scheduler() -> AsyncIOScheduler:
         coalesce=True,
         max_instances=1,
     )
+    # Smart reminders: same 15-min cadence, 7 minutes after the nudges so
+    # the two never run (or land on a phone) at the same moment.
+    sched.add_job(
+        dispatch_smart_notifications,
+        trigger="cron",
+        minute="7,22,37,52",
+        id="dispatch_smart_notifications",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    sched.add_job(
+        prune_push_events,
+        trigger="cron",
+        hour=3,
+        minute=55,
+        id="prune_push_events",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
     # Saved-meal detection runs nightly at 03:30 UTC — quiet time, after the
     # day's logs are done. Per-user failures are isolated inside the job.
     sched.add_job(
@@ -184,6 +211,7 @@ def start_scheduler() -> AsyncIOScheduler:
     logger.info(
         "Scheduler started: prewarm_digests@*/15min (96-slot stagger), "
         "dispatch_predictive_nudges@*/15min, "
+        "dispatch_smart_notifications@*/15min (+7), prune_push_events@03:55 UTC, "
         "detect_all_saved_meals@03:30 UTC, "
         "detect_all_user_splits@03:45 UTC, "
         "dispatch_weekly_checkins@hourly :05"

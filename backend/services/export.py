@@ -21,6 +21,7 @@ from models.calorie_update import CalorieUpdate
 from models.daily_summary import DailySummary
 from models.hydration_log import HydrationLog
 from models.nutrition_log import NutritionLog
+from models.push_event import PushEvent
 from models.stimulant_log import StimulantLog
 from models.training_log import TrainingLog
 from models.user import User
@@ -50,6 +51,7 @@ TABLES = {
     "calorie_suggestions": (CalorieUpdate, [
         "week_start", "old_kcal", "new_kcal", "status", "reason", "created_at", "decided_at",
     ]),
+    "reminders": (PushEvent, ["sent_at", "kind", "opened_at", "acted_at"]),
 }
 
 
@@ -73,7 +75,9 @@ async def build_zip(user: User, db: AsyncSession) -> bytes:
             if order is None:
                 order = getattr(model, "logged_at", None)
             if order is None:
-                order = model.created_at
+                order = getattr(model, "created_at", None)
+            if order is None:
+                order = model.sent_at
             rows = (await db.execute(
                 select(model).where(model.user_id == user.id).order_by(order)
             )).scalars().all()

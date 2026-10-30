@@ -26,13 +26,12 @@ import { TrustedShield } from '../../components/icons/TrustedShield'
 import { SusFace } from '../../components/icons/SusFace'
 import { ALL_EXERCISES, EXERCISE_NAME, GROUPS, isPerDumbbell, loggingHint, UNILATERAL, type Exercise, type Group } from '../../lib/exercises'
 import {
-  KIND_COLOUR,
-  KIND_LABEL,
   PROGRESSION_KEY,
   targetHeadline,
   useProgression,
   type ExerciseProgression,
 } from '../../hooks/useProgression'
+import { TargetBadge } from '../../components/TargetBadge'
 import { UndoToast } from '../../components/UndoToast'
 import { showUndo } from '../../store/undo'
 import { cleanReps, cleanWeight, useUnits } from '../../lib/units'
@@ -395,11 +394,7 @@ function ExerciseBlock({
         <View className="bg-surface-raised border border-border rounded-xl p-3 mb-3" style={{ borderCurve: 'continuous' }}>
           <View className="flex-row items-center justify-between mb-2">
             <Text className="text-text-subtle text-caption">Next target</Text>
-            <View className="rounded-full px-2 py-1" style={{ borderCurve: 'continuous', backgroundColor: `${KIND_COLOUR[target.kind]}22` }}>
-              <Text className="text-caption font-semibold" style={{ color: KIND_COLOUR[target.kind] }}>
-                {KIND_LABEL[target.kind]}
-              </Text>
-            </View>
+            <TargetBadge kind={target.kind} />
           </View>
           <Text className="text-text text-headline font-bold">
             {targetHeadline(target, u)}{perDb && target.weight_kg != null ? ' each' : ''}

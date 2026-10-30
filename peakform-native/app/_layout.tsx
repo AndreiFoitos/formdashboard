@@ -13,6 +13,7 @@ import { api } from '../api/client'
 import {
   handlePlanReadyResponse,
   handleQuickLogResponse,
+  handleSmartResponse,
   registerIfGranted,
   setupNotificationHandlers,
 } from '../lib/notifications'
@@ -120,7 +121,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       const N = await import('expo-notifications')
       const initial = await N.getLastNotificationResponseAsync()
       if (initial && !cancelled) {
-        if (!handlePlanReadyResponse(initial, qc)) await handleQuickLogResponse(initial, qc)
+        if (!handlePlanReadyResponse(initial, qc) && !handleSmartResponse(initial, qc)) await handleQuickLogResponse(initial, qc)
       }
     })().catch(() => {})
     return () => {
@@ -135,7 +136,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       await setupNotificationHandlers()
       const N = await import('expo-notifications')
       sub = N.addNotificationResponseReceivedListener((resp) => {
-        if (!handlePlanReadyResponse(resp, qc)) handleQuickLogResponse(resp, qc).catch(() => {})
+        if (!handlePlanReadyResponse(resp, qc) && !handleSmartResponse(resp, qc)) handleQuickLogResponse(resp, qc).catch(() => {})
       })
     })().catch(() => {})
     return () => sub?.remove()
@@ -234,6 +235,7 @@ function RootLayout() {
               <Stack.Screen name="settings/training" options={{ ...pushedHeader, title: 'Training preferences' }} />
               <Stack.Screen name="settings/nutrition" options={{ ...pushedHeader, title: 'Nutrition preferences' }} />
               <Stack.Screen name="settings/calories" options={{ ...pushedHeader, title: 'Calories' }} />
+              <Stack.Screen name="settings/notifications" options={{ ...pushedHeader, title: 'Reminders' }} />
               <Stack.Screen name="settings/edit/[field]" options={modalHeader} />
               <Stack.Screen name="settings/add-email" options={modalHeader} />
               <Stack.Screen name="settings/choose/[field]" options={formSheet} />
