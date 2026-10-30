@@ -1,8 +1,19 @@
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native'
+import { useState } from 'react'
+import { ActivityIndicator, Alert, ScrollView, Text, View } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { router } from 'expo-router'
 import { api } from '../../api/client'
-import { useReminderSettings, useSetReminder, type LearnedHabits, type ReminderSettings } from '../../hooks/useNotificationSettings'
+import {
+  useReminderCheck,
+  useReminderSettings,
+  useSendTestReminder,
+  useSetReminder,
+  type LearnedHabits,
+  type ReminderCheck,
+  type ReminderSettings,
+  type TestKind,
+} from '../../hooks/useNotificationSettings'
+import { extractErrorMessage } from '../../lib/apiError'
 import { formatNumber } from '../../lib/format'
 import { hapticLight } from '../../lib/haptics'
 import { useUnits, type Units } from '../../lib/units'
@@ -146,6 +157,78 @@ function Switches({ data }: { data: ReminderSettings }) {
   )
 }
 
+// ─── Testing (accounts in the backend's REMINDER_TESTERS only) ────────────────
+
+const TEST_ROWS: { kind: TestKind; title: string }[] = [
+  { kind: 'meal', title: 'Meal not logged' },
+  { kind: 'workout_preview', title: 'Training targets' },
+  { kind: 'workout_log', title: 'Log your sets' },
+  { kind: 'protein', title: 'Protein check' },
+  { kind: 'weigh_in', title: 'Weigh-in' },
+  { kind: 'comeback', title: 'After a break' },
+]
+
+const STATUS_LABEL: Record<ReminderCheck['checks'][number]['status'], string> = {
+  due: 'Due now',
+  waiting: 'Not now',
+  off: 'Off',
+  paused: 'Paused',
+  sent: 'Sent today',
+}
+
+function TestTools() {
+  const check = useReminderCheck(true)
+  const send = useSendTestReminder()
+  const [sending, setSending] = useState<TestKind | null>(null)
+
+  function sendTest(kind: TestKind) {
+    hapticLight()
+    setSending(kind)
+    send.mutate(kind, {
+      onSuccess: (r) => Alert.alert('Sent', `"${r.title}" should arrive in a few seconds. Tap it to check where it opens.`),
+      onError: (e) => Alert.alert("Couldn't send", extractErrorMessage(e, 'Please try again.')),
+      onSettled: () => setSending(null),
+    })
+  }
+
+  const data = check.data
+  return (
+    <>
+      <SettingsGroup
+        header="Testing: send a test"
+        footer="Sends that reminder to this phone right away, with your own numbers where there are any. Tests don't count towards the daily limit."
+      >
+        {TEST_ROWS.map((t) => (
+          <SettingsRow key={t.kind} title={t.title} value="Send" loading={sending === t.kind} onPress={() => sendTest(t.kind)} />
+        ))}
+      </SettingsGroup>
+
+      <SettingsGroup
+        header="Testing: what would fire now"
+        footer={data ? `Your time: ${data.local_time} (${data.timezone}). Sent today: ${data.sent_today} of 3. The server checks every 15 minutes.` : undefined}
+      >
+        {check.isLoading ? (
+          <View className="py-3 items-center">
+            <ActivityIndicator color={colors['text-subtle']} />
+          </View>
+        ) : !data ? (
+          <Text className="text-text-subtle text-footnote px-4 py-3">{"Couldn't load this. Check again in a moment."}</Text>
+        ) : (
+          <>
+            {data.blocked.map((b) => (
+              <SettingsRow key={b} title="On hold" detail={b} />
+            ))}
+            {data.checks.map((c) => (
+              <SettingsRow key={`${c.kind}-${c.label}`} title={c.label} detail={c.reason} value={STATUS_LABEL[c.status]} />
+            ))}
+          </>
+        )}
+        <SettingsRow title="Check again" loading={check.isFetching} onPress={() => check.refetch()} />
+      </SettingsGroup>
+    </>
+  )
+}
+
 export default function RemindersScreen() {
   const { data, isLoading } = useReminderSettings()
   const waterCoffeeOn = data?.categories.find((c) => c.key === 'water_coffee')?.enabled ?? true
@@ -163,6 +246,7 @@ export default function RemindersScreen() {
           <SettingsGroup>
             <SettingsRow title="How reminders work" onPress={() => router.push('/methodology/reminders')} />
           </SettingsGroup>
+          {data.tester && <TestTools />}
         </>
       )}
     </ScrollView>

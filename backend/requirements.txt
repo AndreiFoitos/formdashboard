@@ -16,3 +16,5 @@ apscheduler==3.11.2
 python-dotenv==1.1.0
 slowapi==0.1.9
 sentry-sdk[fastapi]==2.43.0
+# zoneinfo's database, in case the image has none
+tzdata==2026.3

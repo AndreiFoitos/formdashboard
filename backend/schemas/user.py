@@ -1,8 +1,9 @@
 from __future__ import annotations
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
 from typing import Literal
 import uuid
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from schemas.avatar import AvatarConfig
 
@@ -75,3 +76,17 @@ class UserUpdate(BaseModel):
     water_target_ml: int | None = None
     calorie_target: int | None = None
     avatar: AvatarConfig | None = None
+
+    @field_validator("timezone")
+    @classmethod
+    def _known_timezone(cls, v: str | None) -> str | None:
+        """The app sends the phone's IANA zone ("Europe/Bucharest"); every
+        local-time calculation (reminders, "today") depends on it."""
+        if v is None:
+            return v
+        try:
+            ZoneInfo(v)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise ValueError("Unknown timezone")
+        return v
+
