@@ -7,11 +7,15 @@ from core.database import Base
 
 
 class Streak(Base):
+    """Kept up to date from the logs by services/streaks.refresh_streak; read
+    it through that, not straight from the table."""
     __tablename__ = "streaks"
 
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     current_streak: Mapped[int] = mapped_column(Integer, default=0)
     longest_streak: Mapped[int] = mapped_column(Integer, default=0)
+    # Latest local day with a log. current_streak is the run ending on it, or 0
+    # once a whole day has passed without one.
     last_processed_date: Mapped[date] = mapped_column(Date, nullable=True)
 
     # Relationships

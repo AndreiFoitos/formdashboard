@@ -29,11 +29,11 @@ from sqlalchemy import select, func as sqlfunc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.daily_summary import DailySummary
-from models.streak import Streak
 from models.stimulant_log import StimulantLog
 from models.training_log import TrainingLog
 from services.social_notifications import set_volume_kg
 from services.stimulants import caffeine_at_time
+from services.streaks import refresh_streak
 
 
 WEIGHTS = {
@@ -230,8 +230,8 @@ async def compute_form_score(day: DailySummary, user, db: AsyncSession) -> tuple
     today_volume, baseline_volume = await _volume_today_and_baseline_kg(
         user.id, day.date, user.weight_kg, db,
     )
-    streak_row = await db.get(Streak, user.id)
-    current_streak = streak_row.current_streak if streak_row else 0
+    streak_row = await refresh_streak(user, db)
+    current_streak = streak_row.current_streak
 
     # Targets — fall back to weight-based defaults if the user hasn't customised.
     target_water_ml = user.water_target_ml or (

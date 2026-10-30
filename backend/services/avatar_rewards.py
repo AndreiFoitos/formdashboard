@@ -28,7 +28,6 @@ from core.timezone import user_today
 from models.avatar_achievement import AvatarAchievement
 from models.daily_summary import DailySummary
 from models.friendship import Friendship
-from models.streak import Streak
 from models.training_log import TrainingLog
 from models.user import User
 from models.vouch import Vouch
@@ -37,6 +36,7 @@ from services.billing import owned_pack_products
 from services.exercise_taxonomy import DUMBBELL_PAIR, UNILATERAL, volume_factor
 from services.social_notifications import BODYWEIGHT_EXERCISES
 from services.stimulants import get_caffeine_curve
+from services.streaks import refresh_streak
 
 GOLDEN_AFTER_DAYS = 7
 BACKFILL_DAYS = 120
@@ -285,7 +285,7 @@ async def _stats(user: User, db: AsyncSession) -> dict[str, float]:
     workout_days = await db.scalar(
         select(func.count(func.distinct(TrainingLog.date))).where(TrainingLog.user_id == uid)
     )
-    streak = await db.scalar(select(Streak.longest_streak).where(Streak.user_id == uid))
+    streak = (await refresh_streak(user, db)).longest_streak
     vouches = await db.scalar(select(func.count(Vouch.id)).where(Vouch.target_user_id == uid))
     water_days = 0
     if user.water_target_ml:
