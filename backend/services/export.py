@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.ai_message import AiMessage
 from models.body_metric import BodyMetric
+from models.calorie_update import CalorieUpdate
 from models.daily_summary import DailySummary
 from models.hydration_log import HydrationLog
 from models.nutrition_log import NutritionLog
@@ -46,6 +47,9 @@ TABLES = {
     ]),
     "body_metrics": (BodyMetric, ["date", "weight_kg", "body_fat_pct", "source", "logged_at"]),
     "ai_chat": (AiMessage, ["created_at", "role", "content"]),
+    "calorie_suggestions": (CalorieUpdate, [
+        "week_start", "old_kcal", "new_kcal", "status", "reason", "created_at", "decided_at",
+    ]),
 }
 
 

@@ -27,7 +27,6 @@ from core.timezone import user_today
 from models.ai_message import AiMessage
 from models.ai_plan import AiPlan
 from models.daily_summary import DailySummary
-from models.onboarding import OnboardingBaseline
 from models.user import User
 from models.user_preference import UserPreference
 from services.ai_client import claude_message
@@ -47,7 +46,6 @@ from services.plan_builder import (
     food_conflicts,
     meal_plan_allowed,
     start_weight,
-    training_days,
 )
 from services.plan_context import build_context
 from services.plan_edit import this_week
@@ -67,7 +65,8 @@ When to use tools:
 - "I don't like X": save_preference(dislike) and swap_meal every meal that contains X.
 - Allergies and injuries: save only what the user says about themselves. Never infer one. Save injuries as the body part only ("left elbow"), allergies as the food ("peanuts").
 - Ate something off-plan: adjust_today with your best macro estimate. Set log_it only if they asked you to log it.
-- "Eat less / more": change_targets. It enforces safe limits; if it reports a clamp, tell them.
+- "Eat less / more" or a specific number: change_targets. It enforces safe limits; if it reports a clamp, tell them.
+- Questions about their calorie target, burn or maintenance: use the numbers in the "Calories (computed by the app)" section; don't work out your own. If weekly suggestions are on, the target updates through them; if off and they want it to follow their data, set_auto_calories(on).
 - They describe their split or how many days they train ("I do chest/back, arms/shoulders, legs", "I train 6 days"): set_training_setup. A split is the session cycle in order, as short labels ("Chest + Back", "Arms + Shoulders", "Legs"); it repeats across their training days, so a 3-session cycle on 6 days runs twice. If they train with no fixed rest days and skip one when life gets in the way, count the days they actually train.
 - A whole new plan: don't build it here. Tell them to tap "Build a new plan" on the Plan side of the Pit tab ("Build my plan" before their first one). It uses their days, split, session length, equipment, experience and injuries. All of these can also be changed in Settings > Training preferences.
 - swap_meal foods: one plain ingredient each, with its state ("chicken thighs, cooked"), and your per_100g estimate. Match the old meal's slot and roughly its calories; the app rescales grams.
@@ -190,9 +189,15 @@ def tools(exercise_keys: list[str]) -> list[dict]:
         },
         {
             "name": "change_targets",
-            "description": "Change the user's daily calorie and/or protein target. Enforces safe limits and rescales the meal plan.",
+            "description": "Change the user's daily calorie and/or protein target. Enforces safe limits and rescales the meal plan. A new calorie number turns weekly calorie suggestions off.",
             "strict": True,
             "input_schema": _obj({"calories": _nullable("integer"), "protein_g": _nullable("integer")}),
+        },
+        {
+            "name": "set_auto_calories",
+            "description": "Turn the weekly calorie suggestions on or off. When on, each Monday the app offers a new calorie target from their weigh-ins, food logs, body fat and training; they tap to accept.",
+            "strict": True,
+            "input_schema": _obj({"on": {"type": "boolean"}}),
         },
     ]
 
@@ -413,7 +418,24 @@ class Turn:
         self.record("adjust_today", summary[0].upper() + summary[1:], undo)
         return f"Done: {summary}.{note}"
 
-    async def change_targets(self, calories: int | None, protein_g: int | None) -> str:
+    async def set_auto_calories(self, on: bool) -> str:
+        if on and not meal_plan_allowed(self.user, self.prefs):
+            raise ToolError("Calorie changes are off for this user (age or a health answer).")
+        if self.prefs is None:
+            self.prefs = UserPreference(user_id=self.user.id)
+            self.db.add(self.prefs)
+        before = {"adaptive_calories": self.prefs.adaptive_calories}
+        self.prefs.adaptive_calories = on
+        self.record("set_auto_calories", f"Turned weekly calorie suggestions {'on' if on else 'off'}", {"prefs": before})
+        if not on:
+            return "Done: weekly calorie suggestions are off; the target stays where it is."
+        goal = "" if self.prefs.goal else " They have no goal set, so nothing will come until they pick one in Settings."
+        return ("Done: weekly calorie suggestions are on. Each Monday the app compares their target with its burn "
+                "estimate and offers a new one on the Nutrition tab; they tap to accept." + goal)
+
+    async def change_targets(self, calories: int | None, protein_g: int | None, manual: bool = True) -> str:
+        """`manual` is a number the user picked, which turns the weekly
+        calorie suggestions off. Accepting a suggestion passes False."""
         if not meal_plan_allowed(self.user, self.prefs):
             raise ToolError("Calorie and protein changes are off for this user (age or a health answer). "
                             "Say food changes should go through their doctor or a dietitian.")
@@ -424,10 +446,10 @@ class Turn:
             self.user.calorie_target = int(calories)
         if protein_g is not None:
             self.user.protein_target_g = float(protein_g)
-        freq = (await self.db.execute(
-            select(OnboardingBaseline.training_frequency).where(OnboardingBaseline.user_id == self.user.id)
-        )).scalar_one_or_none()
-        t = await compute_targets(self.user, self.prefs, training_days(self.prefs, freq), self.today, self.db)
+        auto_off = manual and calories is not None and self.prefs is not None and self.prefs.adaptive_calories
+        if auto_off:
+            self.prefs.adaptive_calories = False
+        t = await compute_targets(self.user, self.prefs, self.today, self.db)
         # compute_targets applied the §8 limits; store the clamped values.
         self.user.calorie_target = int(t["kcal"])
         self.user.protein_target_g = float(t["protein_g"])
@@ -454,9 +476,14 @@ class Turn:
             bits.append(f"calories {before['calorie_target']} → {self.user.calorie_target} kcal")
         if protein_g is not None:
             bits.append(f"protein {round(before['protein_target_g'] or 0)} → {round(self.user.protein_target_g)} g")
-        self.record("change_targets", "Changed " + ", ".join(bits), {"user": before})
+        undo = {"user": before}
+        if auto_off:
+            undo["prefs"] = {"adaptive_calories": True}
+        self.record("change_targets", "Changed " + ", ".join(bits), undo)
         clamp = (" Clamped by the safety limits: " + " ".join(t["notes"])) if t["notes"] else ""
-        return f"Done: {', '.join(bits)}.{clamp}"
+        off = (" Weekly calorie suggestions are now off because they picked their own number; say so in a few words."
+               if auto_off else "")
+        return f"Done: {', '.join(bits)}.{clamp}{off}"
 
 
 async def chat_turn(user: User, text: str, db: AsyncSession, days: int) -> tuple[str, list[dict]]:

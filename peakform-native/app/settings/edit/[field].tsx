@@ -4,6 +4,7 @@ import { Stack, router, useLocalSearchParams } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore, type User } from '../../../store/auth'
 import { offerCalorieRecompute, useUpdateMe } from '../../../hooks/useUpdateMe'
+import { usePreferences, useSavePreferences } from '../../../hooks/usePreferences'
 import { extractErrorMessage } from '../../../lib/apiError'
 import { useUnits, type Units } from '../../../lib/units'
 import { colors } from '../../../theme/tokens'
@@ -110,6 +111,10 @@ export default function EditValueScreen() {
   const u = useUnits()
   const qc = useQueryClient()
   const update = useUpdateMe()
+  const { data: prefs } = usePreferences()
+  const savePrefs = useSavePreferences()
+  // A number the user picks themselves replaces the weekly suggestions.
+  const autoOff = field === 'calories' && !!prefs?.goal && !!prefs.adaptive_calories
 
   const [text, setText] = useState(() => (user ? spec.initial(user, u) : ''))
   const [extra, setExtra] = useState(() =>
@@ -126,6 +131,9 @@ export default function EditValueScreen() {
     setError(null)
     update.mutate(parsed, {
       onSuccess: (updated) => {
+        if (autoOff && 'calorie_target' in parsed && parsed.calorie_target !== user?.calorie_target) {
+          savePrefs.mutate({ adaptive_calories: false })
+        }
         if (!RECOMPUTE.includes(field)) return router.back()
         offerCalorieRecompute(
           updated,
@@ -191,6 +199,10 @@ export default function EditValueScreen() {
         </View>
         {error ? (
           <Text className="text-danger text-footnote mt-2 px-4">{error}</Text>
+        ) : autoOff ? (
+          <Text className="text-text-subtle text-footnote mt-2 px-4">
+            Your daily calorie target. Saving your own number turns weekly suggestions off; you can turn them back on in Calories.
+          </Text>
         ) : spec.footer ? (
           <Text className="text-text-subtle text-footnote mt-2 px-4">{spec.footer}</Text>
         ) : null}

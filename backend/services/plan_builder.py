@@ -30,9 +30,7 @@ from core.database import AsyncSessionLocal
 from core.redis import cache_get, cache_setex
 from core.timezone import user_today
 from models.ai_plan import AiPlan
-from models.body_metric import BodyMetric
 from models.custom_exercise import CustomExercise
-from models.daily_summary import DailySummary
 from models.onboarding import OnboardingBaseline
 from models.training_log import TrainingLog
 from models.user import User
@@ -42,7 +40,8 @@ from services.ai_client import CLAUDE_MODEL, call_claude_json
 from services.exercise_taxonomy import EXERCISE_TO_GROUP, VALID_GROUPS, is_per_dumbbell
 from services.progression import step as progression_step
 from services.one_rm import estimate as estimate_one_rm
-from services.plan_context import _slope_per_week, build_context
+from services.energy import estimate_for, safety_limits, training_days
+from services.plan_context import build_context
 from services.plans import plan_for, refund_scan
 from services.push import send_to_user
 from services.usda import get_nutrition, portions
@@ -212,18 +211,6 @@ def food_conflicts(food: str, prefs: UserPreference | None) -> tuple[list[str], 
     return hard, soft
 
 
-# ─── Targets ──────────────────────────────────────────────────────────────────
-
-ACTIVITY = [(1, 1.2), (3, 1.375), (5, 1.55), (7, 1.725)]  # max days/week -> factor
-FREQ_DAYS = {"0-1x": 2, "2-3x": 3, "4-5x": 4, "6x+": 5}
-
-
-def training_days(prefs: UserPreference | None, freq: str | None) -> int:
-    if prefs and prefs.training_days:
-        return prefs.training_days
-    return FREQ_DAYS.get(freq or "", 3)
-
-
 # ─── The user's own split ─────────────────────────────────────────────────────
 
 SPLIT_MAX = 7
@@ -297,69 +284,26 @@ def split_problems(raw: dict, split: list[str] | None, days: int,
     return problems
 
 
-def _activity(days: int) -> float:
-    return next(f for d, f in ACTIVITY if days <= d)
-
-
 async def compute_targets(
-    user: User, prefs: UserPreference | None, days: int, today: date, db: AsyncSession
+    user: User, prefs: UserPreference | None, today: date, db: AsyncSession
 ) -> dict:
     """Daily kcal and macros for the meal plan, plus how they were reached.
 
     The user's own calorie and protein targets win, inside the §8 limits.
-    The plan doesn't silently change their settings; the chat can (step 5)."""
+    The plan doesn't silently change their settings; the chat and the weekly
+    calorie suggestions can. Burn and limits come from services/energy.py."""
     notes: list[str] = []
-    weights = [
-        (r.date, r.weight_kg)
-        for r in (await db.execute(
-            select(BodyMetric)
-            .where(BodyMetric.user_id == user.id, BodyMetric.date >= today - timedelta(days=28))
-            .order_by(BodyMetric.date)
-        )).scalars()
-        if r.weight_kg
-    ]
-    weight = weights[-1][1] if weights else user.weight_kg
+    est = await estimate_for(user, prefs, today, db)
+    weight, bmr, tdee = est.weight_kg, est.bmr, est.tdee
 
-    bmr = None
-    if weight and user.height_cm and user.age and user.sex in ("male", "female"):
-        bmr = 10 * weight + 6.25 * user.height_cm - 5 * user.age + (5 if user.sex == "male" else -161)
-    tdee_formula = bmr * _activity(days) if bmr else None
-
-    # Measured TDEE: what they ate minus what the scale says they stored.
-    tdee_measured = None
-    slope = _slope_per_week(weights)
-    if slope is not None and (weights[-1][0] - weights[0][0]).days >= 14:
-        eaten = [
-            r.calories_eaten
-            for r in (await db.execute(
-                select(DailySummary).where(
-                    DailySummary.user_id == user.id,
-                    DailySummary.date >= today - timedelta(days=28),
-                    DailySummary.is_estimated.is_(False),
-                )
-            )).scalars()
-            if r.calories_eaten and r.calories_eaten > 500
-        ]
-        if len(eaten) >= 14:
-            est = sum(eaten) / len(eaten) - slope * 7700 / 7
-            if tdee_formula is None or 0.7 * tdee_formula <= est <= 1.3 * tdee_formula:
-                tdee_measured = est
-    tdee = tdee_measured or tdee_formula
-
-    goal = prefs.goal if prefs else None
     if user.calorie_target:
         kcal = float(user.calorie_target)
-    elif tdee:
-        kcal = tdee + {"cut": -min(500, 0.2 * tdee), "bulk": 300}.get(goal or "", 0)
+    elif est.target_kcal:
+        kcal = float(est.target_kcal)
     else:
         kcal = 2500.0 if user.sex == "male" else 2000.0
 
-    floor = 1500.0 if user.sex == "male" else 1200.0
-    if bmr:
-        floor = max(floor, bmr)
-    if tdee:
-        floor = max(floor, 0.75 * tdee)
-    ceiling = tdee + 500 if tdee else None
+    floor, ceiling = safety_limits(user.sex, bmr, tdee)
     if kcal < floor:
         notes.append(f"Raised from {round(kcal)} kcal to the safe minimum of {round(floor)} kcal.")
         kcal = floor
@@ -384,9 +328,10 @@ async def compute_targets(
         "protein_g": protein,
         "carbs_g": carbs,
         "fat_g": fat,
-        "bmr": round(bmr) if bmr else None,
-        "tdee": round(tdee) if tdee else None,
-        "tdee_source": "measured" if tdee_measured else ("formula" if tdee_formula else None),
+        "bmr": bmr,
+        "tdee": tdee,
+        # The app says "from your logs and weigh-ins" for measured.
+        "tdee_source": ("measured" if est.confidence >= 0.5 else "formula") if tdee else None,
         "weight_kg": weight,
         "notes": notes,
     }
@@ -829,7 +774,7 @@ async def _generate(user: User, db: AsyncSession) -> dict:
     days = training_days(prefs, freq)
     minutes = (prefs.session_minutes if prefs else None) or 60
     with_meals = meal_plan_allowed(user, prefs)
-    targets = await compute_targets(user, prefs, days, today, db)
+    targets = await compute_targets(user, prefs, today, db)
     exercises = await allowed_exercises(user, prefs, db)
     one_rms = await best_one_rms(user, today, db)
 

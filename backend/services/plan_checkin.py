@@ -34,6 +34,7 @@ from models.daily_summary import DailySummary
 from models.training_log import TrainingLog
 from models.user import User
 from models.user_preference import UserPreference
+from services.adaptive_calories import is_on as auto_calories_on
 from services.ai_client import AINotConfigured, call_claude_json
 from services.plan_builder import allowed_exercises, meal_plan_allowed
 from services.plan_chat import ToolError, Turn, _plan_summary
@@ -166,7 +167,7 @@ CHECKIN_SYSTEM = """You are Pit Crew, the planner in the GainRace app. Write the
 review: 2-3 plain sentences to the user. Start with what went well, then the one thing that matters most for next week. Cite their numbers. If almost nothing was logged, say so kindly and ask them to log next week. No markdown, no cheerleading, no medical claims.
 
 suggestions: 0-2 concrete changes, only when the numbers clearly support one. Otherwise return none.
-- calories: a new daily calorie target, only when the weight trend (3+ weigh-ins) disagrees with the goal: cutting but not losing, bulking but not gaining, or losing faster than about 1% of bodyweight a week. Move 100-250 kcal. Only when meal_plan is true.
+- calories: a new daily calorie target, only when the weight trend (3+ weigh-ins) disagrees with the goal: cutting but not losing, bulking but not gaining, or losing faster than about 1% of bodyweight a week. Move 100-250 kcal. Only when meal_plan and calorie_suggestions_allowed are true.
 - swap_exercise: an exercise they skipped in every session they did (skipped_keys). Pick a replacement for the same muscle from the allowed list.
 - rebuild: they did under half the planned sessions, or the plan is 28+ days old.
 title: 6 words or fewer. detail: one sentence saying why. Unused fields are null."""
@@ -240,7 +241,12 @@ async def generate(user: User, db: AsyncSession, today: date | None = None) -> A
 
     prefs = await db.get(UserPreference, user.id)
     allowed = await allowed_exercises(user, prefs, db)
+    # The weekly calorie suggestion (services/adaptive_calories.py) owns
+    # calorie changes while it's on; two competing numbers would confuse.
+    calories_ok = meal_plan_allowed(user, prefs) and not auto_calories_on(user, prefs)
     lines = [f"- {k}: {v}" for k, v in stats.items()]
+    lines.append(f"- calorie_suggestions_allowed: {calories_ok}"
+                 + ("" if calories_ok else " (the app offers calorie changes itself on Mondays; don't suggest one)"))
     content = (
         f"Week {start} to {end}, user-local. Numbers:\n" + "\n".join(lines)
         + "\n\n" + _plan_summary(row, today)
@@ -252,7 +258,7 @@ async def generate(user: User, db: AsyncSession, today: date | None = None) -> A
     checkin = AiCheckin(
         user_id=user.id, plan_id=row.id, week_start=start, stats=stats,
         review=data["review"].strip(),
-        suggestions=_clean(data["suggestions"], stats, row, set(allowed), meal_plan_allowed(user, prefs)),
+        suggestions=_clean(data["suggestions"], stats, row, set(allowed), calories_ok),
         status="new",
     )
     db.add(checkin)
@@ -280,7 +286,7 @@ async def apply_suggestion(user: User, checkin: AiCheckin, sid: str, db: AsyncSe
         prefs = await db.get(UserPreference, user.id)
         turn = Turn(user, db, row, prefs)
         if s["kind"] == "calories":
-            await turn.change_targets(s["args"]["calories"], None)
+            await turn.change_targets(s["args"]["calories"], None, manual=False)
         else:
             await turn.swap_exercise(s["args"]["current_key"], s["args"]["new_key"], "all")
         result = turn.actions[-1]["summary"]

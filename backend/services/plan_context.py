@@ -32,6 +32,7 @@ from models.training_log import TrainingLog
 from models.user import User
 from models.user_preference import UserPreference
 from models.user_split import UserSplit
+from services.energy import estimate_for, slope_per_week as _slope_per_week
 from services.exercise_taxonomy import groups_for_exercises
 from services.one_rm import estimate as estimate_one_rm
 
@@ -53,20 +54,6 @@ def _num(v, digits: int = 0) -> str:
 def _avg(values) -> float | None:
     nums = [v for v in values if v is not None]
     return sum(nums) / len(nums) if nums else None
-
-
-def _slope_per_week(points: list[tuple[date, float]]) -> float | None:
-    """Least-squares kg/week. Needs 3+ weigh-ins over at least a week, or a
-    single noisy weigh-in would read as a trend."""
-    if len(points) < 3 or (points[-1][0] - points[0][0]).days < 7:
-        return None
-    xs = [(d - points[0][0]).days for d, _ in points]
-    ys = [w for _, w in points]
-    mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
-    var = sum((x - mx) ** 2 for x in xs)
-    if var == 0:
-        return None
-    return sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / var * 7
 
 
 def signup_date(user: User) -> date | None:
@@ -128,6 +115,37 @@ def _profile(user: User, prefs: UserPreference | None, freq: str | None) -> list
         ("notes", "; ".join(prefs.notes) if prefs.notes else None),
     ]
     lines += [f"{k}: {v}" for k, v in extras if v]
+    return lines
+
+
+async def _energy(user: User, prefs: UserPreference | None, today: date, db: AsyncSession) -> list[str]:
+    """The app's own burn estimate (services/energy.py), so answers about the
+    calorie target use the app's numbers instead of the model's maths."""
+    est = await estimate_for(user, prefs, today, db)
+    auto = prefs.adaptive_calories if prefs else True
+    lines = [
+        "## Calories (computed by the app)",
+        f"weekly calorie suggestions: {'on' if auto else 'off'}"
+        + (" (each Monday the app offers a new target from the numbers below; the user accepts it on the Nutrition tab)"
+           if auto else " (the user can turn them on in Settings > Goals & targets > Calories)"),
+    ]
+    if est.goal in ("cut", "bulk"):
+        lines.append(f"pace: {est.pace} (aim {est.rate_kg_week:+.2f} kg/week)")
+    if est.tdee:
+        formula = (
+            f"formula {est.formula_tdee} ({est.bmr_method} BMR {est.bmr} x activity for {est.training_days} training days/week)"
+            if est.formula_tdee else "formula: missing age/height/sex"
+        )
+        measured = (
+            f"measured {est.measured_tdee} from {est.logged_days} logged days and {est.weigh_ins} weigh-ins"
+            if est.measured_tdee is not None
+            else f"measured: not enough data yet ({est.logged_days} logged days, {est.weigh_ins} weigh-ins in 28 days;"
+                 " needs 10+ days, 4+ weigh-ins over 2+ weeks)"
+        )
+        lines.append(f"estimated burn {est.tdee} kcal/day ({round(est.confidence * 100)}% measured): {formula}; {measured}")
+        if est.target_kcal:
+            lines.append(f"target for their goal and pace today: {est.target_kcal} kcal (safe range {est.floor}-{est.ceiling})")
+    lines += est.notes
     return lines
 
 
@@ -322,6 +340,7 @@ async def build_context(user: User, db: AsyncSession, days: int = 30) -> str:
     sections = [
         [f"Today is {today} ({WEEKDAYS[today.weekday()]}) in the user's timezone.", *_account_age(signup, today)],
         _profile(user, prefs, freq),
+        await _energy(user, prefs, today, db),
         await _body(user, today, signup, db),
         _days(list(summaries), today, days, names, signup),
         await _strength(user, today, db),

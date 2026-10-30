@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
+import type { Pace } from '../lib/targets'
+import { ADAPTIVE_KEY } from './useAdaptiveCalories'
 
 export type Goal = 'cut' | 'maintain' | 'bulk'
 export type Equipment = 'gym' | 'home_weights' | 'bodyweight'
@@ -13,6 +15,10 @@ export type HealthFlag = 'pregnant' | 'eating_disorder' | 'diabetes' | 'kidney'
  *  are built from beyond the logs. Null = not answered yet. */
 export interface Preferences {
   goal: Goal | null
+  /** How fast a cut or bulk goes. Null = steady. */
+  pace: Pace | null
+  /** Weekly calorie suggestions (GET /calories/adaptive). */
+  adaptive_calories: boolean
   equipment: Equipment | null
   experience: Experience | null
   session_minutes: number | null
@@ -32,6 +38,8 @@ export interface Preferences {
 
 export const EMPTY_PREFERENCES: Preferences = {
   goal: null,
+  pace: null,
+  adaptive_calories: true,
   equipment: null,
   experience: null,
   session_minutes: null,
@@ -63,6 +71,10 @@ export function useSavePreferences() {
   return useMutation({
     mutationFn: (patch: Partial<Preferences>) =>
       api.put('/plan-ai/preferences', patch).then((r) => r.data as Preferences),
-    onSuccess: (data) => qc.setQueryData(PREFERENCES_KEY, data),
+    onSuccess: (data) => {
+      qc.setQueryData(PREFERENCES_KEY, data)
+      // Goal, pace and the suggestions switch all change the calorie estimate.
+      qc.invalidateQueries({ queryKey: ADAPTIVE_KEY })
+    },
   })
 }

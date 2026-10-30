@@ -23,6 +23,9 @@ import { AnimatedBar } from '../../components/AnimatedBar'
 import { SkeletonCard } from '../../components/Skeleton'
 import { SwipeableRow } from '../../components/SwipeableRow'
 import { PressableScale } from '../../components/PressableScale'
+import { CalorieSuggestionCard } from '../../components/CalorieSuggestionCard'
+import { UndoToast } from '../../components/UndoToast'
+import { ADAPTIVE_KEY } from '../../hooks/useAdaptiveCalories'
 import { hapticSuccess } from '../../lib/haptics'
 import { formatNumber, capitalize } from '../../lib/format'
 import { colors } from '../../theme/tokens'
@@ -1378,7 +1381,10 @@ export default function NutritionScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
-            onRefresh={refetch}
+            onRefresh={() => {
+              refetch()
+              qc.invalidateQueries({ queryKey: ADAPTIVE_KEY })
+            }}
             tintColor={colors.text}
           />
         }
@@ -1449,6 +1455,7 @@ export default function NutritionScreen() {
           </View>
         ) : (
           <View className="gap-3">
+            <CalorieSuggestionCard />
             <CalorieBar calories={totals.calories} target={targets.calories} />
 
             <View className="flex-row gap-3">
@@ -1542,6 +1549,7 @@ export default function NutritionScreen() {
           busy={saveAsMealMutation.isPending}
         />
       )}
+      <UndoToast />
     </SafeAreaView>
   )
 }

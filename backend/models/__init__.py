@@ -23,6 +23,7 @@ from models.user_preference import UserPreference
 from models.ai_message import AiMessage
 from models.ai_plan import AiPlan
 from models.ai_checkin import AiCheckin
+from models.calorie_update import CalorieUpdate
 
 __all__ = [
     "AvatarAchievement",
@@ -53,4 +54,5 @@ __all__ = [
     "AiMessage",
     "AiPlan",
     "AiCheckin",
+    "CalorieUpdate",
 ]
