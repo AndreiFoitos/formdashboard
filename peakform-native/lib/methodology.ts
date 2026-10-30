@@ -261,12 +261,26 @@ Target = burn + pace × bodyweight × 7,700 / 7
 
 Weekly suggestion: only when ≥ 75 kcal away, at most ± 300 kcal`,
     sources: [
+      // Resting burn
       { name: 'Mifflin, M.D. et al. (1990). A new predictive equation for resting energy expenditure in healthy individuals. Am J Clin Nutr 51(2).' },
+      { name: 'Frankenfield, D., Roth-Yousey, L., Compher, C. (2005). Comparison of predictive equations for resting metabolic rate in healthy nonobese and obese adults: a systematic review. J Am Diet Assoc 105(5) — Mifflin-St Jeor was the most accurate, usually within 10% of measured.' },
       { name: 'McArdle, W.D., Katch, F.I., Katch, V.L. Exercise Physiology: Energy, Nutrition, and Human Performance — the Katch-McArdle resting energy equation.' },
+      { name: 'Cunningham, J.J. (1980). A reanalysis of the factors influencing basal metabolic rate in normal adults. Am J Clin Nutr 33(11) — lean mass as the main driver of resting burn.' },
+      { name: 'ten Haaf, T., Weijs, P.J.M. (2014). Resting energy expenditure prediction in recreational athletes of 18–35 years: confirmation of Cunningham equation and an improved weight-based alternative. PLoS One 9(9).' },
+      // Burn measured from food logs and weight change
+      { name: 'de Jonge, L. et al. (2007). Validation study of energy expenditure and intake during calorie restriction using doubly labeled water and changes in body composition. Am J Clin Nutr 85(1) — intake plus change in body stores matched doubly labeled water.' },
+      { name: 'Racette, S.B. et al. (2012). Approaches for quantifying energy intake and %calorie restriction during calorie restriction interventions in humans: the multicenter CALERIE study. Am J Physiol Endocrinol Metab 302(4).' },
       { name: 'Wishnofsky, M. (1958). Caloric equivalents of gained or lost weight. Am J Clin Nutr 6(5).' },
+      { name: 'Hall, K.D. (2008). What is the required energy deficit per unit weight loss? Int J Obes 32(3).' },
+      { name: 'Thomas, D.M. et al. (2013). Can a weight loss of one pound a week be achieved with a 3500-kcal deficit? Commentary on a commonly accepted rule. Int J Obes 37(12) — why the target is re-measured every week rather than fixed.' },
       { name: 'Hall, K.D. et al. (2011). Quantification of the effect of energy imbalance on bodyweight. Lancet 378(9793).' },
-      { name: 'Helms, E.R. et al. (2014). Evidence-based recommendations for natural bodybuilding contest preparation: nutrition and supplementation. J Int Soc Sports Nutr 11.' },
+      { name: 'Lichtman, S.W. et al. (1992). Discrepancy between self-reported and actual caloric intake and exercise in obese subjects. N Engl J Med 327(27) — why logged training days count over stated ones.' },
+      // Pace
+      { name: 'Helms, E.R. et al. (2014). Evidence-based recommendations for natural bodybuilding contest preparation: nutrition and supplementation. J Int Soc Sports Nutr 11 — 0.5–1% bodyweight loss a week to keep muscle.' },
+      { name: 'Garthe, I. et al. (2011). Effect of two different weight-loss rates on body composition and strength and power-related performance in elite athletes. Int J Sport Nutr Exerc Metab 21(2) — slower loss kept more lean mass and strength.' },
       { name: 'Iraki, J. et al. (2019). Nutrition recommendations for bodybuilders in the off-season: a narrative review. Sports 7(7) — 0.25–0.5% bodyweight gain a week.' },
+      // Safety limits
+      { name: 'National Heart, Lung, and Blood Institute (1998). Clinical Guidelines on the Identification, Evaluation, and Treatment of Overweight and Obesity in Adults — low-calorie diet floors of about 1,200 kcal (women) and 1,500 kcal (men).' },
     ],
   },
   {
@@ -328,8 +342,10 @@ export function allSources(): Source[] {
   const out: Source[] = []
   for (const t of TOPICS) {
     for (const s of t.sources) {
-      if (seen.has(s.name)) continue
-      seen.add(s.name)
+      // The same paper can carry a different " — why it matters" note per topic.
+      const key = s.name.split(' — ')[0].replace(/\.$/, '')
+      if (seen.has(key)) continue
+      seen.add(key)
       out.push(s)
     }
   }
