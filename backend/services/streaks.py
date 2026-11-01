@@ -1,5 +1,6 @@
 """Logging streak: consecutive days, in the user's own timezone, with at least
-one log of food, training, water, caffeine or body weight / body fat.
+one log of food, training, water, caffeine, body weight / body fat, or the
+day's creatine tick.
 
 The streak is worked out from the logs whenever something reads it (Form
 Score, avatar milestones) instead of being bumped by each log endpoint. That
@@ -29,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.timezone import resolve_tz, user_today
 from models.body_metric import BodyMetric
+from models.creatine_log import CreatineLog
 from models.hydration_log import HydrationLog
 from models.nutrition_log import NutritionLog
 from models.stimulant_log import StimulantLog
@@ -135,6 +137,9 @@ async def logged_days(user: User, db: AsyncSession, since: date, until: date) ->
         ),
         select(BodyMetric.date).where(
             BodyMetric.user_id == uid, BodyMetric.date >= since, BodyMetric.date <= until,
+        ),
+        select(CreatineLog.date).where(
+            CreatineLog.user_id == uid, CreatineLog.date >= since, CreatineLog.date <= until,
         ),
     )
     days = set((await db.execute(dated)).scalars().all())

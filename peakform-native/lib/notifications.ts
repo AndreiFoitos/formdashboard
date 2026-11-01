@@ -5,6 +5,7 @@ import { router } from 'expo-router'
 import { colors } from '../theme/tokens'
 import { getToken, removeToken, setToken } from './storage'
 import { openFromWidget } from './widgetLinks'
+import { tickCreatineFromNotification } from '../hooks/useCreatine'
 
 // Same lazy-load pattern as healthkit.ts: importing expo-notifications at the
 // top level is fine, but `getExpoPushTokenAsync` no longer works in Expo Go
@@ -15,6 +16,8 @@ const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreCl
 // Categories must match the backend constants in services/notifier.py.
 export const CATEGORY_HYDRATION = 'quick_log_hydration'
 export const CATEGORY_STIMULANT = 'quick_log_stimulant'
+// The creatine reminder (backend services/smart_notifications.CATEGORY_CREATINE).
+export const CATEGORY_CREATINE = 'creatine'
 
 let _categoriesRegistered = false
 let _handlerRegistered = false
@@ -58,6 +61,10 @@ export async function setupNotificationHandlers(): Promise<void> {
     ])
     await Notifications.setNotificationCategoryAsync(CATEGORY_STIMULANT, [
       { identifier: 'LOG_NOW', buttonTitle: 'Log it', options: { opensAppToForeground: true } },
+      { identifier: 'DISMISS', buttonTitle: 'Skip', options: { opensAppToForeground: false } },
+    ])
+    await Notifications.setNotificationCategoryAsync(CATEGORY_CREATINE, [
+      { identifier: 'TAKEN', buttonTitle: 'Taken', options: { opensAppToForeground: true } },
       { identifier: 'DISMISS', buttonTitle: 'Skip', options: { opensAppToForeground: false } },
     ])
     _categoriesRegistered = true
@@ -281,11 +288,12 @@ export function handlePlanReadyResponse(
 const SMART_TABS = new Set(['/', '/ask', '/training', '/nutrition', '/body'])
 
 /**
- * Smart reminders (meals, training, protein, weigh-in, after a break; backend
+ * Smart reminders (meals, creatine, training, protein, weigh-in, after a break; backend
  * services/smart_notifications.py). Tells the backend it was opened, so
  * reminders that keep being ignored pause on their own, then opens the
  * screen it's about. The meal reminder goes to the camera, on top of
- * Nutrition so closing it lands there.
+ * Nutrition so closing it lands there. The creatine reminder's Taken button
+ * ticks today's creatine.
  */
 export function handleSmartResponse(
   response: { actionIdentifier?: string; notification: { request: { content: { data: unknown } } } },
@@ -293,8 +301,18 @@ export function handleSmartResponse(
 ): boolean {
   const data = response.notification.request.content.data as Record<string, unknown> | null
   if (!data || data.type !== 'smart') return false
+  // Skip on the creatine reminder: nothing to do, and not an open.
+  if (response.actionIdentifier === 'DISMISS') return true
   if (typeof data.event_id === 'string') {
     api.post(`/notifications/opened/${data.event_id}`).catch(() => {})
+  }
+  if (data.kind === 'creatine' && response.actionIdentifier === 'TAKEN') {
+    tickCreatineFromNotification()
+      .then(() => {
+        qc?.invalidateQueries({ queryKey: ['creatine'] })
+        qc?.invalidateQueries({ queryKey: ['dashboard'] })
+      })
+      .catch(() => {})
   }
   const route = typeof data.route === 'string' ? data.route : '/'
   if (data.kind === 'workout_preview' || data.kind === 'workout_log') qc?.invalidateQueries({ queryKey: ['plan-ai'] })

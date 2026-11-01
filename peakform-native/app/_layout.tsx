@@ -239,6 +239,7 @@ function RootLayout() {
               <Stack.Screen name="settings/nutrition" options={{ ...pushedHeader, title: 'Nutrition preferences' }} />
               <Stack.Screen name="settings/calories" options={{ ...pushedHeader, title: 'Calories' }} />
               <Stack.Screen name="settings/notifications" options={{ ...pushedHeader, title: 'Reminders' }} />
+              <Stack.Screen name="settings/creatine" options={{ ...pushedHeader, title: 'Creatine' }} />
               <Stack.Screen name="settings/edit/[field]" options={modalHeader} />
               <Stack.Screen name="settings/add-email" options={modalHeader} />
               <Stack.Screen name="settings/choose/[field]" options={formSheet} />

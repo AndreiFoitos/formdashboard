@@ -340,6 +340,8 @@ When a reminder goes out. A meal counts as a habit when you log it on at least h
 
 Training. On a day your plan has a session, you get your targets about 90 minutes before you usually train: which lifts go up in weight and which aim for one more rep, worked out from what you lifted last time (see "Progressive overload targets"). On a day you usually train, if nothing is logged an hour after you usually finish, you get one reminder to log your sets.
 
+Creatine. If you track it, the app learns when you usually tick it. Once you're later than most days, one reminder ("Taken your creatine today?") with a Taken button that ticks it for you. If it's still not ticked in the evening, one more. Until it has a usual time, only the evening one.
+
 Protein. In the evening, if you're tracking food today and you're under 75% of your protein target (and at least 30 g short), one reminder.
 
 Weigh-ins. If you weigh in regularly, a reminder at your usual time once it's been twice as long as usual since the last one.
@@ -357,6 +359,8 @@ Training day:     in your plan, or share for that weekday ≥ 60%
 Targets:          usual start − 90 min (9:00 AM without one)
 Log reminder:     max(usual finish + 1 h, 6:00 PM), needs ≥ 4 sessions in 4 weeks
 
+Creatine:         usual: same rule as meals, needs ≥ 4 ticked days
+                  evening: max(7:00 PM, bedtime − 2 h 30), if not ticked
 Protein:          after max(6:00 PM, bedtime − 3 h), < 75% and ≥ 30 g short
 Weigh-in:         days since last ≥ max(2, 2 × usual gap)
 After a break:    3 and 7 quiet days, if ≥ 5 active days in the 4 weeks before

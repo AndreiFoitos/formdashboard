@@ -17,6 +17,7 @@ from services.behavior import (
     Profile,
     TrainingHabit,
     WeighInHabit,
+    creatine_habit,
     meal_habits,
     training_habit,
     weigh_in_habit,
@@ -353,7 +354,7 @@ def test_every_kind_explains_itself():
     p = profile(13, 0, meals={"lunch": LUNCH})
     rows = sn.checks(p, ctx(protein_target=160))
     assert [c.kind for c in rows] == [
-        "workout_preview", "meal", "meal", "meal", "workout_log", "protein", "weigh_in", "comeback",
+        "workout_preview", "meal", "meal", "meal", "creatine", "workout_log", "protein", "weigh_in", "comeback",
     ]
     lunch = next(c for c in rows if c.label == "Lunch")
     assert lunch.reminder is None
@@ -407,3 +408,55 @@ def test_timezone_must_be_real():
     assert UserUpdate().timezone is None
     with pytest.raises(ValidationError):
         UserUpdate(timezone="Mars/Olympus")
+
+
+# ─── Creatine ────────────────────────────────────────────────────────────────
+
+MORNING_CREATINE = Habit(share=0.9, usual_minute=9 * 60, late_minute=9 * 60 + 30, days=20)
+
+
+def test_creatine_habit_from_ticks_on_the_day():
+    ticks = [(TODAY - timedelta(days=d), at(9, d % 2 * 20, TODAY - timedelta(days=d))) for d in range(1, 11)]
+    h = creatine_habit(ticks, TODAY)
+    assert h.days == 10 and 9 * 60 <= h.usual_minute <= h.late_minute <= 9 * 60 + 20
+    # Ticked the next morning: says nothing about when they take it.
+    late_ticks = [(TODAY - timedelta(days=d), at(8, 0, TODAY - timedelta(days=d - 1))) for d in range(2, 12)]
+    assert creatine_habit(late_ticks, TODAY) is None
+    assert creatine_habit(ticks[:3], TODAY) is None
+
+
+def test_creatine_reminder_after_the_usual_time_then_in_the_evening():
+    on = dict(creatine_on=True, creatine=MORNING_CREATINE)
+    assert kinds(profile(9, 45, **on)) == []
+    usual = sn.due(profile(10, 0, **on), ctx())
+    assert [r.kind for r in usual] == ["creatine"]
+    assert usual[0].key.endswith(":usual") and "by 9:30 AM" in usual[0].body
+    assert usual[0].category == sn.CATEGORY_CREATINE
+    evening = sn.due(profile(20, 30, **on), ctx())
+    assert [r.key for r in evening] == [f"creatine:{TODAY}:evening"]
+    # Ticked, or tracking off: nothing.
+    assert kinds(profile(20, 30, creatine_today=True, **on)) == []
+    assert kinds(profile(20, 30, creatine=MORNING_CREATINE)) == []
+
+
+def test_creatine_without_a_usual_time_only_reminds_in_the_evening():
+    assert kinds(profile(12, 0, creatine_on=True)) == []
+    assert kinds(profile(20, 30, creatine_on=True)) == ["creatine"]
+    # Evening at least 90 minutes before quiet hours, never before 7 PM.
+    assert sn.creatine_evening(ctx()) == 20 * 60 + 30
+    assert sn.creatine_evening(sn.Context(last_minute=19 * 60)) == 19 * 60
+
+
+def test_evening_creatine_takers_get_one_reminder_after_their_time():
+    late = Habit(share=0.9, usual_minute=21 * 60, late_minute=21 * 60 + 15, days=20)
+    on = dict(creatine_on=True, creatine=late)
+    assert kinds(profile(20, 45, **on)) == []
+    r = sn.due(profile(21, 40, **on), sn.Context(last_minute=22 * 60 + 30))
+    assert [x.key for x in r] == [f"creatine:{TODAY}:evening"]
+
+
+def test_a_creatine_tick_counts_as_acting_on_the_reminder():
+    sent = at(10, 0)
+    e = PushEvent(kind="creatine", sent_at=sent, dedupe_key="creatine:x:usual")
+    sn.mark_acted([e], profile(11, creatine_times=[sent + timedelta(minutes=5)]))
+    assert e.acted_at == sent + timedelta(minutes=5)

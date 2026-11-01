@@ -30,6 +30,7 @@ import { UnlockModal } from '../../components/avatar/UnlockModal'
 import { AiDigest } from '../../components/AiDigest'
 import { NotificationsCard } from '../../components/NotificationsCard'
 import { CaffeineCurve, type CurveData } from '../../components/CaffeineCurve'
+import { CreatineCard } from '../../components/CreatineCard'
 import { UndoToast } from '../../components/UndoToast'
 import { showUndo } from '../../store/undo'
 import type { RecapRaceData } from '../weekly-recap'
@@ -600,9 +601,11 @@ export default function DashboardScreen() {
     enabled: !!user, // don't fetch until auth is confirmed
   })
 
+  const qc = useQueryClient()
   const onRefresh = useCallback(() => {
     refetch()
-  }, [refetch])
+    qc.invalidateQueries({ queryKey: ['creatine'] })
+  }, [refetch, qc])
 
   const summary = data?.summary
   const targets = data?.targets
@@ -735,6 +738,8 @@ export default function DashboardScreen() {
                 </Text>
               </View>
             )}
+
+            <CreatineCard />
 
             <HydrationQuickLog
               waterMl={summary?.water_ml ?? null}

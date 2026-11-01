@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, SmallInteger, String, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, SmallInteger, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -59,6 +59,14 @@ class UserPreference(Base):
     # meal plan off (docs/ai-plans-design.md §8). [] means the user answered
     # "None"; null means they haven't answered yet.
     health_flags: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    # Creatine tracking: a daily tick on Home and a reminder
+    # (routers/creatine.py). Off until the user turns it on in Settings.
+    creatine_on: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    creatine_dose_g: Mapped[float] = mapped_column(
+        Float, nullable=False, default=5.0, server_default="5"
+    )
     # Free-form facts the chat saves ("works night shifts").
     notes: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
     updated_at: Mapped[datetime] = mapped_column(

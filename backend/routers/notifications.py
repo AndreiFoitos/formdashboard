@@ -152,6 +152,8 @@ async def _settings_out(user: User, db: AsyncSession) -> dict:
     await db.commit()
     categories = []
     for key, (title, description) in CATEGORIES.items():
+        if key == "creatine" and not profile.creatine_on:
+            continue  # only once creatine tracking is on
         until = max(
             (u for kind, cat in KIND_CATEGORY.items() if cat == key if (u := paused_until(kind, events))),
             default=None,

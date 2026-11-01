@@ -5,7 +5,7 @@ import { api } from '../api/client'
 // GET/PUT /notifications/settings, services/smart_notifications.py).
 
 export interface ReminderCategory {
-  key: 'meals' | 'training' | 'protein' | 'weigh_in' | 'comeback' | 'water_coffee'
+  key: 'meals' | 'training' | 'protein' | 'weigh_in' | 'comeback' | 'creatine' | 'water_coffee'
   title: string
   description: string
   enabled: boolean
@@ -17,6 +17,8 @@ export interface LearnedHabits {
   meals: { meal: 'breakfast' | 'lunch' | 'dinner'; usual_minute: number; remind_minute: number; share: number }[]
   training: { weekdays: number[]; start_minute: number; sessions: number } | null
   weigh_in: { usual_minute: number; every_days: number } | null
+  /** Only while creatine tracking is on and it has a usual time. */
+  creatine?: { usual_minute: number; remind_minute: number } | null
 }
 
 export interface ReminderSettings {
@@ -26,7 +28,7 @@ export interface ReminderSettings {
   tester?: boolean
 }
 
-export type TestKind = 'workout_preview' | 'meal' | 'workout_log' | 'protein' | 'weigh_in' | 'comeback'
+export type TestKind = 'workout_preview' | 'meal' | 'creatine' | 'workout_log' | 'protein' | 'weigh_in' | 'comeback'
 
 /** Testers: each reminder with what it would do right now and why. */
 export interface ReminderCheck {

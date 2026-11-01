@@ -31,6 +31,7 @@ import {
   useProgression,
   type ExerciseProgression,
 } from '../../hooks/useProgression'
+import { TargetBadge } from '../../components/TargetBadge'
 import { UndoToast } from '../../components/UndoToast'
 import { showUndo } from '../../store/undo'
 import { cleanReps, cleanWeight, useUnits } from '../../lib/units'
@@ -300,6 +301,24 @@ type LogBlock = { key: string; sets: SetRow[] }
 
 const EMPTY_ROW: SetRow = { reps: '', weight: '' }
 
+/** "80 kg × 8, 7, 6 · ↳ 60 kg × 10": back-to-back sets at one weight share
+ *  a label, so a whole session fits in half the sheet. */
+function lastSessionLabel(
+  logs: Pick<TrainingLog, 'weight_kg' | 'reps' | 'set_type'>[],
+  u: ReturnType<typeof useUnits>,
+): string {
+  const groups: { drop: boolean; weight: number | null; reps: string[] }[] = []
+  for (const l of logs) {
+    const drop = l.set_type === 'drop'
+    const prev = groups[groups.length - 1]
+    if (prev && !drop && !prev.drop && prev.weight === l.weight_kg) prev.reps.push(String(l.reps ?? '–'))
+    else groups.push({ drop, weight: l.weight_kg, reps: [String(l.reps ?? '–')] })
+  }
+  return groups
+    .map(g => `${g.drop ? '↳ ' : ''}${g.weight != null ? u.liftLabel(g.weight) : '–'} × ${g.reps.join(', ')}`)
+    .join('  ·  ')
+}
+
 /** Everything that reads training logs, refreshed after a save or delete. */
 function useInvalidateTraining() {
   const qc = useQueryClient()
@@ -392,20 +411,28 @@ function ExerciseBlock({
         </View>
       )}
 
-      {/* Last time, then the target as a hint. Plain text, nothing filled in. */}
+      {/* Last time and the target, side by side. Reference only: the sets
+          below start empty. */}
       {(!!lastSession?.length || (target && target.kind !== 'first')) && (
-        <View className="mb-4">
+        <View className="flex-row gap-2 mb-4">
           {!!lastSession?.length && (
-            <Text className="text-text-muted text-footnote">
-              Last time: {lastSession.map(s =>
-                `${s.set_type === 'drop' ? '↳ ' : ''}${s.weight_kg != null ? u.liftLabel(s.weight_kg) : '–'} × ${s.reps ?? '–'}`
-              ).join('  ·  ')}
-            </Text>
+            <View className="flex-1 bg-surface-raised border border-border rounded-xl p-3" style={{ borderCurve: 'continuous' }}>
+              <Text className="text-text-subtle text-caption">Last time</Text>
+              <Text className="text-text-muted text-footnote font-semibold mt-2">
+                {lastSessionLabel(lastSession, u)}
+              </Text>
+            </View>
           )}
           {target && target.kind !== 'first' && (
-            <Text className="text-text-subtle text-caption mt-1">
-              Target: {targetHeadline(target, u)}{perDb && target.weight_kg != null ? ' each' : ''}
-            </Text>
+            <View className="flex-1 bg-surface-raised border border-border rounded-xl p-3" style={{ borderCurve: 'continuous' }}>
+              <View className="flex-row items-center justify-between gap-2">
+                <Text className="text-text-subtle text-caption">Target</Text>
+                <TargetBadge kind={target.kind} />
+              </View>
+              <Text className="text-text text-footnote font-semibold mt-2">
+                {targetHeadline(target, u)}{perDb && target.weight_kg != null ? ' each' : ''}
+              </Text>
+            </View>
           )}
         </View>
       )}

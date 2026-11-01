@@ -22,6 +22,7 @@ import { AvatarBadge } from '../../components/avatar/AvatarBadge'
 import { SettingsGroup } from '../../components/settings/SettingsGroup'
 import { SettingsRow } from '../../components/settings/SettingsRow'
 import { useTourStore } from '../../store/tour'
+import { useCreatine } from '../../hooks/useCreatine'
 import { GOAL_LABEL, PACE_LABEL, hourLabel } from '../../components/settings/labels'
 import { colors } from '../../theme/tokens'
 
@@ -378,6 +379,7 @@ function DeleteAccountGroup() {
 export default function SettingsScreen() {
   const clearAuth = useAuthStore((s) => s.clearAuth)
   const u = useUnits()
+  const { data: creatine } = useCreatine()
 
   // expoConfig is the source of truth at runtime — version and buildNumber
   // come from app.json (production) or eas-update overrides (in OTA-pushed
@@ -421,6 +423,11 @@ export default function SettingsScreen() {
             title="Nutrition preferences"
             detail="Diet, allergies, foods to avoid, cooking, health"
             onPress={() => router.push('/settings/nutrition')}
+          />
+          <SettingsRow
+            title="Creatine"
+            value={creatine ? (creatine.enabled ? `${creatine.dose_g} g a day` : 'Off') : undefined}
+            onPress={() => router.push('/settings/creatine')}
           />
           <SettingsRow title="Units" value={UNIT_SYSTEM_LABEL[u.system]} onPress={() => router.push('/settings/units')} />
         </SettingsGroup>
