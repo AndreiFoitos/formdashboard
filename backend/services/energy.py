@@ -13,8 +13,12 @@ Daily burn (TDEE) comes from two places:
   burned (7,700 kcal per kg), over the last 28 days.
 They're blended by how much data backs the measured number: it counts fully
 after 21 logged days across a 21-day weigh-in span, and not at all below 10
-logged days, 4 weigh-ins or a 14-day span. The target is that burn plus the
-goal's pace (a share of bodyweight a week), inside the §8 safety limits.
+logged days, 4 weigh-ins or a 14-day span. One exception: a stall. When
+the weight hasn't moved the way the goal needs (a cut that isn't losing, a
+bulk that isn't gaining) over 2+ weeks, the eating in that span was
+maintenance, whatever the formula says, so the measured burn counts fully.
+The target is that burn plus the goal's pace (a share of bodyweight a week),
+inside the §8 safety limits.
 """
 from __future__ import annotations
 
@@ -38,6 +42,8 @@ MIN_LOGGED_DAYS = 10
 MIN_WEIGH_INS = 4
 MIN_SPAN_DAYS = 14
 FULL_TRUST_DAYS = 21
+# A trend under this share of the goal's pace, in the goal's direction, is a stall.
+STALL_SHARE = 0.25
 MIN_DAY_KCAL = 800  # a day under this is taken as not fully logged
 
 ACTIVITY = [(1, 1.2), (3, 1.375), (5, 1.55), (7, 1.725)]  # max days/week -> factor
@@ -133,6 +139,8 @@ class Estimate:
     measured_tdee: int | None
     # 0-1: how much the measured burn counts in tdee.
     confidence: float
+    # The weight isn't moving the way the goal needs, so the eating was maintenance.
+    stalled: bool
     tdee: int | None
     avg_intake: int | None
     logged_days: int
@@ -169,10 +177,21 @@ def estimate(i: EnergyInputs) -> Estimate:
         method = "mifflin"
     formula = bmr * activity_factor(i.training_days) if bmr else None
 
+    pace = i.pace if i.pace in PACES else "steady"
+    rate = 0.0
+    if i.goal in PACE_RATES and weight:
+        share = PACE_RATES[i.goal][pace]
+        lean = LEAN_BF.get(i.sex or "")
+        if i.goal == "cut" and bf is not None and lean is not None and bf < lean and share > PACE_RATES["cut"]["steady"]:
+            share = PACE_RATES["cut"]["steady"]
+            notes.append(f"At {bf:.0f}% body fat a fast cut is held to steady pace, to protect muscle.")
+        rate = share * weight * (-1 if i.goal == "cut" else 1)
+
     # Intake only counts inside the weigh-in span: that's the eating the
     # weight change reflects.
     measured = None
     confidence = 0.0
+    stalled = False
     slope = slope_per_week(i.weights)
     days_in_span: list[int] = []
     if i.weights:
@@ -198,23 +217,21 @@ def estimate(i: EnergyInputs) -> Estimate:
                 )
                 measured = clamped
         confidence = min(1.0, len(days_in_span) / FULL_TRUST_DAYS) * min(1.0, span / FULL_TRUST_DAYS)
-        if not formula:
+        # rate and slope share a sign when it's working; a stall is well short of the pace.
+        stalled = bool(rate) and slope / rate < STALL_SHARE
+        if stalled:
+            verb = "lost" if rate < 0 else "gained"
+            notes.append(
+                f"You haven't {verb} weight over {span} days eating about {round(avg_intake)} kcal a day, "
+                "so that's your maintenance and the target is set from it."
+            )
+        if not formula or stalled:
             confidence = 1.0
 
     if measured is not None and formula:
         tdee = confidence * measured + (1 - confidence) * formula
     else:
         tdee = measured or formula
-
-    pace = i.pace if i.pace in PACES else "steady"
-    rate = 0.0
-    if i.goal in PACE_RATES and weight:
-        share = PACE_RATES[i.goal][pace]
-        lean = LEAN_BF.get(i.sex or "")
-        if i.goal == "cut" and bf is not None and lean is not None and bf < lean and share > PACE_RATES["cut"]["steady"]:
-            share = PACE_RATES["cut"]["steady"]
-            notes.append(f"At {bf:.0f}% body fat a fast cut is held to steady pace, to protect muscle.")
-        rate = share * weight * (-1 if i.goal == "cut" else 1)
 
     target = floor = ceiling = None
     if tdee:
@@ -236,6 +253,7 @@ def estimate(i: EnergyInputs) -> Estimate:
         formula_tdee=round(formula) if formula else None,
         measured_tdee=round(measured) if measured is not None else None,
         confidence=round(confidence, 2),
+        stalled=stalled,
         tdee=round(tdee) if tdee else None,
         avg_intake=round(avg_intake) if avg_intake is not None else None,
         logged_days=len(days_in_span),

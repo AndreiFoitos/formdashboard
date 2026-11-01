@@ -77,6 +77,8 @@ def explain(est: Estimate, new_kcal: int, full_kcal: int, units: str) -> str:
             f"You've eaten about {_n(est.avg_intake)} kcal a day on {est.logged_days} logged days and your "
             f"weight {moved}, so you burn about {_n(est.tdee)} kcal a day."
         )
+        if est.stalled:
+            parts.append(f"Your weight isn't moving the way a {'cut' if est.rate_kg_week < 0 else 'bulk'} needs, so that's your maintenance.")
     else:
         bits = [f"{_kg(est.weight_kg, units)}" if est.weight_kg else None,
                 f"{est.body_fat_pct:.0f}% body fat" if est.body_fat_pct is not None else None,

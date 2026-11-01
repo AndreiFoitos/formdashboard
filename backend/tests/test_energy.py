@@ -61,6 +61,33 @@ def test_little_data_leans_on_the_formula():
     assert few.measured_tdee is None and few.confidence == 0
 
 
+def test_a_stalled_cut_trusts_the_logs_early():
+    # Two weeks eating 3,000 and the weight holding: 3,000 is maintenance,
+    # though the formula says ~3,640 and two weeks alone wouldn't count fully.
+    weights, intake = logged(16, 3000, 0.0)
+    est = estimate(inputs(weights=weights, intake=intake))
+    assert est.stalled and est.confidence == 1.0
+    assert est.tdee == est.measured_tdee == 3000
+    assert est.target_kcal == round((3000 - 0.005 * 102.6 * 1100) / 10) * 10
+    text = explain(est, est.target_kcal, est.target_kcal, "metric")
+    assert "held steady" in text and "that's your maintenance" in text
+
+
+def test_a_stalled_bulk_trusts_the_logs_early():
+    weights, intake = logged(16, 3000, 0.0)
+    est = estimate(inputs(weights=weights, intake=intake, goal="bulk"))
+    assert est.stalled and est.tdee == 3000
+    assert est.target_kcal > 3000
+
+
+def test_slow_but_real_progress_is_not_a_stall():
+    weights, intake = logged(16, 2600, 0.3)
+    est = estimate(inputs(weights=weights, intake=intake))
+    assert not est.stalled and est.confidence < 1
+    maintain = estimate(inputs(weights=weights, intake=intake, goal="maintain"))
+    assert not maintain.stalled
+
+
 def test_half_logged_days_are_not_counted():
     weights, intake = logged(28, 2600, 0.5)
     intake = [(d, 600 if i % 2 else k) for i, (d, k) in enumerate(intake)]

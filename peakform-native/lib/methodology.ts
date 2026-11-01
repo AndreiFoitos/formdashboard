@@ -233,7 +233,7 @@ stalled = same top weight and no more total reps across 3 sessions
 
 The formula. Your resting burn comes from your lean mass when you've logged a body-fat reading in the last 90 days (Katch-McArdle), otherwise from your age, height, weight and sex (Mifflin-St Jeor). It's multiplied by an activity factor for how many days a week you actually train. For your first 2 weeks that's the number you told us. After that it's the days you logged a workout in Training over the last 4 weeks, so log every session: a session you don't log doesn't count, and a plan you don't follow doesn't either.
 
-Your logs. Over the last 4 weeks, the app takes what you ate on fully logged days (days under 800 kcal are treated as half-logged and skipped) and compares it with your weight trend. If you ate 2,600 kcal a day and lost 0.5 kg a week, you burned about 2,600 + 550 = 3,150 kcal a day, since a kilo of body weight is roughly 7,700 kcal. This needs at least 10 logged days and 4 weigh-ins spread over 2 weeks. It counts for more as the data grows, and fully after 3 weeks of both. A number far from the formula (more than 30% off) is pulled back, because missed logs are the usual cause.
+Your logs. Over the last 4 weeks, the app takes what you ate on fully logged days (days under 800 kcal are treated as half-logged and skipped) and compares it with your weight trend. If you ate 2,600 kcal a day and lost 0.5 kg a week, you burned about 2,600 + 550 = 3,150 kcal a day, since a kilo of body weight is roughly 7,700 kcal. This needs at least 10 logged days and 4 weigh-ins spread over 2 weeks. It counts for more as the data grows, and fully after 3 weeks of both. It counts fully sooner when you've stalled: if you're cutting and your weight hasn't come down (or bulking and it hasn't gone up) over 2+ weeks, what you ate was your maintenance, whatever the formula says. A number far from the formula (more than 30% off) is pulled back, because missed logs are the usual cause.
 
 Your goal and pace. Cutting at a steady pace aims to lose 0.5% of your bodyweight a week (slow 0.25%, fast 0.75%). Bulking aims to gain 0.25% a week (slow 0.1%, fast 0.4%). Below 12% body fat for men or 20% for women, a fast cut is held to steady pace to protect muscle.
 
@@ -251,6 +251,7 @@ This is general fitness guidance, not medical advice.`,
 
 Burn (logs)     = avg intake − weight trend (kg/wk) × 7,700 / 7
 Weight on logs  = min(1, logged days / 21) × min(1, weigh-in span / 21)
+                  (1 when stalled: trend under 25% of the goal's pace)
 Burn            = weight × logs + (1 − weight) × formula
 
 Target = burn + pace × bodyweight × 7,700 / 7

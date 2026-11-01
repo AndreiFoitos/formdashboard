@@ -31,12 +31,13 @@ import {
   useProgression,
   type ExerciseProgression,
 } from '../../hooks/useProgression'
-import { TargetBadge } from '../../components/TargetBadge'
 import { UndoToast } from '../../components/UndoToast'
 import { showUndo } from '../../store/undo'
 import { cleanReps, cleanWeight, useUnits } from '../../lib/units'
 import { KEYBOARD_DONE_ID, KeyboardDoneBar } from '../../components/KeyboardDoneBar'
 import { ExercisePickerModal, type CustomExerciseRow } from '../../components/ExercisePickerModal'
+import { SwipeableRow } from '../../components/SwipeableRow'
+import { PIT_TODAY_KEY } from '../../hooks/usePitCrew'
 import { colors } from '../../theme/tokens'
 
 // ─── Exercise catalogue ───────────────────────────────────────────────────────
@@ -98,6 +99,8 @@ interface SessionExercise {
   top_weight_kg: number | null
   top_reps: number | null
   drop_sets?: number
+  /** Each set, oldest first, so one can be deleted. */
+  logs?: { id: string; weight_kg: number | null; reps: number | null; set_type: 'normal' | 'drop' }[]
   /** Shared by exercises done back to back. */
   superset_id?: string | null
 }
@@ -293,9 +296,24 @@ function PRChart({
  *  progression targets. */
 type SetRow = { reps: string; weight: string; drop?: boolean }
 /** One exercise in the sheet. Two or more make a superset. */
-type LogBlock = { key: string; sets: SetRow[]; touched: boolean }
+type LogBlock = { key: string; sets: SetRow[] }
 
 const EMPTY_ROW: SetRow = { reps: '', weight: '' }
+
+/** Everything that reads training logs, refreshed after a save or delete. */
+function useInvalidateTraining() {
+  const qc = useQueryClient()
+  return () => {
+    qc.invalidateQueries({ queryKey: ['training-volume'] })
+    qc.invalidateQueries({ queryKey: ['exercise-history'] })
+    qc.invalidateQueries({ queryKey: ['training-history'] })
+    qc.invalidateQueries({ queryKey: ['training-sessions'] })
+    qc.invalidateQueries({ queryKey: ['one-rm'] })
+    qc.invalidateQueries({ queryKey: ['dashboard'] })
+    qc.invalidateQueries({ queryKey: PROGRESSION_KEY })
+    qc.invalidateQueries({ queryKey: PIT_TODAY_KEY })
+  }
+}
 
 function ExerciseBlock({
   block,
@@ -306,7 +324,7 @@ function ExerciseBlock({
   block: LogBlock
   /** "A", "B"… in a superset; none for a single exercise. */
   label?: string
-  onChange: (sets: SetRow[], touched: boolean) => void
+  onChange: (sets: SetRow[]) => void
   onRemove?: () => void
 }) {
   const u = useUnits()
@@ -325,38 +343,23 @@ function ExerciseBlock({
     return history.logs.filter(l => l.date === lastDate)
   }, [history])
 
-  // Progressive overload target: pre-fill the sets with it, else with last
-  // session. Waits for the data and stops once the user edits anything.
+  // Progressive overload target. Shown as one line of text only: the sets
+  // start empty, since pre-filling them was too much on a second session.
   const progression = useProgression(block.key)
   const target = progression.data?.target
-  useEffect(() => {
-    if (block.touched) return
-    if (target?.sets.length) {
-      onChange(target.sets.map(t => ({
-        reps: String(t.reps),
-        weight: t.weight_kg != null ? String(u.lift(t.weight_kg)) : '',
-      })), false)
-    } else if (progression.isFetched && lastSession?.length) {
-      onChange(lastSession.map(l => ({
-        reps: l.reps != null ? String(l.reps) : '',
-        weight: l.weight_kg != null ? String(u.lift(l.weight_kg)) : '',
-        drop: l.set_type === 'drop',
-      })), false)
-    }
-  }, [target, lastSession, progression.isFetched, block.touched])
 
   const sets = block.sets
 
   function updateSet(i: number, field: 'reps' | 'weight', value: string) {
     const clean = field === 'reps' ? cleanReps(value) : cleanWeight(value)
-    onChange(sets.map((s, idx) => idx === i ? { ...s, [field]: clean } : s), true)
+    onChange(sets.map((s, idx) => idx === i ? { ...s, [field]: clean } : s))
   }
 
   function addSet() {
     hapticLight()
     // Copy the last full set, not a drop.
     const base = [...sets].reverse().find(s => !s.drop) ?? EMPTY_ROW
-    onChange([...sets, { reps: base.reps, weight: base.weight }], true)
+    onChange([...sets, { reps: base.reps, weight: base.weight }])
   }
 
   function addDrop() {
@@ -364,12 +367,12 @@ function ExerciseBlock({
     const last = parseFloat(sets[sets.length - 1]?.weight ?? '')
     // About 20% lighter, on a weight that exists.
     const lighter = Number.isFinite(last) && last > 0 ? String(Math.round(last * 0.8 * 2) / 2) : ''
-    onChange([...sets, { reps: '', weight: lighter, drop: true }], true)
+    onChange([...sets, { reps: '', weight: lighter, drop: true }])
   }
 
   function removeSet(i: number) {
     if (sets.length === 1) return
-    onChange(sets.filter((_, idx) => idx !== i), true)
+    onChange(sets.filter((_, idx) => idx !== i))
   }
 
   let setNumber = 0
@@ -389,34 +392,21 @@ function ExerciseBlock({
         </View>
       )}
 
-      {/* Progressive overload target */}
-      {target && target.kind !== 'first' && (
-        <View className="bg-surface-raised border border-border rounded-xl p-3 mb-3" style={{ borderCurve: 'continuous' }}>
-          <View className="flex-row items-center justify-between mb-2">
-            <Text className="text-text-subtle text-caption">Next target</Text>
-            <TargetBadge kind={target.kind} />
-          </View>
-          <Text className="text-text text-headline font-bold">
-            {targetHeadline(target, u)}{perDb && target.weight_kg != null ? ' each' : ''}
-          </Text>
-          <Text className="text-text-muted text-caption mt-1">{target.reason}</Text>
-          <Text className="text-text-subtle text-caption mt-2">
-            Rep range {target.range[0]}–{target.range[1]} · sets below are pre-filled, edit what you actually did
-          </Text>
-        </View>
-      )}
-
-      {/* Last session reference */}
-      {lastSession && lastSession.length > 0 && (
-        <View className="bg-surface-raised border border-border rounded-xl p-3 mb-4" style={{ borderCurve: 'continuous' }}>
-          <Text className="text-text-subtle text-caption mb-2">
-            Last session
-          </Text>
-          <Text className="text-text-muted text-footnote">
-            {lastSession.map(s =>
-              `${s.set_type === 'drop' ? '↳ ' : ''}${s.weight_kg != null ? u.liftLabel(s.weight_kg) : '–'} × ${s.reps ?? '–'}`
-            ).join('  ·  ')}
-          </Text>
+      {/* Last time, then the target as a hint. Plain text, nothing filled in. */}
+      {(!!lastSession?.length || (target && target.kind !== 'first')) && (
+        <View className="mb-4">
+          {!!lastSession?.length && (
+            <Text className="text-text-muted text-footnote">
+              Last time: {lastSession.map(s =>
+                `${s.set_type === 'drop' ? '↳ ' : ''}${s.weight_kg != null ? u.liftLabel(s.weight_kg) : '–'} × ${s.reps ?? '–'}`
+              ).join('  ·  ')}
+            </Text>
+          )}
+          {target && target.kind !== 'first' && (
+            <Text className="text-text-subtle text-caption mt-1">
+              Target: {targetHeadline(target, u)}{perDb && target.weight_kg != null ? ' each' : ''}
+            </Text>
+          )}
         </View>
       )}
 
@@ -496,28 +486,20 @@ function LogExerciseModal({
   onClose: () => void
 }) {
   const u = useUnits()
-  const qc = useQueryClient()
   const displayName = useExerciseName(EXERCISE_NAME)
 
   const [blocks, setBlocks] = useState<LogBlock[]>([
-    { key: exerciseKey, sets: [EMPTY_ROW], touched: false },
+    { key: exerciseKey, sets: [EMPTY_ROW] },
   ])
   const [notes, setNotes] = useState('')
   const [pickingSuperset, setPickingSuperset] = useState(false)
   const isSuperset = blocks.length > 1
 
-  function updateBlock(i: number, sets: SetRow[], touched: boolean) {
-    setBlocks(prev => prev.map((b, idx) => idx === i ? { ...b, sets, touched: b.touched || touched } : b))
+  function updateBlock(i: number, sets: SetRow[]) {
+    setBlocks(prev => prev.map((b, idx) => idx === i ? { ...b, sets } : b))
   }
 
-  function invalidateTraining() {
-    qc.invalidateQueries({ queryKey: ['training-volume'] })
-    qc.invalidateQueries({ queryKey: ['exercise-history'] })
-    qc.invalidateQueries({ queryKey: ['training-history'] })
-    qc.invalidateQueries({ queryKey: ['training-sessions'] })
-    qc.invalidateQueries({ queryKey: ['dashboard'] })
-    qc.invalidateQueries({ queryKey: PROGRESSION_KEY })
-  }
+  const invalidateTraining = useInvalidateTraining()
 
   const { mutate, isPending } = useMutation({
     mutationFn: (body: { superset: boolean; payload: object }) =>
@@ -620,7 +602,7 @@ function LogExerciseModal({
                 key={`${b.key}-${i}`}
                 block={b}
                 label={isSuperset ? String.fromCharCode(65 + i) : undefined}
-                onChange={(sets, touched) => updateBlock(i, sets, touched)}
+                onChange={sets => updateBlock(i, sets)}
                 onRemove={i > 0 ? () => setBlocks(prev => prev.filter((_, idx) => idx !== i)) : undefined}
               />
             ))}
@@ -673,7 +655,7 @@ function LogExerciseModal({
         <ExercisePickerModal
           onPick={(key) => {
             setPickingSuperset(false)
-            setBlocks(prev => [...prev, { key, sets: [EMPTY_ROW], touched: false }])
+            setBlocks(prev => [...prev, { key, sets: [EMPTY_ROW] }])
           }}
           onClose={() => setPickingSuperset(false)}
         />
@@ -1239,24 +1221,70 @@ function SessionRow({
       </TouchableOpacity>
 
       {open && (
-        <View className="px-4 pb-4 gap-2">
+        <View className="pb-2">
           {session.exercises.map(e => (
-            <View key={e.type} className="flex-row items-center justify-between">
-              <Text className="text-text-muted text-caption flex-1 pr-3" numberOfLines={1}>
-                {nameForKey(e.type)}
-                {e.superset_id ? <Text className="text-text-subtle"> · superset</Text> : null}
-              </Text>
-              <Text className="text-text-subtle text-caption">
-                {e.sets} {e.sets === 1 ? 'set' : 'sets'}
-                {e.drop_sets ? ` (${e.drop_sets} drop)` : ''}
-                {e.top_weight_kg != null
-                  ? ` · top ${u.liftLabel(e.top_weight_kg)} × ${e.top_reps ?? '?'}`
-                  : ''}
-              </Text>
-            </View>
+            <SessionExerciseRow key={e.type} exercise={e} name={nameForKey(e.type)} />
           ))}
+          <Text className="text-text-subtle text-caption px-4 pt-2">
+            Tap an exercise for its sets. Swipe left to delete.
+          </Text>
         </View>
       )}
+    </View>
+  )
+}
+
+/** One exercise in an opened session. Swipe left deletes all its sets that
+ *  day; tap shows the sets, and each of those swipes away on its own. */
+function SessionExerciseRow({ exercise: e, name }: { exercise: SessionExercise; name: string }) {
+  const u = useUnits()
+  const [open, setOpen] = useState(false)
+  const invalidateTraining = useInvalidateTraining()
+  const remove = useMutation({
+    mutationFn: (ids: string[]) => Promise.all(ids.map(id => api.delete(`/training/${id}`))),
+    onSettled: invalidateTraining,
+  })
+  const logs = e.logs ?? []
+  let setNumber = 0
+
+  return (
+    <View>
+      <SwipeableRow onDelete={() => remove.mutate(logs.map(l => l.id))}>
+        <TouchableOpacity
+          onPress={() => setOpen(o => !o)}
+          disabled={!logs.length}
+          className="px-4 py-2 flex-row items-center justify-between bg-surface"
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+        >
+          <Text className="text-text-muted text-caption flex-1 pr-3" numberOfLines={1}>
+            {name}
+            {e.superset_id ? <Text className="text-text-subtle"> · superset</Text> : null}
+          </Text>
+          <Text className="text-text-subtle text-caption">
+            {e.sets} {e.sets === 1 ? 'set' : 'sets'}
+            {e.drop_sets ? ` (${e.drop_sets} drop)` : ''}
+            {e.top_weight_kg != null
+              ? ` · top ${u.liftLabel(e.top_weight_kg)} × ${e.top_reps ?? '?'}`
+              : ''}
+          </Text>
+        </TouchableOpacity>
+      </SwipeableRow>
+      {open && logs.map(l => {
+        if (l.set_type !== 'drop') setNumber += 1
+        return (
+          <SwipeableRow key={l.id} onDelete={() => remove.mutate([l.id])}>
+            <View className="pl-8 pr-4 py-2 flex-row items-center bg-surface">
+              <Text className="text-text-subtle text-caption w-14">
+                {l.set_type === 'drop' ? '↳ drop' : `#${setNumber}`}
+              </Text>
+              <Text className="text-text-muted text-caption">
+                {l.weight_kg != null ? u.liftLabel(l.weight_kg) : '–'} × {l.reps ?? '–'}
+              </Text>
+            </View>
+          </SwipeableRow>
+        )
+      })}
     </View>
   )
 }

@@ -359,6 +359,16 @@ async def get_sessions(
                     "superset_id": next(
                         (str(x.superset_id) for x in sets if x.superset_id), None
                     ),
+                    # Each set, so the app can delete one.
+                    "logs": [
+                        {
+                            "id": str(x.id),
+                            "weight_kg": float(x.weight_kg) if x.weight_kg is not None else None,
+                            "reps": x.reps,
+                            "set_type": x.set_type,
+                        }
+                        for x in sets
+                    ],
                 }
                 for key, sets in by_exercise.items()
             ],
