@@ -62,8 +62,8 @@ function pausedDetail(description: string, until: string | null): string {
 }
 
 function Learned({ habits }: { habits: LearnedHabits }) {
-  const { meals, training, weigh_in } = habits
-  const empty = meals.length === 0 && !training && !weigh_in
+  const { meals, training, weigh_in, creatine } = habits
+  const empty = meals.length === 0 && !training && !weigh_in && !creatine
   return (
     <SettingsGroup
       header="What the app has learned"
@@ -92,6 +92,13 @@ function Learned({ habits }: { habits: LearnedHabits }) {
                   : `${training.sessions} sessions in 4 weeks, no fixed days`
               }
               value={`About ${minuteLabel(training.start_minute)}`}
+            />
+          )}
+          {creatine && (
+            <SettingsRow
+              title="Creatine"
+              detail={`Reminder after ${minuteLabel(creatine.remind_minute)} if it's not ticked`}
+              value={`About ${minuteLabel(creatine.usual_minute)}`}
             />
           )}
           {weigh_in && (
@@ -161,6 +168,7 @@ function Switches({ data }: { data: ReminderSettings }) {
 
 const TEST_ROWS: { kind: TestKind; title: string }[] = [
   { kind: 'meal', title: 'Meal not logged' },
+  { kind: 'creatine', title: 'Creatine not ticked' },
   { kind: 'workout_preview', title: 'Training targets' },
   { kind: 'workout_log', title: 'Log your sets' },
   { kind: 'protein', title: 'Protein check' },

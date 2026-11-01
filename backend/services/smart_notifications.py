@@ -20,6 +20,9 @@ Kinds, in priority order:
   lifts (services/plan_today.py).
 - meal: a meal they log on at least half of days isn't logged by the time
   they usually have it logged.
+- creatine (tracking on, not ticked today): once they're later than the
+  time they've usually taken it by, then once more in the evening. Without
+  a usual time yet, only the evening one. Its push has a Taken button.
 - workout_log: a day they'd normally train (plan, or 60%+ of those
   weekdays) with nothing logged an hour after they're usually done.
 - protein: in the evening, tracking food today, under 75% of the target.
@@ -62,6 +65,7 @@ TRAIN_DAY_SHARE = 0.6
 MIN_SESSIONS = 4
 PROTEIN_SHORT = 0.75
 PROTEIN_MIN_GAP_G = 30
+CREATINE_EVENING = 19 * 60
 
 # Settings switches. "water_coffee" gates services/notifier.py.
 CATEGORIES = {
@@ -70,6 +74,7 @@ CATEGORIES = {
     "protein": ("Protein check", "One evening reminder when you're well short of your protein target."),
     "weigh_in": ("Weigh-ins", "When you're overdue for your usual weigh-in."),
     "comeback": ("After a break", "After 3 days without logging, and once more after 7."),
+    "creatine": ("Creatine", "When it's not ticked by the time you usually take it, and once in the evening."),
     "water_coffee": ("Water and coffee", "At the times you usually log them, with a Log button."),
 }
 KIND_CATEGORY = {
@@ -79,6 +84,7 @@ KIND_CATEGORY = {
     "protein": "protein",
     "weigh_in": "weigh_in",
     "comeback": "comeback",
+    "creatine": "creatine",
 }
 # How long after a reminder a log still counts as acting on it.
 ACT_WINDOW = {
@@ -88,9 +94,13 @@ ACT_WINDOW = {
     "protein": timedelta(hours=4),
     "weigh_in": timedelta(hours=12),
     "comeback": timedelta(hours=24),
+    "creatine": timedelta(hours=4),
 }
 # Screens a tap may open (the app keeps the same list).
 ROUTES = {"/", "/ask", "/training", "/nutrition", "/nutrition-snap", "/body"}
+# The app registers this iOS category with Taken / Skip buttons
+# (lib/notifications.ts).
+CATEGORY_CREATINE = "creatine"
 WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 
@@ -101,6 +111,7 @@ class Reminder:
     title: str
     body: str
     route: str
+    category: str | None = None
 
 
 @dataclass
@@ -154,6 +165,26 @@ def workout_log_reminder(plan_day: str | None, today: date) -> Reminder:
         f"You usually train on {WEEKDAY_NAMES[today.weekday()]}s. Log your sets so your next targets update."
     )
     return Reminder("workout_log", f"workout_log:{today}", "Trained today?", body, "/ask" if plan_day else "/training")
+
+
+def creatine_reminder(dose_g: float, by_minute: int | None, today: date) -> Reminder:
+    """`by_minute`: when they've usually taken it by; None for the evening one."""
+    dose = f"{dose_g:g} g"
+    if by_minute is not None:
+        return Reminder(
+            "creatine", f"creatine:{today}:usual", "Taken your creatine today?",
+            f"Most days you've had your {dose} by {clock(by_minute)}. Tap Taken to tick it off.",
+            "/", CATEGORY_CREATINE,
+        )
+    return Reminder(
+        "creatine", f"creatine:{today}:evening", "Creatine not ticked yet",
+        f"Still time for your {dose} today. Taking it every day is what keeps your levels up.",
+        "/", CATEGORY_CREATINE,
+    )
+
+
+def creatine_evening(ctx: Context) -> int:
+    return max(CREATINE_EVENING, ctx.last_minute - 90)
 
 
 def protein_reminder(eaten: float, target: float, today: date) -> Reminder:
@@ -241,6 +272,33 @@ def checks(p: Profile, ctx: Context) -> list[Check]:
             else:
                 reason = f"Too late to be useful today (until {clock(end)})."
         out.append(Check("meal", label, None, reason))
+
+    label, h = "Creatine", p.creatine
+    if not p.creatine_on:
+        out.append(Check("creatine", label, None, "Creatine tracking is off."))
+    elif p.creatine_today:
+        out.append(Check("creatine", label, None, "Already ticked today."))
+    else:
+        habit = h is not None and h.share >= MIN_MEAL_SHARE
+        usual_at = max(h.late_minute + 20, h.usual_minute + 30) if habit else None
+        evening = creatine_evening(ctx)
+        if usual_at is not None and usual_at >= evening:
+            # Takes it in the evening anyway: one reminder, after their usual time.
+            evening, usual_at = usual_at, None
+        if usual_at is not None and now < usual_at:
+            out.append(Check("creatine", label, None,
+                             f"You usually take it around {clock(h.usual_minute)}. Reminder after {clock(usual_at)} if it's not ticked."))
+        elif usual_at is not None and now < evening:
+            out.append(Check("creatine", label, creatine_reminder(p.creatine_dose_g, h.late_minute, today),
+                             f"Due: you've usually taken it by {clock(h.late_minute)}."))
+        elif now < evening:
+            why = (f"You usually take it around {clock(h.usual_minute)}." if habit else
+                   f"Ticked on {round(h.share * 100)}% of days, so no usual time yet." if h else
+                   "No usual time yet: it needs ticking on 4 or more days.")
+            out.append(Check("creatine", label, None, f"{why} Reminder at {clock(evening)} if it's not ticked."))
+        else:
+            out.append(Check("creatine", label, creatine_reminder(p.creatine_dose_g, None, today),
+                             f"Due: not ticked by {clock(evening)}."))
 
     label = "Log your sets"
     share = t.weekday_share[today.weekday()] if t else 0.0
@@ -340,6 +398,7 @@ def mark_acted(events: list[PushEvent], p: Profile) -> None:
         "workout_preview": p.training_times,
         "workout_log": p.training_times,
         "weigh_in": p.weigh_times,
+        "creatine": p.creatine_times,
     }
     for e in events:
         if e.acted_at is not None or e.kind not in ACT_WINDOW:
@@ -439,6 +498,7 @@ async def process_user(user: User, db: AsyncSession) -> bool:
         delivered = await push.send_to_user(
             user.id, db, title=r.title, body=r.body,
             data={"type": "smart", "kind": r.kind, "event_id": str(event_id), "route": r.route},
+            category_id=r.category,
         )
         if delivered:
             db.add(PushEvent(id=event_id, user_id=user.id, kind=r.kind, dedupe_key=r.key, sent_at=now_utc))
@@ -501,12 +561,16 @@ def habits_summary(p: Profile) -> dict:
             "usual_minute": w.usual_minute,
             "every_days": w.gap_days,
         } if w and not w.synced else None,
+        "creatine": {
+            "usual_minute": p.creatine.usual_minute,
+            "remind_minute": max(p.creatine.late_minute + 20, p.creatine.usual_minute + 30),
+        } if p.creatine and p.creatine.share >= MIN_MEAL_SHARE else None,
     }
 
 
 # ─── Testing tools (Settings > Notifications > Reminders, testers only) ──────
 
-TEST_KINDS = ("workout_preview", "meal", "workout_log", "protein", "weigh_in", "comeback")
+TEST_KINDS = ("workout_preview", "meal", "creatine", "workout_log", "protein", "weigh_in", "comeback")
 
 
 def is_tester(user: User) -> bool:
@@ -573,6 +637,9 @@ async def send_test(user: User, kind: str, db: AsyncSession) -> tuple[int, Remin
              preview_reminder("Push day", ["Bench press ↑ 82.5 kg", "Rows +1 rep at 60 kg"], today))
     elif kind == "meal":
         r = meal_reminder(meal_of(p.minute) or "lunch", today)
+    elif kind == "creatine":
+        h = p.creatine
+        r = creatine_reminder(p.creatine_dose_g, h.late_minute if h else 9 * 60, today)
     elif kind == "workout_log":
         r = workout_log_reminder(ctx.plan_day, today)
     elif kind == "protein":
@@ -587,5 +654,6 @@ async def send_test(user: User, kind: str, db: AsyncSession) -> tuple[int, Remin
     delivered = await push.send_to_user(
         user.id, db, title=r.title, body=r.body,
         data={"type": "smart", "kind": r.kind, "event_id": str(uuid.uuid4()), "route": r.route},
+        category_id=r.category,
     )
     return delivered, r

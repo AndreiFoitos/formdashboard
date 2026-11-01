@@ -7,10 +7,11 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
-import { Check, RotateCcw, SquarePen } from 'lucide-react-native'
+import { Check, RotateCcw, SquarePen, X } from 'lucide-react-native'
 import { handleLimitError, openPaywall, usePlan, useSetPlan } from '../../hooks/usePlan'
 import { PREFERENCES_KEY } from '../../hooks/usePreferences'
 import { ADAPTIVE_KEY } from '../../hooks/useAdaptiveCalories'
@@ -77,6 +78,8 @@ export function ChatPanel() {
   // The native tab bar overlays the screen; the keyboard covers it when up.
   const insets = useSafeAreaInsets()
   const bottomPad = Math.max(keyboardOverlap, tabBarClearance(insets.bottom))
+  // With the keyboard up the tab bar is hidden, so give an obvious way out.
+  const keyboardUp = keyboardOverlap > 0
   useEffect(() => {
     if (keyboardOverlap > 0) scrollDown()
   }, [keyboardOverlap])
@@ -182,24 +185,37 @@ export function ChatPanel() {
         ) : (
           <View />
         )}
-        <TouchableOpacity
-          onPress={confirmClear}
-          disabled={newChatDisabled}
-          accessibilityRole="button"
-          accessibilityLabel="New chat"
-          accessibilityState={{ disabled: newChatDisabled }}
-          className="flex-row items-center gap-2 px-3 rounded-md bg-surface-raised"
-          style={{ borderCurve: 'continuous', minHeight: 44 }}
-        >
-          {clear.isPending ? (
-            <ActivityIndicator color={colors['text-subtle']} />
-          ) : (
-            <SquarePen size={16} color={newChatDisabled ? colors['text-subtle'] : colors.text} strokeWidth={2} />
-          )}
-          <Text className={`text-footnote font-semibold ${newChatDisabled ? 'text-text-subtle' : 'text-text'}`}>
-            New chat
-          </Text>
-        </TouchableOpacity>
+        {keyboardUp ? (
+          <TouchableOpacity
+            onPress={() => Keyboard.dismiss()}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Close keyboard"
+            className="w-11 h-11 rounded-full bg-surface-raised border border-border items-center justify-center"
+            style={{ borderCurve: 'continuous' }}
+          >
+            <X size={20} color={colors.text} strokeWidth={2.25} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            onPress={confirmClear}
+            disabled={newChatDisabled}
+            accessibilityRole="button"
+            accessibilityLabel="New chat"
+            accessibilityState={{ disabled: newChatDisabled }}
+            className="flex-row items-center gap-2 px-3 rounded-md bg-surface-raised"
+            style={{ borderCurve: 'continuous', minHeight: 44 }}
+          >
+            {clear.isPending ? (
+              <ActivityIndicator color={colors['text-subtle']} />
+            ) : (
+              <SquarePen size={16} color={newChatDisabled ? colors['text-subtle'] : colors.text} strokeWidth={2} />
+            )}
+            <Text className={`text-footnote font-semibold ${newChatDisabled ? 'text-text-subtle' : 'text-text'}`}>
+              New chat
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
@@ -207,6 +223,8 @@ export function ChatPanel() {
         className="flex-1 px-4"
         contentContainerClassName="pb-4"
         keyboardShouldPersistTaps="handled"
+        // Drag the messages down to put the keyboard away, as in Messages.
+        keyboardDismissMode="interactive"
       >
         {!loaded && saved.isLoading ? (
           <ActivityIndicator color={colors['text-subtle']} className="mt-6" />

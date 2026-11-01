@@ -26,11 +26,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.timezone import resolve_tz
 from models.body_metric import BodyMetric
+from models.creatine_log import CreatineLog
 from models.hydration_log import HydrationLog
 from models.nutrition_log import NutritionLog
 from models.stimulant_log import StimulantLog
 from models.training_log import TrainingLog
 from models.user import User
+from models.user_preference import UserPreference
 
 LOOKBACK_DAYS = 28
 TRAINING_LOOKBACK_DAYS = 42   # six of each weekday
@@ -38,6 +40,7 @@ ACTIVITY_LOOKBACK_DAYS = 45   # 2 quiet weeks + the 4 active weeks before
 HALF_LIFE_DAYS = 14
 MIN_MEAL_DAYS = 6
 MIN_WEIGH_INS = 4
+MIN_CREATINE_DAYS = 4
 LATE_QUANTILE = 0.8
 
 # Local minute-of-day windows, the same split as services/saved_meals.py.
@@ -93,6 +96,12 @@ class Profile:
     training_times: list[datetime] = field(default_factory=list)
     weigh_times: list[datetime] = field(default_factory=list)
     other_times: list[datetime] = field(default_factory=list)
+    # Creatine (routers/creatine.py): only filled in while tracking is on.
+    creatine_on: bool = False
+    creatine_dose_g: float = 5.0
+    creatine: Habit | None = None
+    creatine_today: bool = False
+    creatine_times: list[datetime] = field(default_factory=list)
 
     @property
     def today(self) -> date:
@@ -103,7 +112,7 @@ class Profile:
         return minute_of(self.now)
 
     def any_times(self) -> list[datetime]:
-        return self.food_times + self.training_times + self.weigh_times + self.other_times
+        return self.food_times + self.training_times + self.weigh_times + self.other_times + self.creatine_times
 
 
 def minute_of(dt: datetime) -> int:
@@ -165,6 +174,27 @@ def meal_habits(times: list[datetime], today: date, since: date | None = None) -
     return out
 
 
+def creatine_habit(ticks: list[tuple[date, datetime]], today: date, since: date | None = None) -> Habit | None:
+    """`ticks`: (day, local time ticked) per creatine tick. When they usually
+    have it taken, from ticks made on the day itself (ticking yesterday's
+    in the morning says nothing about when they take it). Days before today
+    only."""
+    start = _window(today, LOOKBACK_DAYS, since)
+    span = (today - start).days
+    hits = {d: minute_of(t) for d, t in ticks if start <= d < today and t.date() == d}
+    if span <= 0 or len(hits) < MIN_CREATINE_DAYS:
+        return None
+    ws = [_weight((today - d).days) for d in hits]
+    mins = list(hits.values())
+    total = sum(_weight(i + 1) for i in range(span))
+    return Habit(
+        share=round(min(1.0, sum(ws) / total), 3),
+        usual_minute=int(weighted_quantile(mins, ws, 0.5)),
+        late_minute=int(weighted_quantile(mins, ws, LATE_QUANTILE)),
+        days=len(hits),
+    )
+
+
 def training_habit(sessions: dict[date, tuple[int, int]], today: date, since: date | None = None) -> TrainingHabit | None:
     """`sessions`: {date: (first set minute, last set minute)}, local."""
     start = _window(today, TRAINING_LOOKBACK_DAYS, since)
@@ -214,7 +244,7 @@ def usual_active_minute(firsts: dict[date, int]) -> int | None:
 
 
 async def load_profile(user: User, db: AsyncSession, now: datetime | None = None) -> Profile:
-    """Four or five small queries over the last few weeks of logs."""
+    """Five to seven small queries over the last few weeks of logs."""
     tz = resolve_tz(user.timezone)
     now = now or datetime.now(tz)
     today = now.date()
@@ -285,6 +315,21 @@ async def load_profile(user: User, db: AsyncSession, now: datetime | None = None
             seen(t.date(), t)
             other.append(at)
 
+    prefs = (await db.execute(
+        select(UserPreference.creatine_on, UserPreference.creatine_dose_g).where(UserPreference.user_id == uid)
+    )).first()
+    creatine_on, dose = (bool(prefs[0]), prefs[1]) if prefs else (False, 5.0)
+    ticks: list[tuple[date, datetime]] = []
+    creatine_at = []
+    if creatine_on:
+        for d, at in (await db.execute(
+            select(CreatineLog.date, CreatineLog.logged_at)
+            .where(CreatineLog.user_id == uid, CreatineLog.date >= today - timedelta(days=LOOKBACK_DAYS))
+        )).all():
+            seen(d, local(at))
+            ticks.append((d, local(at)))
+            creatine_at.append(at)
+
     return Profile(
         now=now,
         meals=meal_habits(food_local, today, since),
@@ -301,4 +346,9 @@ async def load_profile(user: User, db: AsyncSession, now: datetime | None = None
         training_times=[at for _, at in training],
         weigh_times=[at for _, at, _ in body],
         other_times=other,
+        creatine_on=creatine_on,
+        creatine_dose_g=dose,
+        creatine=creatine_habit(ticks, today, since) if creatine_on else None,
+        creatine_today=any(d == today for d, _ in ticks),
+        creatine_times=creatine_at,
     )

@@ -25,8 +25,10 @@ from models.ai_plan import AiPlan
 from models.ai_checkin import AiCheckin
 from models.push_event import NotificationSettings, PushEvent
 from models.calorie_update import CalorieUpdate
+from models.creatine_log import CreatineLog
 
 __all__ = [
+    "CreatineLog",
     "AvatarAchievement",
     "User",
     "DailySummary",
