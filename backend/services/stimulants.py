@@ -203,6 +203,14 @@ async def get_caffeine_curve(
             "zone": get_zone(total),
         })
 
+    # The line the app draws: same span every 10 min, so the rise after a drink
+    # keeps its real rounded shape instead of 30-min corners. Bare numbers keep
+    # it small; `curve` stays at 30 min for the widgets and older builds.
+    line_mg = [
+        round(sum(log_caffeine_at(log, start + timedelta(minutes=i * 10)) for log in logs), 1)
+        for i in range((len(curve) - 1) * 3 + 1)
+    ]
+
     bedtime = now.replace(hour=sleep_hour, minute=0, second=0, microsecond=0)
     caffeine_at_bed = sum(log_caffeine_at(log, bedtime) for log in logs)
     current_mg = sum(log_caffeine_at(log, now) for log in logs)
@@ -234,6 +242,7 @@ async def get_caffeine_curve(
 
     return {
         "curve": curve,
+        "line_mg": line_mg,
         "current_mg": round(current_mg, 1),
         "caffeine_at_bedtime": round(caffeine_at_bed, 1),
         "sleep_impact": get_sleep_impact_label(caffeine_at_bed),
