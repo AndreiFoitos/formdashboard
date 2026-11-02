@@ -14,12 +14,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { X } from 'lucide-react-native'
 import Svg, {
-  Polyline,
+  Path,
   Line,
   Defs,
   LinearGradient,
   Stop,
-  Polygon,
   Text as SvgText,
 } from 'react-native-svg'
 import { api } from '../api/client'
@@ -49,6 +48,8 @@ interface StimulantEntry {
 
 export interface CurveData {
   curve: CurvePoint[]
+  /** mg every 10 min over the same span, for drawing the line. Newer servers only. */
+  line_mg?: number[]
   current_mg: number
   caffeine_at_bedtime: number
   sleep_impact: string
@@ -182,7 +183,40 @@ function zoneLabel(mg: number) {
 
 // ─── SVG Caffeine Chart ───────────────────────────────────────────────────────
 
-function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string }) {
+// Monotone cubic curve through the points (Fritsch–Carlson): rounds the
+// corners but never overshoots, so it can't dip below 0 or bulge past a peak.
+function smoothPath(pts: { x: number; y: number }[]): string {
+  const n = pts.length
+  if (n < 2) return ''
+  const dx: number[] = []
+  const slope: number[] = []
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(pts[i + 1].x - pts[i].x)
+    slope.push((pts[i + 1].y - pts[i].y) / dx[i])
+  }
+  const tangent = [slope[0]]
+  for (let i = 1; i < n - 1; i++) {
+    const a = slope[i - 1]
+    const b = slope[i]
+    if (a * b <= 0) {
+      tangent.push(0) // flat at peaks, troughs and runs of zero
+    } else {
+      const wa = 2 * dx[i] + dx[i - 1]
+      const wb = dx[i] + 2 * dx[i - 1]
+      tangent.push((wa + wb) / (wa / a + wb / b))
+    }
+  }
+  tangent.push(slope[n - 2])
+
+  let d = `M${pts[0].x},${pts[0].y}`
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i] / 3
+    d += ` C${pts[i].x + h},${pts[i].y + tangent[i] * h} ${pts[i + 1].x - h},${pts[i + 1].y - tangent[i + 1] * h} ${pts[i + 1].x},${pts[i + 1].y}`
+  }
+  return d
+}
+
+function CaffeineChart({ curve, lineMg, colour }: { curve: CurvePoint[]; lineMg?: number[]; colour: string }) {
   const screenWidth = Dimensions.get('window').width
   const chartWidth = screenWidth - 64 // card padding
   const chartHeight = 132
@@ -194,7 +228,9 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
   const plotW = chartWidth - paddingLeft - paddingRight
   const plotH = chartHeight - paddingTop - paddingBottom
 
-  const values = curve.map((p) => p.caffeine_mg)
+  // The 10-min line when the server sends it (same 6 AM–1 AM span), else the
+  // 30-min curve.
+  const values = lineMg && lineMg.length > 1 ? lineMg : curve.map((p) => p.caffeine_mg)
   const maxV = Math.max(...values, 10)
 
   const toX = (i: number) =>
@@ -203,12 +239,12 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
   const toY = (v: number) =>
     paddingTop + plotH - (v / maxV) * plotH
 
-  // Build area polygon (line + bottom close)
-  const linePoints = curve.map((p, i) => `${toX(i)},${toY(p.caffeine_mg)}`).join(' ')
-  const areaPoints =
-    `${paddingLeft},${paddingTop + plotH} ` +
-    linePoints +
-    ` ${chartWidth - paddingRight},${paddingTop + plotH}`
+  // Smooth line through the points, and the area under it.
+  const linePath = smoothPath(
+    values.map((v, i) => ({ x: paddingLeft + (i / (values.length - 1)) * plotW, y: toY(v) })),
+  )
+  const areaPath =
+    `${linePath} L${chartWidth - paddingRight},${paddingTop + plotH} L${paddingLeft},${paddingTop + plotH} Z`
 
   // Now-line index
   const nowIdx = curve.findIndex((p) => !p.in_past)
@@ -266,11 +302,11 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
       ))}
 
       {/* Area fill */}
-      <Polygon points={areaPoints} fill="url(#cafGrad)" />
+      <Path d={areaPath} fill="url(#cafGrad)" />
 
       {/* Line */}
-      <Polyline
-        points={linePoints}
+      <Path
+        d={linePath}
         fill="none"
         stroke={colour}
         strokeWidth={2}
@@ -803,7 +839,7 @@ export function CaffeineCurve({ data, isLoading }: Props) {
 
         {/* Chart */}
         {curve.length > 1 ? (
-          <CaffeineChart curve={curve} colour={colour} />
+          <CaffeineChart curve={curve} lineMg={data?.line_mg} colour={colour} />
         ) : (
           <View style={{ height: 80, alignItems: 'center', justifyContent: 'center' }}>
             <Text className="text-text-subtle text-footnote">No caffeine logged today</Text>
