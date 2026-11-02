@@ -11,6 +11,7 @@ import {
   TextInput,
 } from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { X } from 'lucide-react-native'
 import Svg, {
   Polyline,
@@ -27,6 +28,7 @@ import { KEYBOARD_DONE_ID, KeyboardDoneBar } from './KeyboardDoneBar'
 import { showUndo } from '../store/undo'
 import { hapticLight, hapticSuccess } from '../lib/haptics'
 import { colors, fontPx } from '../theme/tokens'
+import { footerBottomPadding } from '../theme/layout'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -311,6 +313,7 @@ function CaffeineChart({ curve, colour }: { curve: CurvePoint[]; colour: string 
 
 function LogModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
+  const insets = useSafeAreaInsets()
   const [selected, setSelected] = useState<string | null>(null)
   const [customMg, setCustomMg] = useState('')
   const [customKcal, setCustomKcal] = useState('')
@@ -397,6 +400,11 @@ function LogModal({ onClose }: { onClose: () => void }) {
   const generic = presets.find((s) => s.key === 'energy_drink')
   const selectedSubstance = substances.find((s) => s.key === selected)
   const showAdditions = selectedSubstance?.supports_additions ?? false
+  // Names the pick so it reads right with the list scrolled away.
+  const logMg = needsMg ? customMg : selectedSubstance?.caffeine_mg
+  const logLabel = selectedSubstance
+    ? `Log ${selectedSubstance.label}${logMg ? ` · ${logMg} mg` : ''}`
+    : 'Log'
 
   // Live total: base substance macros + selected add-ons. Recomputed inline
   // since the picker is tiny; if it grows we can memoise.
@@ -624,9 +632,12 @@ function LogModal({ onClose }: { onClose: () => void }) {
               </View>
             </View>
           )}
+        </ScrollView>
 
+        {/* Pinned so Log stays in reach however long the brand list gets. */}
+        <View className="bg-surface border-t border-divider px-4 pt-3" style={{ paddingBottom: footerBottomPadding(insets.bottom) }}>
           {selectedSubstance && !needsMg && liveTotals && (
-            <View className="bg-surface-raised border border-border rounded-xl px-4 py-3 mb-4" style={{ borderCurve: 'continuous' }}>
+            <View className="mb-3">
               <Text className="text-text-subtle text-caption mb-1">
                 {selectedSubstance.caffeine_mg} mg caffeine
                 {selectedSubstance.sugar_g != null ? ` · ${formatNumber(selectedSubstance.sugar_g)} g sugar` : ''} · half-life{' '}
@@ -640,11 +651,10 @@ function LogModal({ onClose }: { onClose: () => void }) {
               </Text>
             </View>
           )}
-
           <TouchableOpacity
             onPress={handleLog}
             disabled={!selected || isPending || (needsMg && !customMg)}
-            className="bg-accent rounded-md py-4 items-center mb-12"
+            className="bg-accent rounded-md py-4 px-4 items-center"
             style={{
               borderCurve: 'continuous', opacity: !selected || isPending || (needsMg && !customMg) ? 0.4 : 1,
             }}
@@ -652,10 +662,12 @@ function LogModal({ onClose }: { onClose: () => void }) {
             {isPending ? (
               <ActivityIndicator color={colors['on-accent']} />
             ) : (
-              <Text className="text-on-accent font-semibold text-body">Log</Text>
+              <Text className="text-on-accent font-semibold text-body" numberOfLines={1}>
+                {logLabel}
+              </Text>
             )}
           </TouchableOpacity>
-        </ScrollView>
+        </View>
         <KeyboardDoneBar />
       </View>
     </Modal>

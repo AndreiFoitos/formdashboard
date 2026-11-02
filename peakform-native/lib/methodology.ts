@@ -98,13 +98,17 @@ female coefs:  a =  -57.96288
     slug: 'caffeine-curve',
     title: 'Caffeine curve',
     summary:
-      'How much caffeine is in your system right now — and at bedtime — modeled as exponential decay per substance.',
-    prose: `Caffeine follows first-order pharmacokinetics — concentration halves at a roughly fixed interval (the half-life) regardless of starting dose. Each substance gets its own half-life: coffee, espresso, green tea, black tea, and energy drinks all sit at ~5.5 h, while pre-workout supplements use ~5.0 h.
+      'How much caffeine is in your system right now — and at bedtime — built up as you drink and absorb it, then decaying per substance.',
+    prose: `A drink doesn't land all at once: caffeine builds up as you drink it and your gut absorbs it, peaking about an hour after you start.
 
-We sum decayed contributions from every drink you've logged today to produce the curve, your current mg, and the predicted residual at your set bedtime. The curve plots 6 AM to 1 AM in 30-minute steps.
+After that, caffeine follows first-order pharmacokinetics — concentration halves at a roughly fixed interval (the half-life) regardless of starting dose. Each substance gets its own half-life: coffee, espresso, green tea, black tea, and energy drinks all sit at ~5.5 h, while pre-workout supplements use ~5.0 h.
+
+We sum the contributions from every drink you've logged today to produce the curve, your current mg, and the predicted residual at your set bedtime. The curve plots 6 AM to 1 AM in 30-minute steps.
 
 Caveat we don't fully model: caffeine metabolism is CYP1A2-genotype-dependent and the linear bedtime penalty in Form Score is simplified — actual sleep impact depends on dose, timing, and your individual half-life.`,
-    formula: `caffeine_at_time(t) = dose_mg × 0.5 ^ ((t − logged_at) / half_life)
+    formula: `in_body(s) = ka / (ka − ke) × (e^(−ke·s) − e^(−ka·s))
+  per mg, s hours after it's drunk
+  ka = 4/h (absorption), ke = ln 2 / half_life
 
 half-life defaults:
   Coffee / espresso / green tea / black tea / energy drink:  5.5 h
@@ -117,6 +121,7 @@ Form Score caffeine = 100 / (1 + exp((mg_at_bedtime − 150) / 30))
                       (sigmoid: ~99 at 0 mg, 50 at 150 mg, ~1 at 300 mg)`,
     sources: [
       { name: 'ISSN caffeine position stand — half-life baseline ~5 h' },
+      { name: 'White et al. 2016, Clin. Toxicol. — 160 mg in coffee or energy drink peaks ~60–80 min after drinking starts' },
       { name: 'Drake et al. 2013, J. Clin. Sleep Med. — 100 mg caffeine within 6 h of bedtime measurably disrupts sleep' },
       { name: 'Cornelis et al. — CYP1A2-genotype-dependent caffeine metabolism' },
       { name: 'USDA FoodData Central — per-substance caffeine content' },

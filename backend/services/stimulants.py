@@ -9,40 +9,47 @@ from models.stimulant_log import StimulantLog
 # Per-serving nutrition for each substance. Calorie / macro values are USDA
 # FoodData Central reference entries; pre-workout and energy_drink are typical
 # commercial-product values (sugar-free RedBull 250ml, ~10g pre-workout scoop).
+# drink_min is how long the drink usually takes to finish; the caffeine curve
+# spreads the dose over it. Fixed per drink, not asked at log time.
 SUBSTANCES = {
-    "coffee":       {"label": "Coffee",       "serving": "240 ml brewed", "half_life": 5.5, "caffeine_mg": 95,  "calories": 2,  "protein_g": 0.3, "carbs_g": 0.0, "fat_g": 0.0},
-    "espresso":     {"label": "Espresso",     "serving": "30 ml shot",    "half_life": 5.5, "caffeine_mg": 63,  "calories": 1,  "protein_g": 0.1, "carbs_g": 0.0, "fat_g": 0.0},
-    "preworkout":   {"label": "Pre-workout",  "serving": "10 g scoop",    "half_life": 5.0, "caffeine_mg": 200, "calories": 5,  "protein_g": 0.0, "carbs_g": 1.0, "fat_g": 0.0},
-    "green_tea":    {"label": "Green Tea",    "serving": "240 ml brewed", "half_life": 5.5, "caffeine_mg": 30,  "calories": 2,  "protein_g": 0.5, "carbs_g": 0.5, "fat_g": 0.0},
-    "energy_drink": {"label": "Energy Drink", "serving": "250 ml can",    "half_life": 5.5, "caffeine_mg": 80,  "calories": 10, "protein_g": 1.0, "carbs_g": 2.0, "fat_g": 0.0},
-    "black_tea":    {"label": "Black Tea",    "serving": "240 ml brewed", "half_life": 5.5, "caffeine_mg": 47,  "calories": 2,  "protein_g": 0.0, "carbs_g": 0.5, "fat_g": 0.0},
-    "custom":       {"label": "Custom",       "serving": "—",             "half_life": 5.5, "caffeine_mg": 100, "calories": 0,  "protein_g": 0.0, "carbs_g": 0.0, "fat_g": 0.0},
+    "coffee":       {"label": "Coffee",       "serving": "240 ml brewed", "half_life": 5.5, "drink_min": 20, "caffeine_mg": 95,  "calories": 2,  "protein_g": 0.3, "carbs_g": 0.0, "fat_g": 0.0},
+    "espresso":     {"label": "Espresso",     "serving": "30 ml shot",    "half_life": 5.5, "drink_min": 5,  "caffeine_mg": 63,  "calories": 1,  "protein_g": 0.1, "carbs_g": 0.0, "fat_g": 0.0},
+    "preworkout":   {"label": "Pre-workout",  "serving": "10 g scoop",    "half_life": 5.0, "drink_min": 5,  "caffeine_mg": 200, "calories": 5,  "protein_g": 0.0, "carbs_g": 1.0, "fat_g": 0.0},
+    "green_tea":    {"label": "Green Tea",    "serving": "240 ml brewed", "half_life": 5.5, "drink_min": 20, "caffeine_mg": 30,  "calories": 2,  "protein_g": 0.5, "carbs_g": 0.5, "fat_g": 0.0},
+    "energy_drink": {"label": "Energy Drink", "serving": "250 ml can",    "half_life": 5.5, "drink_min": 20, "caffeine_mg": 80,  "calories": 10, "protein_g": 1.0, "carbs_g": 2.0, "fat_g": 0.0},
+    "black_tea":    {"label": "Black Tea",    "serving": "240 ml brewed", "half_life": 5.5, "drink_min": 20, "caffeine_mg": 47,  "calories": 2,  "protein_g": 0.0, "carbs_g": 0.5, "fat_g": 0.0},
+    "custom":       {"label": "Custom",       "serving": "—",             "half_life": 5.5, "drink_min": 20, "caffeine_mg": 100, "calories": 0,  "protein_g": 0.0, "carbs_g": 0.0, "fat_g": 0.0},
 }
+
+# Drinking time for anything without its own drink_min (unknown or custom).
+DEFAULT_DRINK_MIN = 20
 
 # Energy drinks by brand, per can as sold in the EU unless noted. Label
 # values; recipes differ a little by country. sugar_g is shown in the app and
 # counted in carbs_g. "energy_custom" takes caffeine, kcal and sugar from the
 # request. Kept apart from SUBSTANCES so older app builds, which list every
-# SUBSTANCES entry as a tile, don't grow a dozen new tiles.
-def _can(label, serving, mg, kcal, sugar, carbs=None):
-    return {"label": label, "serving": serving, "half_life": 5.5, "caffeine_mg": mg, "calories": kcal,
+# SUBSTANCES entry as a tile, don't grow a dozen new tiles. A can takes about
+# a minute per 12.5 ml to finish: 250 ml in 20 min, 500 ml in 40.
+def _can(label, ml, mg, kcal, sugar, carbs=None):
+    return {"label": label, "serving": f"{ml} ml can" if ml else "—", "half_life": 5.5,
+            "drink_min": round(ml / 12.5) if ml else DEFAULT_DRINK_MIN, "caffeine_mg": mg, "calories": kcal,
             "sugar_g": sugar, "protein_g": 0.0, "carbs_g": float(sugar if carbs is None else carbs), "fat_g": 0.0}
 
 
 ENERGY_DRINKS = {
-    "ed_red_bull":          _can("Red Bull",            "250 ml can", 80,  113, 27.5),
-    "ed_red_bull_zero":     _can("Red Bull Sugarfree",  "250 ml can", 80,  8,   0, 1.5),
-    "ed_monster":           _can("Monster Energy",      "500 ml can", 160, 235, 55, 56),
-    "ed_monster_ultra":     _can("Monster Ultra",       "500 ml can", 150, 10,  0, 3),
-    "ed_hell":              _can("Hell Classic",        "250 ml can", 80,  115, 27),
-    "ed_burn":              _can("Burn",                "500 ml can", 160, 230, 54),
-    "ed_rockstar":          _can("Rockstar",            "500 ml can", 160, 225, 52),
-    "ed_celsius":           _can("Celsius",             "355 ml can", 200, 10,  0, 2),
-    "ed_nocco":             _can("NOCCO",               "330 ml can", 180, 13,  0, 1),
-    "ed_prime":             _can("Prime Energy",        "355 ml can", 200, 20,  0, 2),
-    "ed_reign":             _can("Reign",               "473 ml can", 300, 10,  0, 3),
-    "ed_bang":              _can("Bang",                "473 ml can", 300, 0,   0, 0),
-    "energy_custom":        _can("Custom energy drink", "—",          100, 0,   0),
+    "ed_red_bull":          _can("Red Bull",            250,  80,  113, 27.5),
+    "ed_red_bull_zero":     _can("Red Bull Sugarfree",  250,  80,  8,   0, 1.5),
+    "ed_monster":           _can("Monster Energy",      500,  160, 235, 55, 56),
+    "ed_monster_ultra":     _can("Monster Ultra",       500,  150, 10,  0, 3),
+    "ed_hell":              _can("Hell Classic",        250,  80,  115, 27),
+    "ed_burn":              _can("Burn",                500,  160, 230, 54),
+    "ed_rockstar":          _can("Rockstar",            500,  160, 225, 52),
+    "ed_celsius":           _can("Celsius",             355,  200, 10,  0, 2),
+    "ed_nocco":             _can("NOCCO",               330,  180, 13,  0, 1),
+    "ed_prime":             _can("Prime Energy",        355,  200, 20,  0, 2),
+    "ed_reign":             _can("Reign",               473,  300, 10,  0, 3),
+    "ed_bang":              _can("Bang",                473,  300, 0,   0, 0),
+    "energy_custom":        _can("Custom energy drink", None, 100, 0,   0),
 }
 
 # Every loggable key, for lookups (labels, half-life, macros).
@@ -90,11 +97,49 @@ def compute_nutrition(substance_key: str, additions: list[str] | None) -> dict:
     return totals
 
 
-def caffeine_at_time(dose_mg: float, logged_at: datetime, half_life: float, query_time: datetime) -> float:
+# Caffeine reaches the blood over about an hour, not at once: first-order
+# absorption at ~4/h (mean absorption time ~15 min; White et al. 2016, Clin
+# Toxicol 54:308, where 160 mg peaked 59-82 min after drinking began).
+ABSORPTION_PER_HOUR = 4.0
+
+
+def drink_minutes(substance: str) -> float:
+    """How long a logged drink takes to finish; the dose is spread over it."""
+    return PRESETS.get(substance, {}).get("drink_min", DEFAULT_DRINK_MIN)
+
+
+def caffeine_at_time(
+    dose_mg: float, logged_at: datetime, half_life: float, query_time: datetime, drink_min: float = 0,
+) -> float:
+    """Caffeine in the body at query_time from a drink started at logged_at.
+
+    One-compartment model with first-order absorption and elimination, the
+    dose sipped evenly over drink_min. A sip t hours ago leaves
+    ka/(ka-ke) * (e^-ke*t - e^-ka*t) of itself in the body; summing that over
+    the sips taken so far has a closed form, so there's no stepping.
+    """
     hours_elapsed = (query_time - logged_at).total_seconds() / 3600
-    if hours_elapsed < 0:
+    if hours_elapsed <= 0:
         return 0.0
-    return dose_mg * math.pow(0.5, hours_elapsed / half_life)
+    ka = ABSORPTION_PER_HOUR
+    ke = math.log(2) / half_life
+    scale = ka / (ka - ke)
+    drink_h = drink_min / 60
+    if drink_h <= 0:
+        return dose_mg * scale * (math.exp(-ke * hours_elapsed) - math.exp(-ka * hours_elapsed))
+    # Sips so far are between `newest` and `hours_elapsed` hours old.
+    newest = hours_elapsed - min(hours_elapsed, drink_h)
+
+    def area(rate: float) -> float:
+        return (math.exp(-rate * newest) - math.exp(-rate * hours_elapsed)) / rate
+
+    return dose_mg / drink_h * scale * (area(ke) - area(ka))
+
+
+def log_caffeine_at(log: StimulantLog, query_time: datetime) -> float:
+    return caffeine_at_time(
+        log.caffeine_mg, log.logged_at, log.half_life_hours, query_time, drink_minutes(log.substance),
+    )
 
 
 def get_zone(mg: float) -> str:
@@ -149,10 +194,7 @@ async def get_caffeine_curve(
 
     for i in range(38):
         t = start + timedelta(minutes=i * 30)
-        total = sum(
-            caffeine_at_time(log.caffeine_mg, log.logged_at, log.half_life_hours, t)
-            for log in logs
-        )
+        total = sum(log_caffeine_at(log, t) for log in logs)
         curve.append({
             "time": t.isoformat(),
             "time_label": t.strftime("%I:%M %p").lstrip("0") if hasattr(t, 'strftime') else t.strftime("%I:%M %p").lstrip("0"),
@@ -162,14 +204,8 @@ async def get_caffeine_curve(
         })
 
     bedtime = now.replace(hour=sleep_hour, minute=0, second=0, microsecond=0)
-    caffeine_at_bed = sum(
-        caffeine_at_time(log.caffeine_mg, log.logged_at, log.half_life_hours, bedtime)
-        for log in logs
-    )
-    current_mg = sum(
-        caffeine_at_time(log.caffeine_mg, log.logged_at, log.half_life_hours, now)
-        for log in logs
-    )
+    caffeine_at_bed = sum(log_caffeine_at(log, bedtime) for log in logs)
+    current_mg = sum(log_caffeine_at(log, now) for log in logs)
 
     # Most-recent log for the "repeat last" dashboard chip. Today's last, else
     # fall back to the most-recent ever so first-of-the-day still gets a shortcut.

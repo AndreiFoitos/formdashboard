@@ -32,7 +32,7 @@ from models.daily_summary import DailySummary
 from models.stimulant_log import StimulantLog
 from models.training_log import TrainingLog
 from services.social_notifications import set_volume_kg
-from services.stimulants import caffeine_at_time
+from services.stimulants import log_caffeine_at
 from services.streaks import refresh_streak
 
 
@@ -204,10 +204,7 @@ async def estimate_caffeine_at_sleep(
     )
     logs = result.scalars().all()
     bedtime = day_start.replace(hour=sleep_hour)
-    return sum(
-        caffeine_at_time(log.caffeine_mg, log.logged_at, log.half_life_hours, bedtime)
-        for log in logs
-    )
+    return sum(log_caffeine_at(log, bedtime) for log in logs)
 
 
 # ─── Main entry point ──────────────────────────────────────────────────────
