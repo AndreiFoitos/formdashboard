@@ -382,6 +382,7 @@ One line per decision made during the autonomous redesign run (2026-10-06).
 - Kept as proper names in title case: "Combo Dex" (feature name), "Open Settings" (iOS Settings app), "Hide My Email" (Apple feature), exercise names (data).
 - UndoToast drops its shadow (§4: no shadows on black); it already separates with `surface-raised` + `border`.
 - Scroll content inside pageSheet modals ends with `mb-12` (48 ≥ home-indicator inset); not edge-fixed, so no inset math.
+- Exception: when a pageSheet's list can push its main button out of reach (Log stimulant), the button sits in a footer below the ScrollView (`bg-surface border-t border-divider px-4 pt-3`, bottom padding `footerBottomPadding(insets.bottom)`), labelled with the pick ("Log Monster Energy · 160 mg").
 - Phase 2: Settings sub-routes live under `app/settings/` (`index`, `profile`, `units`, `training`, `nutrition`, `edit/[field]` modal, `choose/[field]` form sheet); `app/preferences.tsx` became `settings/training` + `settings/nutrition`.
 - Phase 2: single-value number/text edits use a `modal` with Cancel/Done (keyboard-safe); pick-one choices (goal, sex, bedtime) use a `formSheet` that saves on tap. RN-screens formSheets don't show a native header, so sheets draw a `text-headline` title.
 - Phase 2: SettingsGroup gets a `raised` tone (surface-raised + `border` hairlines) for groups inside surface sheets, per §2 divider rule.
