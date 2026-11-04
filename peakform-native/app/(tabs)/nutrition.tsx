@@ -9,7 +9,7 @@ import {
   Alert,
   Modal,
 } from 'react-native'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
@@ -25,6 +25,7 @@ import { SwipeableRow } from '../../components/SwipeableRow'
 import { PressableScale } from '../../components/PressableScale'
 import { CalorieSuggestionCard } from '../../components/CalorieSuggestionCard'
 import { UndoToast } from '../../components/UndoToast'
+import { KEYBOARD_DONE_ID, KeyboardDoneBar } from '../../components/KeyboardDoneBar'
 import { ADAPTIVE_KEY } from '../../hooks/useAdaptiveCalories'
 import { hapticSuccess } from '../../lib/haptics'
 import { formatNumber, capitalize } from '../../lib/format'
@@ -282,6 +283,7 @@ function SearchResultRow({
         placeholder="g"
         placeholderTextColor={colors['text-subtle']}
         keyboardType="number-pad"
+        inputAccessoryViewID={KEYBOARD_DONE_ID}
         selectTextOnFocus
         className="bg-surface-raised border border-border rounded-md px-2 py-2 text-text text-footnote text-right mr-2"
         style={{ borderCurve: 'continuous', width: 56 }}
@@ -782,6 +784,10 @@ function LogModal({
   }, [leaving])
 
   // Manual fallback fields — same shape as the previous LogModal.
+  // They sit at the bottom of the sheet, under the keyboard once it's up, so
+  // focusing one scrolls to the end (the scroll view is inset by the keyboard).
+  const scrollRef = useRef<ScrollView>(null)
+  const revealManual = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)
   const [manualName, setManualName] = useState('')
   const [manualCalories, setManualCalories] = useState('')
   const [manualProtein, setManualProtein] = useState('')
@@ -994,8 +1000,11 @@ function LogModal({
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false} showsHorizontalScrollIndicator={false}
+          ref={scrollRef}
           className="flex-1"
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets
           contentContainerClassName="pb-8"
         >
           {tab === 'search' && (
@@ -1068,6 +1077,7 @@ function LogModal({
                 <TextInput
                   value={manualName}
                   onChangeText={setManualName}
+                  onFocus={revealManual}
                   placeholder="What you ate"
                   placeholderTextColor={colors['text-subtle']}
                   className="bg-surface-raised border border-border rounded-md px-4 py-3 text-text text-footnote mb-3" style={{ borderCurve: 'continuous' }}
@@ -1079,6 +1089,8 @@ function LogModal({
                 <TextInput
                   value={manualCalories}
                   onChangeText={setManualCalories}
+                  onFocus={revealManual}
+                  inputAccessoryViewID={KEYBOARD_DONE_ID}
                   placeholder={estimatedCals ? `~${estimatedCals} (estimated)` : 'e.g. 450'}
                   placeholderTextColor={colors['text-subtle']}
                   keyboardType="number-pad"
@@ -1098,6 +1110,8 @@ function LogModal({
                       <TextInput
                         value={value}
                         onChangeText={set}
+                        onFocus={revealManual}
+                        inputAccessoryViewID={KEYBOARD_DONE_ID}
                         placeholder="0"
                         placeholderTextColor={colors['text-subtle']}
                         keyboardType="decimal-pad"
@@ -1241,6 +1255,7 @@ function LogModal({
           }}
         />
       )}
+      <KeyboardDoneBar />
     </Modal>
   )
 }
