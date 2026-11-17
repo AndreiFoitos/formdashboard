@@ -8,6 +8,7 @@ import Svg, { Line, Polyline, Rect } from 'react-native-svg'
 import { api } from '../api/client'
 import { useRequireAuth } from '../hooks/useRequireAuth'
 import { openPaywall, usePlan } from '../hooks/usePlan'
+import { formatNumber } from '../lib/format'
 import { useUnits } from '../lib/units'
 import { colors } from '../theme/tokens'
 
@@ -29,6 +30,8 @@ interface Trends {
   body_fat_pct: Point[]
   volume_weekly: WeekPoint[]
   protein_g: Point[]
+  calories: Point[]
+  calorie_target: number | null
 }
 
 const RANGES = [
@@ -40,23 +43,27 @@ const RANGES = [
 const CHART_W = Dimensions.get('window').width - 64
 const CHART_H = 120
 
-function LineChart({ points, color }: { points: Point[]; color: string }) {
+/** `target` draws a dashed reference line (the calorie target). */
+function LineChart({ points, color, target }: { points: Point[]; color: string; target?: number | null }) {
   if (points.length < 2) {
     return <Text className="text-text-subtle text-caption py-8 text-center">Not enough data yet.</Text>
   }
   const values = points.map((p) => p.value)
+  if (target) values.push(target)
   const min = Math.min(...values)
   const max = Math.max(...values)
   const span = max - min || 1
   const step = CHART_W / (points.length - 1)
-  const coords = points
-    .map((p, i) => `${(i * step).toFixed(1)},${(CHART_H - ((p.value - min) / span) * CHART_H).toFixed(1)}`)
-    .join(' ')
+  const y = (v: number) => (CHART_H - ((v - min) / span) * CHART_H).toFixed(1)
+  const coords = points.map((p, i) => `${(i * step).toFixed(1)},${y(p.value)}`).join(' ')
 
   return (
     <View>
       <Svg width={CHART_W} height={CHART_H}>
         <Line x1={0} y1={CHART_H} x2={CHART_W} y2={CHART_H} stroke={colors.divider} strokeWidth={1} />
+        {!!target && (
+          <Line x1={0} y1={y(target)} x2={CHART_W} y2={y(target)} stroke={colors['text-subtle']} strokeWidth={1} strokeDasharray="4 4" />
+        )}
         <Polyline points={coords} fill="none" stroke={color} strokeWidth={2} />
       </Svg>
       <View className="flex-row justify-between mt-1">
@@ -109,6 +116,15 @@ function change(points: Point[]): string | null {
   const diff = points[points.length - 1].value - points[0].value
   if (Math.abs(diff) < 0.05) return 'no change'
   return `${diff > 0 ? '+' : ''}${Math.round(diff * 10) / 10} over this range`
+}
+
+/** "Avg 2,340 kcal a day · target 2,500". Daily intake swings too much for
+ *  a first-to-last change to mean anything; the average does. */
+function calorieSubtitle(points: Point[], target: number | null): string | null {
+  if (!points.length) return null
+  const avg = points.reduce((sum, p) => sum + p.value, 0) / points.length
+  const base = `Avg ${formatNumber(Math.round(avg))} kcal a day`
+  return target ? `${base} · target ${formatNumber(target)}` : base
 }
 
 function Card({
@@ -187,6 +203,9 @@ export default function TrendsScreen() {
               subtitle={`${data.volume_weekly.length} weeks with training`}
             >
               <BarChart points={data.volume_weekly.map((p) => ({ ...p, value: u.weight(p.value, 0) }))} />
+            </Card>
+            <Card title="Calories (kcal/day)" subtitle={calorieSubtitle(data.calories ?? [], data.calorie_target)}>
+              <LineChart points={data.calories ?? []} color={colors.data.calories} target={data.calorie_target} />
             </Card>
             <Card title="Protein (g/day)" subtitle={change(data.protein_g)}>
               <LineChart points={data.protein_g} color={colors.data.protein} />

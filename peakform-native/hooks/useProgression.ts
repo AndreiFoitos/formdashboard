@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import type { Units } from '../lib/units'
 
@@ -29,6 +29,8 @@ export interface Target {
 
 export interface ExerciseProgression {
   exercise: string
+  /** Cable attachment the target is for (the one asked for, or used last). */
+  attachment: string | null
   target: Target
   last_date: string | null
   logged_today: boolean
@@ -38,16 +40,26 @@ export interface ExerciseProgression {
 
 export const PROGRESSION_KEY = ['training-progression']
 
-export function useProgression(exerciseKey: string) {
+/** "?attachment=rope" / "?attachment=none" (sets logged without one), or
+ *  nothing: the server uses the attachment this exercise was done with last. */
+export function attachmentQuery(attachment: string | null | undefined): string {
+  if (attachment === undefined) return ''
+  return `?attachment=${attachment ?? 'none'}`
+}
+
+/** `attachment` undefined: the one used last (the server says which). */
+export function useProgression(exerciseKey: string, attachment?: string | null) {
   return useQuery<ExerciseProgression>({
-    queryKey: [...PROGRESSION_KEY, exerciseKey],
-    queryFn: () => api.get(`/training/progression/${exerciseKey}`).then((r) => r.data),
+    queryKey: [...PROGRESSION_KEY, exerciseKey, attachment === undefined ? 'last' : attachment ?? 'none'],
+    queryFn: () => api.get(`/training/progression/${exerciseKey}${attachmentQuery(attachment)}`).then((r) => r.data),
+    // Switching attachment keeps the old card up until the new one lands.
+    placeholderData: keepPreviousData,
   })
 }
 
 /** {exercise_key: {ready_for_weight, stalled}} for the picker badges. */
 export function useProgressionOverview() {
-  return useQuery<Record<string, { kind: TargetKind; ready_for_weight: boolean; stalled: boolean }>>({
+  return useQuery<Record<string, { kind: TargetKind; ready_for_weight: boolean; stalled: boolean; attachment?: string | null }>>({
     queryKey: [...PROGRESSION_KEY, 'overview'],
     queryFn: () => api.get('/training/progression').then((r) => r.data.exercises),
     staleTime: 60 * 1000,

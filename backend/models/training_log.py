@@ -27,6 +27,10 @@ class TrainingLog(Base):
     set_type: Mapped[str] = mapped_column(String(8), default="normal", server_default="normal")
     # Shared by the sets of exercises done back to back as a superset.
     superset_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    # Cable attachment (rope, triangle, ...) for exercises that offer one
+    # (services/exercise_taxonomy.py EXERCISE_ATTACHMENTS). Weights only
+    # compare within one attachment. None: no attachment, or logged before.
+    attachment: Mapped[str | None] = mapped_column(String(16), nullable=True)
     logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="training_logs")

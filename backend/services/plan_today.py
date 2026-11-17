@@ -56,7 +56,10 @@ def suggest(ex: dict, sessions: list[list[TrainingLog]]) -> dict:
 async def _sessions_by_key(
     user: User, keys: set[str], today: date, db: AsyncSession
 ) -> dict[str, dict[date, list[TrainingLog]]]:
-    """{exercise key: {date: sets}} over the lookback, today included."""
+    """{exercise key: {date: sets}} over the lookback, today included.
+    Cable exercises keep the attachment they were done with last (today
+    included), the one the plan log sheet opens on; other attachments are
+    other lifts and would throw the targets off."""
     by_key: dict[str, dict[date, list[TrainingLog]]] = defaultdict(lambda: defaultdict(list))
     if not keys:
         return by_key
@@ -67,11 +70,18 @@ async def _sessions_by_key(
             TrainingLog.type.in_(keys),
             TrainingLog.date >= today - LOOKBACK,
         )
-        .order_by(TrainingLog.date, TrainingLog.volume_sets)
+        .order_by(TrainingLog.date, TrainingLog.logged_at, TrainingLog.volume_sets)
     )).scalars().all()
+    last_attachment = {log.type: log.attachment for log in logs}  # ordered by date
     for log in logs:
-        by_key[log.type][log.date].append(log)
+        if log.attachment == last_attachment[log.type]:
+            by_key[log.type][log.date].append(log)
     return by_key
+
+
+def _attachment(sessions: dict[date, list[TrainingLog]]) -> str | None:
+    """The attachment of these sessions (all one, see _sessions_by_key)."""
+    return next((s.attachment for d in sessions for s in sessions[d]), None)
 
 
 def _upcoming(plan: dict, today: date) -> tuple[dict, int] | None:
@@ -120,6 +130,7 @@ async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
             last = sessions[past[-1]] if past else []
             exercises.append({
                 **ex,
+                "attachment": _attachment(sessions),
                 "suggestion": suggest(ex, _history(sessions, today, include=False)),
                 # From what was just lifted: more weight or one more rep next time.
                 "next": suggest(ex, _history(sessions, today, include=True)) if done else None,
@@ -145,6 +156,7 @@ async def build_today(user: User, row: AiPlan, db: AsyncSession) -> dict:
                     "reps_min": ex["reps_min"],
                     "reps_max": ex["reps_max"],
                     "basis": ex.get("basis"),
+                    "attachment": _attachment(by_key.get(ex["key"], {})),
                     "suggestion": suggest(ex, _history(by_key.get(ex["key"], {}), today, include=True)),
                 }
                 for ex in nday["exercises"]

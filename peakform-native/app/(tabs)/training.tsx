@@ -10,7 +10,7 @@ import {
 } from 'react-native'
 import { formatNumber } from '../../lib/format'
 import { useState, useMemo, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import Svg, { Polyline, Circle, Line as SvgLine } from 'react-native-svg'
@@ -24,13 +24,26 @@ import { PressableScale } from '../../components/PressableScale'
 import { hapticSuccess, hapticLight } from '../../lib/haptics'
 import { TrustedShield } from '../../components/icons/TrustedShield'
 import { SusFace } from '../../components/icons/SusFace'
-import { ALL_EXERCISES, EXERCISE_NAME, GROUPS, isPerDumbbell, loggingHint, UNILATERAL, type Exercise, type Group } from '../../lib/exercises'
 import {
+  ALL_EXERCISES,
+  attachmentsFor,
+  EXERCISE_NAME,
+  GROUPS,
+  isPerDumbbell,
+  loggingHint,
+  UNILATERAL,
+  withAttachment,
+  type Exercise,
+  type Group,
+} from '../../lib/exercises'
+import {
+  attachmentQuery,
   PROGRESSION_KEY,
   targetHeadline,
   useProgression,
   type ExerciseProgression,
 } from '../../hooks/useProgression'
+import { AttachmentPicker } from '../../components/AttachmentPicker'
 import { TargetBadge } from '../../components/TargetBadge'
 import { UndoToast } from '../../components/UndoToast'
 import { showUndo } from '../../store/undo'
@@ -66,6 +79,8 @@ interface TrainingLog {
   notes: string | null
   set_type?: 'normal' | 'drop'
   superset_id?: string | null
+  /** Cable attachment (rope, triangle, ...), if the exercise has them. */
+  attachment?: string | null
   logged_at: string
 }
 
@@ -78,6 +93,10 @@ interface VolumeWeek {
 
 interface ExerciseProgress {
   exercise: string
+  /** Cable exercises: the attachment these logs are for. */
+  attachment?: string | null
+  /** Every attachment logged in the window (null: logged without one). */
+  attachments?: (string | null)[]
   progression: {
     date: string
     top_weight_kg: number | null
@@ -96,6 +115,7 @@ type RangeDays = 7 | 30 | 90 | 365
 
 interface SessionExercise {
   type: string
+  attachment?: string | null
   sets: number
   top_weight_kg: number | null
   top_reps: number | null
@@ -193,11 +213,13 @@ function PRChart({
   data,
   exerciseKey,
   onPickExercise,
+  onPickAttachment,
   rangePicker,
 }: {
   data: ExerciseProgress | undefined
   exerciseKey: string
   onPickExercise: () => void
+  onPickAttachment: (attachment: string | null) => void
   /** The range chips this card (and History) is filtered by (DESIGN.md §9). */
   rangePicker: React.ReactNode
 }) {
@@ -246,6 +268,18 @@ function PRChart({
         </TouchableOpacity>
       </View>
       <View className="mb-3">{rangePicker}</View>
+      {/* A rope and a triangle pushdown are separate lines. Only offered
+          when this range has more than one. */}
+      {(data?.attachments?.length ?? 0) > 1 && (
+        <View className="mb-3">
+          <AttachmentPicker
+            options={data!.attachments!}
+            value={data!.attachment ?? null}
+            onChange={onPickAttachment}
+            deselectable={false}
+          />
+        </View>
+      )}
 
       {chart ? (
         <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
@@ -296,8 +330,15 @@ function PRChart({
  *  at a lighter weight; it's saved as set_type "drop" and left out of the
  *  progression targets. */
 type SetRow = { reps: string; weight: string; drop?: boolean }
-/** One exercise in the sheet. Two or more make a superset. */
-type LogBlock = { key: string; sets: SetRow[] }
+/** One exercise in the sheet. Two or more make a superset.
+ *  `attachment`: picked in the sheet (null = none); undefined until then,
+ *  and `lastAttachment` (the one used last, from the server) applies. */
+type LogBlock = { key: string; sets: SetRow[]; attachment?: string | null; lastAttachment?: string | null }
+
+/** The attachment a block saves with. */
+function blockAttachment(b: LogBlock): string | null {
+  return b.attachment !== undefined ? b.attachment : b.lastAttachment ?? null
+}
 
 const EMPTY_ROW: SetRow = { reps: '', weight: '' }
 
@@ -338,22 +379,32 @@ function ExerciseBlock({
   block,
   label,
   onChange,
+  onAttachment,
   onRemove,
 }: {
   block: LogBlock
   /** "A", "B"… in a superset; none for a single exercise. */
   label?: string
   onChange: (sets: SetRow[]) => void
+  /** `picked`: the user tapped a chip; otherwise the server said which was used last. */
+  onAttachment: (attachment: string | null, picked: boolean) => void
   onRemove?: () => void
 }) {
   const u = useUnits()
   const displayName = useExerciseName(EXERCISE_NAME)
   const perDb = isPerDumbbell(block.key)
+  const attachments = attachmentsFor(block.key)
 
   // Recent logs for this exercise, for "last session" and the pre-fill.
+  // Cable exercises: only the chosen attachment's (the one used last
+  // until a chip is tapped).
   const { data: history } = useQuery<ExerciseProgress>({
-    queryKey: ['exercise-history', block.key],
-    queryFn: () => api.get(`/training/by-exercise/${block.key}?days=30`).then(r => r.data),
+    queryKey: ['exercise-history', block.key, 30, block.attachment === undefined ? 'last' : block.attachment ?? 'none'],
+    queryFn: () => {
+      const q = attachmentQuery(block.attachment)
+      return api.get(`/training/by-exercise/${block.key}?days=30${q ? `&${q.slice(1)}` : ''}`).then(r => r.data)
+    },
+    placeholderData: keepPreviousData,
   })
 
   const lastSession = useMemo(() => {
@@ -364,8 +415,17 @@ function ExerciseBlock({
 
   // Progressive overload target. Shown as one line of text only: the sets
   // start empty, since pre-filling them was too much on a second session.
-  const progression = useProgression(block.key)
+  const progression = useProgression(block.key, block.attachment)
   const target = progression.data?.target
+
+  // Until a chip is tapped, the server picks the attachment used last.
+  const lastAttachment = progression.data?.attachment
+  useEffect(() => {
+    if (attachments.length && block.attachment === undefined && lastAttachment !== undefined) {
+      onAttachment(lastAttachment, false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastAttachment, block.attachment, attachments.length])
 
   const sets = block.sets
 
@@ -408,6 +468,17 @@ function ExerciseBlock({
               <Text className="text-text-subtle text-caption">Remove</Text>
             </TouchableOpacity>
           )}
+        </View>
+      )}
+
+      {attachments.length > 0 && (
+        <View className="mb-4">
+          <Text className="text-text-subtle text-caption mb-2">Attachment</Text>
+          <AttachmentPicker
+            options={attachments}
+            value={blockAttachment(block)}
+            onChange={a => onAttachment(a, true)}
+          />
         </View>
       )}
 
@@ -526,10 +597,17 @@ function LogExerciseModal({
     setBlocks(prev => prev.map((b, idx) => idx === i ? { ...b, sets } : b))
   }
 
+  function setAttachment(i: number, attachment: string | null, picked: boolean) {
+    setBlocks(prev => prev.map((b, idx) => {
+      if (idx !== i) return b
+      return picked ? { ...b, attachment } : { ...b, lastAttachment: attachment }
+    }))
+  }
+
   const invalidateTraining = useInvalidateTraining()
 
   const { mutate, isPending } = useMutation({
-    mutationFn: (body: { superset: boolean; payload: object }) =>
+    mutationFn: (body: { superset: boolean; payload: object; attachment?: string | null }) =>
       api.post(body.superset ? '/training/log-superset' : '/training/log-exercise', body.payload),
     onSuccess: async (res, body) => {
       hapticSuccess()
@@ -540,7 +618,8 @@ function LogExerciseModal({
       let label = body.superset ? 'Superset saved' : 'Saved'
       if (!body.superset) {
         try {
-          const { data } = await api.get<ExerciseProgression>(`/training/progression/${exerciseKey}`)
+          const q = attachmentsFor(exerciseKey).length ? attachmentQuery(body.attachment ?? null) : ''
+          const { data } = await api.get<ExerciseProgression>(`/training/progression/${exerciseKey}${q}`)
           const nxt = data.next ?? data.target
           if (nxt && nxt.kind !== 'first') {
             label = nxt.kind === 'stall'
@@ -564,6 +643,7 @@ function LogExerciseModal({
     const exercises = blocks
       .map(b => ({
         type: b.key,
+        attachment: attachmentsFor(b.key).length ? blockAttachment(b) : null,
         sets: b.sets
           .map(s => {
             const w = parseFloat(s.weight)
@@ -580,7 +660,7 @@ function LogExerciseModal({
     if (exercises.length === 0) return
 
     const withNotes = exercises.map((e, i) => i === 0 ? { ...e, notes: notes.trim() || null } : e)
-    if (withNotes.length === 1) mutate({ superset: false, payload: withNotes[0] })
+    if (withNotes.length === 1) mutate({ superset: false, payload: withNotes[0], attachment: withNotes[0].attachment })
     else mutate({ superset: true, payload: { exercises: withNotes } })
   }
 
@@ -630,6 +710,7 @@ function LogExerciseModal({
                 block={b}
                 label={isSuperset ? String.fromCharCode(65 + i) : undefined}
                 onChange={sets => updateBlock(i, sets)}
+                onAttachment={(a, picked) => setAttachment(i, a, picked)}
                 onRemove={i > 0 ? () => setBlocks(prev => prev.filter((_, idx) => idx !== i)) : undefined}
               />
             ))}
@@ -1062,6 +1143,7 @@ interface OneRMEstimate {
   brzycki: number | null
   lombardi: number | null
   source: { weight_kg: number; reps: number; date: string; log_id: string }
+  attachment?: string | null
 }
 
 function OneRMCard() {
@@ -1104,12 +1186,12 @@ function OneRMCard() {
         <View className="gap-2">
           {top.map((row) => (
             <View
-              key={row.exercise}
+              key={`${row.exercise}-${row.attachment ?? ''}`}
               className="flex-row items-center justify-between"
             >
               <View className="flex-1 pr-2">
                 <Text className="text-text text-footnote" numberOfLines={1}>
-                  {displayName(row.exercise)}
+                  {withAttachment(displayName(row.exercise), row.attachment)}
                 </Text>
                 <Text className="text-text-subtle text-caption mt-1">
                   from {u.liftLabel(row.source.weight_kg)} × {row.source.reps}
@@ -1219,7 +1301,7 @@ function SessionRow({
   const u = useUnits()
   const [open, setOpen] = useState(false)
   const summary = session.exercises
-    .map(e => nameForKey(e.type))
+    .map(e => withAttachment(nameForKey(e.type), e.attachment))
     .slice(0, 3)
     .join(', ')
   const extra = session.exercise_count - Math.min(3, session.exercises.length)
@@ -1250,7 +1332,11 @@ function SessionRow({
       {open && (
         <View className="pb-2">
           {session.exercises.map(e => (
-            <SessionExerciseRow key={e.type} exercise={e} name={nameForKey(e.type)} />
+            <SessionExerciseRow
+              key={`${e.type}-${e.attachment ?? ''}`}
+              exercise={e}
+              name={withAttachment(nameForKey(e.type), e.attachment)}
+            />
           ))}
           <Text className="text-text-subtle text-caption px-4 pt-2">
             Tap an exercise for its sets. Swipe left to delete.
@@ -1272,6 +1358,14 @@ function SessionExerciseRow({ exercise: e, name }: { exercise: SessionExercise; 
     onSettled: invalidateTraining,
   })
   const logs = e.logs ?? []
+  const attachments = attachmentsFor(e.type)
+  // Say which attachment these sets were done with: sets from before
+  // attachments existed, or a wrong pick. Moves them to that lift.
+  const retag = useMutation({
+    mutationFn: (attachment: string | null) =>
+      api.patch('/training/attachment', { log_ids: logs.map(l => l.id), attachment }),
+    onSettled: invalidateTraining,
+  })
   let setNumber = 0
 
   return (
@@ -1312,6 +1406,17 @@ function SessionExerciseRow({ exercise: e, name }: { exercise: SessionExercise; 
           </SwipeableRow>
         )
       })}
+      {open && attachments.length > 0 && (
+        <View className="pl-8 pr-4 pt-2 pb-3">
+          <Text className="text-text-subtle text-caption mb-2">Attachment</Text>
+          <AttachmentPicker
+            options={attachments}
+            value={e.attachment ?? null}
+            onChange={a => retag.mutate(a)}
+            disabled={retag.isPending}
+          />
+        </View>
+      )}
     </View>
   )
 }
@@ -1379,10 +1484,15 @@ export default function TrainingScreen() {
     enabled: !!user,
   })
 
+  // Cable exercises chart one attachment: the one used last, until the
+  // chart's chips pick another. Reset when the exercise changes.
+  const [chartAttachment, setChartAttachment] = useState<string | null | undefined>(undefined)
   const prQ = useQuery<ExerciseProgress>({
-    queryKey: ['exercise-history', selectedExercise, rangeDays],
-    queryFn: () =>
-      api.get(`/training/by-exercise/${selectedExercise}?days=${rangeDays}`).then(r => r.data),
+    queryKey: ['exercise-history', selectedExercise, rangeDays, chartAttachment === undefined ? 'last' : chartAttachment ?? 'none'],
+    queryFn: () => {
+      const q = attachmentQuery(chartAttachment)
+      return api.get(`/training/by-exercise/${selectedExercise}?days=${rangeDays}${q ? `&${q.slice(1)}` : ''}`).then(r => r.data)
+    },
     enabled: !!user,
   })
 
@@ -1456,7 +1566,7 @@ export default function TrainingScreen() {
       if (!g || out[g]) continue
       out[g] = {
         date: log.date,
-        exerciseName: nameForKey(log.type, customKeyToName),
+        exerciseName: withAttachment(nameForKey(log.type, customKeyToName), log.attachment),
         weightKg: log.weight_kg,
         reps: log.reps,
       }
@@ -1562,6 +1672,7 @@ export default function TrainingScreen() {
               data={prQ.data}
               exerciseKey={selectedExercise}
               onPickExercise={() => setShowPicker(true)}
+              onPickAttachment={setChartAttachment}
               rangePicker={
                 <RangePicker
                   value={rangeDays}
@@ -1624,7 +1735,7 @@ export default function TrainingScreen() {
 
       {showPicker && (
         <ExercisePickerModal
-          onPick={(key) => { setSelectedExercise(key); setShowPicker(false) }}
+          onPick={(key) => { setSelectedExercise(key); setChartAttachment(undefined); setShowPicker(false) }}
           onClose={() => setShowPicker(false)}
         />
       )}

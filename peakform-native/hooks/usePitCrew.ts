@@ -109,6 +109,8 @@ export interface Suggestion {
 }
 
 export interface TodayExercise extends PlanExercise {
+  /** Cable attachment the suggestion is for: the one used last. */
+  attachment?: string | null
   suggestion: Suggestion
   /** Once logged today: what to aim for next time, from what was lifted. */
   next: Suggestion | null
@@ -129,7 +131,7 @@ export interface Today {
     weekday: number
     name: string
     in_days: number
-    exercises: (Pick<PlanExercise, 'key' | 'name' | 'sets' | 'reps_min' | 'reps_max' | 'basis'> & { suggestion: Suggestion })[]
+    exercises: (Pick<PlanExercise, 'key' | 'name' | 'sets' | 'reps_min' | 'reps_max' | 'basis'> & { suggestion: Suggestion; attachment?: string | null })[]
   } | null
   meals: (PlanMeal & { logged: boolean })[]
   targets: Targets | null
@@ -273,13 +275,16 @@ export function useLogPlanMeal() {
 export function useLogPlanExercise() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { type: string; sets: SetLog[] }) =>
+    mutationFn: (body: { type: string; sets: SetLog[]; attachment?: string | null }) =>
       api.post('/training/log-exercise', { ...body, source: 'plan' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PIT_TODAY_KEY })
       qc.invalidateQueries({ queryKey: ['training-volume'] })
       qc.invalidateQueries({ queryKey: ['exercise-history'] })
       qc.invalidateQueries({ queryKey: ['training-history'] })
+      qc.invalidateQueries({ queryKey: ['training-sessions'] })
+      qc.invalidateQueries({ queryKey: ['training-progression'] })
+      qc.invalidateQueries({ queryKey: ['one-rm'] })
       qc.invalidateQueries({ queryKey: ['dashboard'] })
     },
   })

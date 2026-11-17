@@ -213,6 +213,8 @@ Warm-up sets (under 60% of your heaviest set that day) are ignored, and lighter 
 
 If the weight hasn't moved and you haven't added reps for three sessions in a row, you're stalled. Add one extra set, or take a lighter week (about 10% less) and build back up. The ↑ kg and Stalled badges in the exercise list show which exercises need what.
 
+Cable exercises are tracked per attachment. A rope pushdown and a triangle pushdown each get their own target, PR and chart, because the same stack weight is much harder on one than the other. The log sheet opens on the attachment you used last; sets logged before you picked one can be tagged from History.
+
 Pit Crew plans use the same rules, with the plan's own rep range and number of sets.`,
     formula: `range from last session's best reps at the top weight:
   ≤5 → 3–5 · ≤8 → 6–8 · ≤12 → 8–12 · ≤15 → 12–15 · more → 15–20

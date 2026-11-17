@@ -18,7 +18,13 @@ from models.training_log import TrainingLog
 from models.custom_exercise import CustomExercise
 from models.user_split import UserSplit
 from services.daily import get_or_create_today
-from services.exercise_taxonomy import group_for_exercise, groups_for_exercises, is_per_dumbbell
+from services.exercise_taxonomy import (
+    EXERCISE_ATTACHMENTS,
+    clean_attachment,
+    group_for_exercise,
+    groups_for_exercises,
+    is_per_dumbbell,
+)
 from services.one_rm import estimate as estimate_one_rm
 from services.progression import next_target
 from services.plans import history_window
@@ -43,6 +49,7 @@ class LogTrainingRequest(BaseModel):
     # DateType, not `date`: a field named `date` annotated `date` resolves
     # to the field's own default (None), so any request with a date 422'd.
     date: Optional[DateType] = None
+    attachment: Optional[str] = None
 
 
 class LogSetRequest(BaseModel):
@@ -55,6 +62,9 @@ class LogSetRequest(BaseModel):
 class LogExerciseRequest(BaseModel):
     type: str  # exercise key
     sets: list[LogSetRequest]
+    # Cable attachment (rope, triangle, ...); ignored for exercises without
+    # one (services/exercise_taxonomy.py EXERCISE_ATTACHMENTS).
+    attachment: Optional[str] = None
     notes: Optional[str] = None
     # DateType, not `date`: a field named `date` annotated `date` resolves
     # to the field's own default (None), so any request with a date 422'd.
@@ -83,8 +93,36 @@ def _log_dict(t: TrainingLog) -> dict:
         "source": t.source,
         "set_type": t.set_type,
         "superset_id": str(t.superset_id) if t.superset_id else None,
+        "attachment": t.attachment,
         "logged_at": t.logged_at.isoformat(),
     }
+
+
+def _attachment_filter(exercise_key: str, attachment: str | None) -> list:
+    """Where-clauses for one lift. Exercises without attachments have none."""
+    if exercise_key not in EXERCISE_ATTACHMENTS:
+        return []
+    if attachment is None:
+        return [TrainingLog.attachment.is_(None)]
+    return [TrainingLog.attachment == attachment]
+
+
+async def _resolve_attachment(
+    user_id, exercise_key: str, requested: str | None, db: AsyncSession,
+) -> str | None:
+    """`requested`: an attachment, "none" for sets logged without one, or
+    left out for the one used last on this exercise (what the log sheet
+    opens on, so a rope regular doesn't pick rope every time)."""
+    if exercise_key not in EXERCISE_ATTACHMENTS or requested == "none":
+        return None
+    if requested is not None:
+        return clean_attachment(exercise_key, requested)
+    return await db.scalar(
+        select(TrainingLog.attachment)
+        .where(TrainingLog.user_id == user_id, TrainingLog.type == exercise_key)
+        .order_by(TrainingLog.date.desc(), TrainingLog.logged_at.desc())
+        .limit(1)
+    )
 
 
 async def _sync_training_summary(
@@ -124,10 +162,12 @@ async def log_training(
     today_local = user_today(current_user.timezone)
     target_date = body.date or today_local
 
+    attachment = clean_attachment(body.type, body.attachment)
     entry = TrainingLog(
         user_id=current_user.id,
         date=target_date,
         type=body.type,
+        attachment=attachment,
         duration_min=body.duration_min,
         intensity=body.intensity,
         volume_sets=body.volume_sets,
@@ -150,7 +190,8 @@ async def log_training(
     if target_date == today_local:
         try:
             await notify_pr_if_applicable(
-                current_user, body.type, body.weight_kg, body.reps, db, redis
+                current_user, body.type, body.weight_kg, body.reps, db, redis,
+                attachment=attachment,
             )
             added_kg = set_volume_kg(
                 body.type, body.weight_kg, body.reps, current_user.weight_kg
@@ -169,6 +210,7 @@ def _add_exercise_sets(
     superset_id: uuid.UUID | None = None,
 ) -> list[TrainingLog]:
     created: list[TrainingLog] = []
+    attachment = clean_attachment(body.type, body.attachment)
     for s in body.sets:
         if s.reps is None and s.weight_kg is None:
             continue
@@ -185,6 +227,7 @@ def _add_exercise_sets(
             source=body.source,
             set_type=set_type,
             superset_id=superset_id,
+            attachment=attachment,
         )
         db.add(entry)
         created.append(entry)
@@ -204,12 +247,14 @@ async def _after_log(
 
     if target_date == date.today() and created:
         try:
-            by_type: dict[str, list[TrainingLog]] = defaultdict(list)
+            by_lift: dict[tuple, list[TrainingLog]] = defaultdict(list)
             for e in created:
-                by_type[e.type].append(e)
-            for type_, sets in by_type.items():
+                by_lift[(e.type, e.attachment)].append(e)
+            for (type_, attachment), sets in by_lift.items():
                 top = max(sets, key=lambda e: float(e.weight_kg or 0))
-                await notify_pr_if_applicable(user, type_, top.weight_kg, top.reps, db, redis)
+                await notify_pr_if_applicable(
+                    user, type_, top.weight_kg, top.reps, db, redis, attachment=attachment,
+                )
             added_kg = sum(
                 set_volume_kg(e.type, e.weight_kg, e.reps, user.weight_kg)
                 for e in created
@@ -323,9 +368,11 @@ async def get_sessions(
     sessions = []
     for d in dates:
         logs = by_day.get(d, [])
-        by_exercise: dict[str, list[TrainingLog]] = defaultdict(list)
+        # One row per lift: a rope and a triangle pushdown on the same day
+        # are listed apart, each with its own top set.
+        by_exercise: dict[tuple, list[TrainingLog]] = defaultdict(list)
         for log in logs:
-            by_exercise[log.type].append(log)
+            by_exercise[(log.type, log.attachment)].append(log)
 
         volume = sum(
             set_volume_kg(log.type, log.weight_kg, log.reps, current_user.weight_kg)
@@ -341,6 +388,7 @@ async def get_sessions(
             "exercises": [
                 {
                     "type": key,
+                    "attachment": attachment,
                     "sets": len(sets),
                     "top_weight_kg": max(
                         (float(x.weight_kg) for x in sets if x.weight_kg is not None),
@@ -370,13 +418,16 @@ async def get_sessions(
                         for x in sets
                     ],
                 }
-                for key, sets in by_exercise.items()
+                for (key, attachment), sets in by_exercise.items()
             ],
             "exercise_count": len(by_exercise),
             "set_count": len(logs),
             "volume_kg": round(volume, 1),
             "top_lift": (
-                {"type": top.type, "weight_kg": float(top.weight_kg), "reps": top.reps}
+                {
+                    "type": top.type, "attachment": top.attachment,
+                    "weight_kg": float(top.weight_kg), "reps": top.reps,
+                }
                 if top else None
             ),
             "duration_min": next((l.duration_min for l in logs if l.duration_min), None),
@@ -458,15 +509,21 @@ async def get_volume_weekly(
 async def get_by_exercise(
     exercise_key: str,
     days: int = 90,
+    attachment: str | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """All logs for a specific exercise, grouped by session date, plus PR progression."""
+    """All logs for a specific exercise, grouped by session date, plus PR progression.
+
+    Cable exercises are one attachment at a time (`attachment`: see
+    _resolve_attachment); `attachments` lists every one logged in the
+    window, so the chart can offer a switch only when there is a choice."""
     # The range picker offers 7/30/90/365; the plan decides how far back it can
     # actually reach (free 30, plus 90, pro 365), and `clamped` lets the app say
     # so rather than silently showing a shorter chart than the button promised.
     window, clamped = history_window(current_user, days)
     cutoff = date.today() - timedelta(days=window)
+    attachment = await _resolve_attachment(current_user.id, exercise_key, attachment, db)
 
     result = await db.execute(
         select(TrainingLog)
@@ -477,7 +534,12 @@ async def get_by_exercise(
         )
         .order_by(TrainingLog.date.asc(), TrainingLog.logged_at.asc())
     )
-    logs = result.scalars().all()
+    all_logs = result.scalars().all()
+    if exercise_key in EXERCISE_ATTACHMENTS:
+        attachments = list(dict.fromkeys(log.attachment for log in all_logs))
+        logs = [log for log in all_logs if log.attachment == attachment]
+    else:
+        attachments, logs = [], all_logs
 
     sessions: dict[str, list[TrainingLog]] = defaultdict(list)
     for log in logs:
@@ -505,6 +567,8 @@ async def get_by_exercise(
 
     return {
         "exercise": exercise_key,
+        "attachment": attachment,
+        "attachments": attachments,
         "progression": progression,
         "logs": [_log_dict(t) for t in logs],
         "window_days": window,
@@ -677,33 +741,54 @@ async def progression_overview(
             TrainingLog.reps.is_not(None),
         )
     )).scalars().all()
+    # Per exercise, the attachment it was done with last: that is the lift
+    # the log sheet opens on, so it is the one the badge is about.
+    latest: dict[str, TrainingLog] = {}
+    for lg in logs:
+        cur = latest.get(lg.type)
+        if cur is None or (lg.date, lg.logged_at) > (cur.date, cur.logged_at):
+            latest[lg.type] = lg
     by_key: dict[str, list[TrainingLog]] = defaultdict(list)
     for lg in logs:
-        by_key[lg.type].append(lg)
+        if lg.attachment == latest[lg.type].attachment:
+            by_key[lg.type].append(lg)
     groups = await groups_for_exercises(list(by_key), db)
     out = {}
     for key, rows in by_key.items():
         t = next_target(_sessions(rows), groups.get(key), dumbbell=is_per_dumbbell(key))
-        out[key] = {"kind": t["kind"], "ready_for_weight": t["ready_for_weight"], "stalled": t["stalled"]}
+        out[key] = {
+            "kind": t["kind"], "ready_for_weight": t["ready_for_weight"], "stalled": t["stalled"],
+            "attachment": latest[key].attachment,
+        }
     return {"exercises": out}
 
 
 @router.get("/progression/{exercise_key}")
 async def progression_for_exercise(
     exercise_key: str,
+    attachment: str | None = None,
+    reps_min: int | None = None,
+    reps_max: int | None = None,
+    sets: int | None = None,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Next-session target for one exercise (services/progression.py): the
-    "+1 rep" or "+weight" line and pre-filled sets in the log sheet."""
+    "+1 rep" or "+weight" line and pre-filled sets in the log sheet.
+
+    Cable exercises target one attachment (see _resolve_attachment). A Pit
+    Crew plan passes its rep range and set count, for when the attachment
+    is switched in the plan's log sheet."""
     from core.timezone import user_today
     today = user_today(current_user.timezone)
+    attachment = await _resolve_attachment(current_user.id, exercise_key, attachment, db)
     logs = (await db.execute(
         select(TrainingLog).where(
             TrainingLog.user_id == current_user.id,
             TrainingLog.type == exercise_key,
             TrainingLog.date >= today - timedelta(days=PROGRESSION_LOOKBACK_DAYS),
             TrainingLog.reps.is_not(None),
+            *_attachment_filter(exercise_key, attachment),
         )
     )).scalars().all()
     sessions = _sessions(logs)
@@ -712,11 +797,16 @@ async def progression_for_exercise(
     done_today = bool(sessions) and sessions[-1][0].date == today
     basis = sessions[:-1] if done_today else sessions
     group = await group_for_exercise(exercise_key, db)
-    db_ = is_per_dumbbell(exercise_key)
-    target = next_target(basis, group, dumbbell=db_)
-    nxt = next_target(sessions, group, dumbbell=db_) if done_today else None
+    plan = {
+        "rep_range": (reps_min, reps_max) if reps_min and reps_max and reps_min <= reps_max else None,
+        "planned_sets": sets if sets and sets > 0 else None,
+        "dumbbell": is_per_dumbbell(exercise_key),
+    }
+    target = next_target(basis, group, **plan)
+    nxt = next_target(sessions, group, **plan) if done_today else None
     return {
         "exercise": exercise_key,
+        "attachment": attachment,
         "target": target,
         "last_date": basis[-1][0].date.isoformat() if basis else None,
         "logged_today": done_today,
@@ -753,8 +843,8 @@ async def one_rm(
     )
     logs = result.scalars().all()
 
-    # exercise -> best estimate so far + source set
-    best: dict[str, dict] = {}
+    # (exercise, attachment) -> best estimate so far + source set
+    best: dict[tuple, dict] = {}
     for log in logs:
         if log.weight_kg is None or log.reps is None:
             continue
@@ -764,10 +854,13 @@ async def one_rm(
         mean = est["mean"]
         if mean is None:
             continue
-        existing = best.get(log.type)
+        # Per lift: a rope and a triangle pushdown are different numbers.
+        lift = (log.type, log.attachment)
+        existing = best.get(lift)
         if existing is None or mean > existing["mean"]:
-            best[log.type] = {
+            best[lift] = {
                 "exercise": log.type,
+                "attachment": log.attachment,
                 "mean": mean,
                 "epley": est["epley"],
                 "brzycki": est["brzycki"],
@@ -782,6 +875,33 @@ async def one_rm(
 
     rows = sorted(best.values(), key=lambda r: r["mean"], reverse=True)
     return {"window_days": cutoff and (date.today() - cutoff).days, "estimates": rows}
+
+
+class AttachmentRequest(BaseModel):
+    log_ids: list[uuid.UUID]
+    attachment: Optional[str] = None  # None: no attachment
+
+
+@router.patch("/attachment")
+async def set_attachment(
+    body: AttachmentRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Say which attachment some sets were done with, from History: sets
+    logged before attachments existed, or a wrong pick."""
+    if not body.log_ids:
+        return {"updated": 0}
+    rows = (await db.execute(
+        select(TrainingLog).where(
+            TrainingLog.id.in_(body.log_ids[:200]),
+            TrainingLog.user_id == current_user.id,
+        )
+    )).scalars().all()
+    for row in rows:
+        row.attachment = clean_attachment(row.type, body.attachment)
+    await db.commit()
+    return {"updated": len(rows)}
 
 
 @router.delete("/{log_id}", status_code=204)

@@ -85,14 +85,17 @@ async def compute_stats(user: User, row: AiPlan, start: date, end: date, db: Asy
         )
     )).scalars().all()
     by_date: dict[date, set[str]] = defaultdict(set)
-    top_now: dict[str, float] = {}
-    top_before: dict[str, float] = {}
+    # Top weight per lift (exercise, cable attachment): moving from the
+    # rope to the triangle is not progress.
+    top_now: dict[tuple, float] = {}
+    top_before: dict[tuple, float] = {}
     for lg in logs:
         if lg.date >= first_day:
             by_date[lg.date].add(lg.type)
         if lg.weight_kg:
             bucket = top_now if lg.date >= start else top_before
-            bucket[lg.type] = max(bucket.get(lg.type, 0), float(lg.weight_kg))
+            lift = (lg.type, lg.attachment)
+            bucket[lift] = max(bucket.get(lift, 0), float(lg.weight_kg))
 
     done = [d for d in planned if by_date.get(d)]
     # Skipped = not logged in any session they did that included it (2+).
@@ -105,7 +108,10 @@ async def compute_stats(user: User, row: AiPlan, start: date, end: date, db: Asy
                 skipped[ex["key"]] += 1
     always_skipped = {k: v for k, v in skipped.items() if v == included[k] and v >= 2}
     names = {ex["key"]: ex["name"] for d in tdays.values() for ex in d["exercises"]}
-    progressed = sorted(names[k] for k in names if k in top_now and k in top_before and top_now[k] > top_before[k])
+    progressed = sorted({
+        names[k] for (k, att), w in top_now.items()
+        if k in names and w > top_before.get((k, att), float("inf"))
+    })
 
     meals_planned = meals_logged = 0
     n = plan.get("nutrition")

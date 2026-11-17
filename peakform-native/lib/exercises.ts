@@ -293,3 +293,41 @@ export function loggingHint(key: string): string | null {
 export function searchKey(s: string): string {
   return s.toLowerCase().replace(/dumbbells?/g, 'db').replace(/[^a-z0-9]+/g, ' ').trim()
 }
+
+// Cable attachments. The same cable move is a different lift with a rope
+// than with a triangle (22 kg vs 30 kg is normal), so the server keeps
+// their weights, targets and PRs apart. The log sheet opens on the one used
+// last. Keep in sync with backend/services/exercise_taxonomy.py
+// ATTACHMENT_LABEL / EXERCISE_ATTACHMENTS.
+export const ATTACHMENT_LABEL: Record<string, string> = {
+  rope: 'Rope',
+  straight_bar: 'Straight bar',
+  v_bar: 'V-bar',
+  triangle: 'Triangle',
+  ez_bar: 'EZ bar',
+  wide_bar: 'Wide bar',
+  handle: 'Handle',
+}
+
+export const EXERCISE_ATTACHMENTS: Record<string, string[]> = {
+  tricep_pushdown: ['rope', 'straight_bar', 'v_bar', 'triangle', 'ez_bar'],
+  cable_overhead_extension: ['rope', 'straight_bar', 'ez_bar', 'triangle'],
+  single_arm_pushdown: ['handle', 'rope'],
+  cable_curl: ['straight_bar', 'ez_bar', 'rope'],
+  cable_row: ['triangle', 'straight_bar', 'wide_bar', 'rope'],
+  lat_pulldown: ['wide_bar', 'triangle', 'straight_bar'],
+  close_grip_pulldown: ['triangle', 'straight_bar', 'v_bar'],
+  straight_arm_pulldown: ['straight_bar', 'rope'],
+  cable_pullover: ['rope', 'straight_bar'],
+  cable_front_raise: ['rope', 'straight_bar', 'handle'],
+}
+
+export function attachmentsFor(key: string): string[] {
+  return EXERCISE_ATTACHMENTS[key] ?? []
+}
+
+/** "Tricep Pushdown" + rope → "Tricep Pushdown · Rope". */
+export function withAttachment(name: string, attachment?: string | null): string {
+  const label = attachment ? ATTACHMENT_LABEL[attachment] : undefined
+  return label ? `${name} · ${label}` : name
+}

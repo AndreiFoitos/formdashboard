@@ -33,7 +33,7 @@ from models.user import User
 from models.user_preference import UserPreference
 from models.user_split import UserSplit
 from services.energy import estimate_for, slope_per_week as _slope_per_week
-from services.exercise_taxonomy import groups_for_exercises
+from services.exercise_taxonomy import groups_for_exercises, with_attachment
 from services.one_rm import estimate as estimate_one_rm
 
 DAILY_DAYS = 14  # newest days listed one per row; older ones as weekly averages
@@ -236,9 +236,11 @@ async def _strength(user: User, today: date, db: AsyncSession) -> list[str]:
     if not logs:
         return ["## Strength", "no weighted sets logged in the last 16 weeks"]
 
-    best_now: dict[str, tuple[float, TrainingLog]] = {}
-    best_before: dict[str, float] = {}
-    sets_now: Counter[str] = Counter()
+    # Keyed per lift (exercise, attachment): a rope and a triangle pushdown
+    # are different numbers. Muscle-group set counts stay per exercise.
+    best_now: dict[tuple, tuple[float, TrainingLog]] = {}
+    best_before: dict[tuple, float] = {}
+    sets_now: Counter[tuple] = Counter()
     week_sets: Counter[str] = Counter()
     for log in logs:
         if log.weight_kg <= 0 or log.reps <= 0:
@@ -246,17 +248,18 @@ async def _strength(user: User, today: date, db: AsyncSession) -> list[str]:
         est = estimate_one_rm(float(log.weight_kg), int(log.reps))["mean"]
         if est is None:
             continue
+        lift = (log.type, log.attachment)
         if log.date >= today - span:
-            sets_now[log.type] += 1
+            sets_now[lift] += 1
             if log.date > today - timedelta(days=7):
                 week_sets[log.type] += 1
-            if log.type not in best_now or est > best_now[log.type][0]:
-                best_now[log.type] = (est, log)
-        elif est > best_before.get(log.type, 0):
-            best_before[log.type] = est
+            if lift not in best_now or est > best_now[lift][0]:
+                best_now[lift] = (est, log)
+        elif est > best_before.get(lift, 0):
+            best_before[lift] = est
 
     top = [k for k, _ in sets_now.most_common(MAX_LIFTS)]
-    names = await _exercise_names(set(top) | set(week_sets), db)
+    names = await _exercise_names({t for t, _ in top} | set(week_sets), db)
     lines = [
         f"## Strength: best estimated 1RM, last {STRENGTH_WEEKS} weeks vs the {STRENGTH_WEEKS} before",
         "exercise | est 1RM kg | from set | previous est 1RM kg | sets logged",
@@ -265,7 +268,7 @@ async def _strength(user: User, today: date, db: AsyncSession) -> list[str]:
         est, log = best_now[k]
         prev = best_before.get(k)
         lines.append(
-            f"{names.get(k, k)} | {est:.1f} | {float(log.weight_kg):g} kg x {log.reps} on {log.date} | "
+            f"{with_attachment(names.get(k[0], k[0]), k[1])} | {est:.1f} | {float(log.weight_kg):g} kg x {log.reps} on {log.date} | "
             f"{f'{prev:.1f}' if prev else '-'} | {sets_now[k]}"
         )
 

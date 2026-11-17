@@ -20,7 +20,7 @@ import {
 import { usePreferences } from '../../hooks/usePreferences'
 import { openPaywall, usePlan, type ScanUsage } from '../../hooks/usePlan'
 import { useExerciseName } from '../../hooks/useExerciseName'
-import { EXERCISE_NAME, isPerDumbbell } from '../../lib/exercises'
+import { EXERCISE_NAME, isPerDumbbell, withAttachment } from '../../lib/exercises'
 import { hapticLight } from '../../lib/haptics'
 import { extractErrorMessage } from '../../lib/apiError'
 import { enablePredictiveNudges } from '../../lib/notifications'
@@ -230,7 +230,7 @@ function UpNextCard({ next }: { next: NonNullable<Today['up_next']> }) {
             style={{ borderBottomWidth: i === next.exercises.length - 1 ? 0 : 1, borderBottomColor: colors.divider }}
           >
             <View className="flex-1 pr-3">
-              <Text className="text-text text-footnote font-medium">{displayName(ex.key)}</Text>
+              <Text className="text-text text-footnote font-medium">{withAttachment(displayName(ex.key), ex.attachment)}</Text>
               <Text className="text-text-subtle text-caption mt-1">
                 {ex.suggestion.kind === 'first'
                   ? `${ex.sets} × ${repsLabel(ex)} · first time`
@@ -372,7 +372,7 @@ function TodayCard({ today, plan }: { today: Today; plan: Plan }) {
               <ExerciseRow
                 key={ex.key}
                 ex={ex}
-                name={displayName(ex.key)}
+                name={withAttachment(displayName(ex.key), ex.attachment)}
                 last={i === w.exercises.length - 1}
                 onPress={() => setLogging(ex)}
               />

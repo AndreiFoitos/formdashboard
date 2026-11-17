@@ -11,6 +11,7 @@ import {
   Share,
 } from 'react-native'
 import { formatNumber } from '../lib/format'
+import { withAttachment } from '../lib/exercises'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -114,6 +115,7 @@ interface FriendLift {
   id: string
   date: string
   type: string
+  attachment?: string | null
   weight_kg: number | null
   reps: number | null
   already_sus: boolean
@@ -363,7 +365,7 @@ function LiftRowSusVouch({
     <View className="rounded-xl bg-surface-raised border border-border px-4 py-3 flex-row items-center" style={{ borderCurve: 'continuous' }}>
       <View className="flex-1 pr-2">
         <Text className="text-text text-footnote font-semibold">
-          {displayName(lift.type)}
+          {withAttachment(displayName(lift.type), lift.attachment)}
         </Text>
         <Text className="text-text-subtle text-caption mt-1">
           {new Date(lift.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
