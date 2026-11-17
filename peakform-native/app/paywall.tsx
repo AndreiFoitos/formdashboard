@@ -28,6 +28,7 @@ type Period = 'monthly' | 'yearly'
 const FEATURES: Record<Tier, string[]> = {
   plus: [
     '4 food scans a day',
+    '20 meal descriptions a day',
     '3 body-fat scans a week',
     '15 AI questions a day',
     'A new Pit Crew plan every week',
@@ -36,6 +37,7 @@ const FEATURES: Record<Tier, string[]> = {
   ],
   pro: [
     'Unlimited food scans*',
+    '50 meal descriptions a day',
     'A body-fat scan every day',
     '50 AI questions a day',
     '3 Pit Crew plans a week',
@@ -46,10 +48,11 @@ const FEATURES: Record<Tier, string[]> = {
   ],
 }
 const FREE_LINE =
-  'Free: 1 food scan a day, 1 body-fat scan a week, 3 questions a day, 1 Pit Crew plan to try, 30 days of trends, 15 friends.'
+  'Free: 1 food scan and 5 meal descriptions a day, 1 body-fat scan a week, 3 questions a day, 1 Pit Crew plan to try, 30 days of trends, 15 friends.'
 
 const HEADLINES: Record<PaywallReason | 'default', { title: string; sub: string }> = {
   food: { title: "You've used today's food scan", sub: 'Upgrade to keep snapping meals.' },
+  describe: { title: "You've used today's meal descriptions", sub: 'Upgrade to describe more meals.' },
   bf: { title: "You've used this week's body-fat scan", sub: 'Upgrade to track your progress more often.' },
   ask: { title: "You've used today's questions", sub: 'Upgrade to keep asking about your data.' },
   plan: { title: "You've used your plan builds", sub: 'Upgrade for a fresh Pit Crew plan every week.' },

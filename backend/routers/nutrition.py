@@ -4,7 +4,7 @@ import json
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func as sqlfunc
@@ -22,11 +22,12 @@ from models.user import User
 from models.barcode_product import BarcodeProduct
 from models.nutrition_log import NutritionLog
 from models.saved_meal import DismissedMealPattern, SavedMeal, SavedMealItem
-from services.ai_client import AINotConfigured
+from services.ai_client import AINotConfigured, AIRefused
 from services.daily import increment_daily_field
 from services.nutrition_estimate import estimate_from_photo
+from services.nutrition_text import MAX_TEXT_CHARS, estimate_from_text
 from services.openfoodfacts import InvalidBarcode, fetch_product, normalize_barcode
-from services.plans import FOOD, consume_scan, refund_scan
+from services.plans import DESCRIBE, FOOD, consume_scan, refund_scan
 from core.config import settings
 from services.usda import (
     USDANotConfigured,
@@ -266,6 +267,47 @@ async def estimate_from_photo_endpoint(
         except ValueError as e:
             # Vision model returned malformed JSON or similar parsing failure.
             raise HTTPException(502, str(e))
+    except Exception:
+        await refund_scan(scan_id, db)
+        raise
+
+
+class EstimateTextRequest(BaseModel):
+    text: str = Field(min_length=2, max_length=MAX_TEXT_CHARS)
+
+
+NO_FOOD_FOUND = "Couldn't find any food in that. Try naming what you ate and roughly how much."
+
+
+@router.post("/estimate/text")
+async def estimate_from_text_endpoint(
+    body: EstimateTextRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Describe a meal: turn a typed or dictated description into foods with
+    amounts, calories, macros and a likely calorie range.
+
+    Same review-then-log flow as the photo endpoint, with its own allowance
+    (services/plans.py DESCRIBE). Nothing is persisted here; the phone calls
+    POST /nutrition/log-batch on confirm."""
+    text = body.text.strip()
+    if len(text) < 2:
+        raise HTTPException(422, NO_FOOD_FOUND)
+    scan_id = await consume_scan(current_user, DESCRIBE, db)
+    try:
+        try:
+            result = await estimate_from_text(text)
+        except AINotConfigured as e:
+            raise HTTPException(503, str(e))
+        except AIRefused:
+            raise HTTPException(422, NO_FOOD_FOUND)
+        except ValueError as e:
+            raise HTTPException(502, str(e))
+        # Nothing to log is not worth a scan: refund it (below) and say why.
+        if not result["items"]:
+            raise HTTPException(422, NO_FOOD_FOUND)
+        return result
     except Exception:
         await refund_scan(scan_id, db)
         raise

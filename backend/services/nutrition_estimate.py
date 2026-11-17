@@ -205,7 +205,7 @@ def _usda_item(name: str, food: dict, grams: float, portion: str | None = None) 
     }
 
 
-async def _claude_item(name: str, grams: float) -> dict:
+async def _claude_item(name: str, grams: float, model: str | None = None) -> dict:
     fallback_user = (
         f'Food: "{name}". Portion: {grams}g. '
         'Return JSON: {"calories": number, "protein_g": number, "fat_g": number, "carbs_g": number}'
@@ -215,6 +215,7 @@ async def _claude_item(name: str, grams: float) -> dict:
         [{"role": "user", "content": fallback_user}],
         max_tokens=120,
         thinking=False,
+        model=model,
     )
     try:
         macros = _extract_json(text)

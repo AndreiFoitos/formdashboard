@@ -14,12 +14,12 @@ export interface DraftItem {
   fat_g: number
 }
 
-export type DraftSource = '/nutrition-barcode' | '/nutrition-snap'
+export type DraftSource = '/nutrition-barcode' | '/nutrition-snap' | '/nutrition-describe'
 
 interface MealDraftState {
   name: string
   items: DraftItem[]
-  /** A camera screen to open once the builder's modals have closed. */
+  /** A camera (or describe) screen to open once the builder's modals have closed. */
   leaving: DraftSource | null
   /** Reopen the builder when the Nutrition tab is back on screen. */
   resume: boolean

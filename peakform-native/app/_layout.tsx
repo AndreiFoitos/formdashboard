@@ -247,6 +247,8 @@ function RootLayout() {
               {/* Photo-based calorie estimation flow */}
               <Stack.Screen name="nutrition-snap" options={{ animation: 'slide_from_bottom' }} />
               <Stack.Screen name="nutrition-confirm" options={{ ...pushedHeader, title: 'Review meal', headerBackButtonDisplayMode: 'default', headerBackTitle: 'Retake' }} />
+              {/* Describe a meal in words (typed or dictated); reviews on nutrition-confirm */}
+              <Stack.Screen name="nutrition-describe" options={{ ...modalHeader, title: 'Describe a meal' }} />
               {/* Packaged food by barcode (Open Food Facts via the backend) */}
               <Stack.Screen name="nutrition-barcode" options={{ animation: 'slide_from_bottom' }} />
               {/* AI body-comp estimate (image is sent to Claude and dropped — never persisted). */}

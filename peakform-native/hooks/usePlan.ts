@@ -4,7 +4,7 @@ import { api } from '../api/client'
 import { useAuthStore } from '../store/auth'
 
 export type PlanId = 'free' | 'plus' | 'pro'
-export type ScanKind = 'food' | 'bf' | 'ask' | 'plan'
+export type ScanKind = 'food' | 'bf' | 'ask' | 'plan' | 'describe'
 
 export interface ScanUsage {
   limit: number
@@ -28,7 +28,8 @@ export interface PackInfo {
 export interface PlanPayload {
   plan: PlanId
   plan_expires_at: string | null
-  scans: Record<ScanKind, ScanUsage>
+  /** `describe` is missing on backends from before 2026-11-17. */
+  scans: Record<Exclude<ScanKind, 'describe'>, ScanUsage> & { describe?: ScanUsage }
   friends: { count: number; limit: number }
   /** How far back trends and the Ask context may reach. */
   history_days: number
@@ -60,7 +61,7 @@ export function useSetPlan() {
   }
 }
 
-export type PaywallReason = 'food' | 'bf' | 'ask' | 'plan' | 'friends' | 'history' | 'export'
+export type PaywallReason = 'food' | 'bf' | 'ask' | 'plan' | 'describe' | 'friends' | 'history' | 'export'
 
 /** If the error is a plan limit (HTTP 402), open the paywall and return true. */
 export function handleLimitError(err: any): boolean {
