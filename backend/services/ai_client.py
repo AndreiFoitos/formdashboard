@@ -49,27 +49,36 @@ async def _enforce_global_spend_cap() -> None:
         )
 
 
+def _thinking_off(model: str) -> dict:
+    """The no-thinking setting for `model`. Sonnet 5.5 400s on "disabled";
+    "between_tools" is its equivalent (at effort "high" or below). Haiku 5.5
+    takes "disabled" (at its default "medium" effort)."""
+    if model.startswith("claude-sonnet-5-5"):
+        return {"type": "between_tools"}
+    return {"type": "disabled"}
+
+
 async def call_claude(
     system,  # str, or a list of system blocks (use a cache_control block for large reusable prefixes)
     messages: list[dict],
     max_tokens: int = 600,
     thinking: bool = True,
     effort: str | None = None,
+    model: str | None = None,
 ) -> str:
     """Single Messages API call, returns the concatenated text.
 
-    Sonnet 5.5 thinks adaptively unless told not to, and thinking tokens count
+    Models think adaptively unless told not to, and thinking tokens count
     against max_tokens. Pass thinking=False for tiny structured replies: with
-    a ~120-token cap the model can spend it all thinking and return no text.
-    Sonnet 5.5 400s on {"type": "disabled"}; "between_tools" is its
-    no-thinking setting (allowed at the default "high" effort or below)."""
+    a ~120-token cap the model can spend it all thinking and return no text."""
     client = get_client()
     await _enforce_global_spend_cap()
-    extra = {} if thinking else {"thinking": {"type": "between_tools"}}
+    model = model or CLAUDE_MODEL
+    extra = {} if thinking else {"thinking": _thinking_off(model)}
     if effort:
         extra["output_config"] = {"effort": effort}
     resp = await client.messages.create(
-        model=CLAUDE_MODEL,
+        model=model,
         max_tokens=max_tokens,
         system=system,
         messages=messages,
@@ -116,6 +125,40 @@ async def call_claude_json(
         raise ValueError("Model output was cut off (max_tokens)")
     text = next(b.text for b in message.content if b.type == "text")
     return json.loads(text), message
+
+
+async def call_claude_structured(
+    system,
+    messages: list[dict],
+    schema: dict,
+    max_tokens: int = 8000,
+    effort: str | None = None,
+    model: str | None = None,
+) -> dict:
+    """call_claude_json for short replies: one non-streaming request whose
+    text is JSON matching `schema`. Thinking stays adaptive (reasoning first
+    helps nutrition estimates) and counts against max_tokens, so leave room.
+    Raises AIRefused on a refusal and ValueError when cut off."""
+    import json
+
+    client = get_client()
+    await _enforce_global_spend_cap()
+    output_config: dict = {"format": {"type": "json_schema", "schema": schema}}
+    if effort:
+        output_config["effort"] = effort
+    message = await client.messages.create(
+        model=model or CLAUDE_MODEL,
+        max_tokens=max_tokens,
+        system=system,
+        messages=messages,
+        output_config=output_config,
+    )
+    if message.stop_reason == "refusal":
+        raise AIRefused(getattr(message, "stop_details", None))
+    if message.stop_reason == "max_tokens":
+        raise ValueError("Model output was cut off (max_tokens)")
+    text = next(b.text for b in message.content if b.type == "text")
+    return json.loads(text)
 
 
 async def claude_message(**kwargs):

@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
-import { Bookmark, Camera, MoreHorizontal, ScanBarcode, Search as SearchIcon, X } from 'lucide-react-native'
+import { Bookmark, Camera, MessageSquareText, Mic, MoreHorizontal, ScanBarcode, Search as SearchIcon, X } from 'lucide-react-native'
 import { api } from '../../api/client'
 import { useTourTarget } from '../../store/tour'
 import { draftItem, useMealDraft } from '../../store/mealDraft'
@@ -462,7 +462,7 @@ function BuildMealModal({
                 style={{ borderCurve: 'continuous' }}
               >
                 <ScanBarcode size={16} color={colors.text} strokeWidth={2} />
-                <Text className="text-text text-footnote font-semibold">Scan barcode</Text>
+                <Text className="text-text text-footnote font-semibold">Barcode</Text>
               </PressableScale>
               <PressableScale
                 haptic
@@ -471,7 +471,16 @@ function BuildMealModal({
                 style={{ borderCurve: 'continuous' }}
               >
                 <Camera size={16} color={colors.text} strokeWidth={2} />
-                <Text className="text-text text-footnote font-semibold">Snap photo</Text>
+                <Text className="text-text text-footnote font-semibold">Photo</Text>
+              </PressableScale>
+              <PressableScale
+                haptic
+                onPress={() => leaveTo('/nutrition-describe')}
+                className="flex-1 bg-surface-raised border border-border rounded-md py-3 flex-row items-center justify-center gap-2"
+                style={{ borderCurve: 'continuous' }}
+              >
+                <MessageSquareText size={16} color={colors.text} strokeWidth={2} />
+                <Text className="text-text text-footnote font-semibold">Describe</Text>
               </PressableScale>
             </View>
             <View className="flex-row items-center bg-surface-raised border border-border rounded-xl px-4" style={{ borderCurve: 'continuous' }}>
@@ -760,13 +769,13 @@ function LogModal({
   onClose: () => void
   /** Which tab opens first. Set by the Nutrition page so each top-row
    *  button drops the user straight into the relevant view. */
-  initialTab?: 'search' | 'saved' | 'photo' | 'barcode'
+  initialTab?: 'search' | 'saved' | 'photo' | 'barcode' | 'describe'
   /** Reopen the meal builder, back from adding an ingredient by camera. */
   initialBuilding?: boolean
 }) {
   const qc = useQueryClient()
 
-  const [tab, setTab] = useState<'search' | 'saved' | 'photo' | 'barcode'>(initialTab)
+  const [tab, setTab] = useState<'search' | 'saved' | 'photo' | 'barcode' | 'describe'>(initialTab)
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   // Open a rename modal for a specific saved meal. null = closed.
@@ -800,12 +809,13 @@ function LogModal({
     return () => clearTimeout(t)
   }, [query])
 
-  // [Photo] and [Barcode] tabs are redirects — close the modal then push
-  // their camera screen.
+  // [Photo], [Barcode] and [Describe] tabs are redirects — close the modal
+  // then push their screen.
   useEffect(() => {
-    if (tab !== 'photo' && tab !== 'barcode') return
+    const to = { photo: '/nutrition-snap', barcode: '/nutrition-barcode', describe: '/nutrition-describe' } as const
+    if (tab !== 'photo' && tab !== 'barcode' && tab !== 'describe') return
     onClose()
-    router.push(tab === 'photo' ? '/nutrition-snap' : '/nutrition-barcode')
+    router.push(to[tab])
   }, [tab])
 
   const frequentQuery = useQuery<SearchResponse>({
@@ -978,7 +988,7 @@ function LogModal({
             existing snap screen via the useEffect above. */}
         <View className="px-4 pt-3">
           <View className="flex-row bg-surface-raised border border-border rounded-full p-1" style={{ borderCurve: 'continuous' }}>
-            {(['search', 'saved', 'photo', 'barcode'] as const).map((t) => {
+            {(['search', 'saved', 'photo', 'barcode', 'describe'] as const).map((t) => {
               const active = tab === t
               return (
                 <TouchableOpacity
@@ -1414,7 +1424,7 @@ export default function NutritionScreen() {
             equal-prominence on-page buttons. Search + Saved open LogModal
             pre-set to that tab; Barcode and Photo route straight to their
             camera screens, skipping the modal. */}
-        <View className="flex-row mb-5 gap-2" {...scanTarget}>
+        <View className="flex-row mb-2 gap-2" {...scanTarget}>
           <PressableScale
             haptic
             onPress={() => {
@@ -1457,6 +1467,19 @@ export default function NutritionScreen() {
             <Text className="text-on-accent text-footnote font-semibold">Photo</Text>
           </PressableScale>
         </View>
+
+        {/* Describe a meal: reads like a text field because that's what it
+            opens. The mic marks that the keyboard's dictation works there. */}
+        <PressableScale
+          haptic
+          onPress={() => router.push('/nutrition-describe')}
+          className="mb-5 bg-surface border border-divider rounded-md px-4 py-3 flex-row items-center gap-3"
+          style={{ borderCurve: 'continuous' }}
+        >
+          <MessageSquareText size={18} color={colors['text-muted']} strokeWidth={2} />
+          <Text className="flex-1 text-text-muted text-footnote">Describe what you ate</Text>
+          <Mic size={18} color={colors['text-subtle']} strokeWidth={2} />
+        </PressableScale>
 
         {isLoading ? (
           <View className="gap-3 mt-1">

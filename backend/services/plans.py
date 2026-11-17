@@ -30,7 +30,13 @@ FOOD = "food"
 BF = "bf"
 ASK = "ask"
 PLAN = "plan"  # Pit Crew plan builds
-KINDS = (FOOD, BF, ASK, PLAN)
+DESCRIBE = "describe"  # "Describe a meal" (text → calories)
+KINDS = (FOOD, BF, ASK, PLAN, DESCRIBE)
+
+NOUNS = {
+    FOOD: "food scan", BF: "body-fat scan", ASK: "question", PLAN: "plan build",
+    DESCRIBE: "meal description",
+}
 
 
 @dataclass(frozen=True)
@@ -49,6 +55,10 @@ class Plan:
     ask: Limit
     # Pit Crew plan builds (~$0.07-0.10 each). Free gets one to try.
     plan: Limit
+    # Describe a meal (~$0.0012 each on Haiku 5.5). Its own, bigger allowance
+    # than photo scans because it costs ~1/10 of one; a heavy Free user is
+    # ~$0.18/month (decision 2026-11-17, docs/describe-meal-research.md).
+    describe: Limit
     friends: int
     # How far back trends/charts and the Ask context may reach. Raw logs and
     # existing history screens are NOT limited by this: a user can always see
@@ -62,16 +72,19 @@ class Plan:
 PLANS: dict[str, Plan] = {
     "free": Plan(
         "free", food=Limit(1, "day"), bf=Limit(1, "week"), ask=Limit(3, "day"),
-        plan=Limit(1, "ever"), friends=15, history_days=30, export=False,
+        plan=Limit(1, "ever"), describe=Limit(5, "day"), friends=15, history_days=30,
+        export=False,
     ),
     "plus": Plan(
         "plus", food=Limit(4, "day"), bf=Limit(3, "week"), ask=Limit(15, "day"),
-        plan=Limit(1, "week"), friends=50, history_days=90, export=False,
+        plan=Limit(1, "week"), describe=Limit(20, "day"), friends=50, history_days=90,
+        export=False,
     ),
     # "Unlimited" in the app; these are fair-use caps against abuse.
     "pro": Plan(
         "pro", food=Limit(12, "day"), bf=Limit(1, "day"), ask=Limit(50, "day"),
-        plan=Limit(3, "week"), friends=150, history_days=365, export=True,
+        plan=Limit(3, "week"), describe=Limit(50, "day"), friends=150, history_days=365,
+        export=True,
     ),
 }
 
@@ -96,7 +109,9 @@ def _window_start(user: User, window: str) -> datetime:
 
 
 def _limit(plan: Plan, kind: str) -> Limit:
-    return {FOOD: plan.food, BF: plan.bf, ASK: plan.ask, PLAN: plan.plan}[kind]
+    return {
+        FOOD: plan.food, BF: plan.bf, ASK: plan.ask, PLAN: plan.plan, DESCRIBE: plan.describe,
+    }[kind]
 
 
 async def _used(user: User, kind: str, window: str, db: AsyncSession) -> tuple[int, datetime | None]:
@@ -150,7 +165,7 @@ async def consume_scan(user: User, kind: str, db: AsyncSession) -> uuid.UUID:
     used, oldest = await _used(user, kind, lim.window, db)
     if used > lim.count:
         await refund_scan(scan.id, db)
-        noun = {FOOD: "food scan", BF: "body-fat scan", ASK: "question", PLAN: "plan build"}[kind]
+        noun = NOUNS[kind]
         period = {"day": "today", "week": "this week", "ever": "on the Free plan"}[lim.window]
         resets = _resets_at(user, lim.window, oldest)
         raise HTTPException(402, {

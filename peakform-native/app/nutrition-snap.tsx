@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -11,8 +11,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useLocalSearchParams } from 'expo-router'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator'
-import { Check, X } from 'lucide-react-native'
+import { X } from 'lucide-react-native'
 import { api } from '../api/client'
+import { AnalyzingOverlay, type AnalyzeStage } from '../components/AnalyzingOverlay'
 import { PressableScale } from '../components/PressableScale'
 import { hapticSuccess } from '../lib/haptics'
 import { extractErrorMessage } from '../lib/apiError'
@@ -65,72 +66,16 @@ function PermissionGate({ onRequest, canAskAgain }: PermissionGateProps) {
   )
 }
 
-// ─── Analyzing Overlay ────────────────────────────────────────────────────────
+// ─── Analyzing stages ─────────────────────────────────────────────────────────
 
 // The backend runs these three steps in this order (services/nutrition_estimate.py).
-// The client can't see server progress, so each stage starts at the point it
-// typically begins (measured: ~5 s vision call, then USDA lookup, then ~6 s
-// portion pick). The last stage holds until the response arrives.
-const ANALYZE_STAGES = [
+// Each stage starts at the point it typically begins (measured: ~5 s vision
+// call, then USDA lookup, then ~6 s portion pick).
+const ANALYZE_STAGES: AnalyzeStage[] = [
   { label: 'Identifying foods', startsAtMs: 0 },
   { label: 'Matching to USDA database', startsAtMs: 5500 },
   { label: 'Choosing portions', startsAtMs: 7500 },
 ]
-const SLOW_HINT_AFTER_MS = 20_000
-
-function AnalyzingOverlay() {
-  const [elapsed, setElapsed] = useState(0)
-
-  useEffect(() => {
-    const start = Date.now()
-    const id = setInterval(() => setElapsed(Date.now() - start), 250)
-    return () => clearInterval(id)
-  }, [])
-
-  const current = ANALYZE_STAGES.reduce(
-    (idx, s, i) => (elapsed >= s.startsAtMs ? i : idx),
-    0,
-  )
-
-  return (
-    <View
-      className="absolute inset-0 bg-bg/85 items-center justify-center px-8"
-      pointerEvents="auto"
-    >
-      <Text className="text-text text-body font-medium mb-5">Analyzing your meal…</Text>
-      <View className="gap-4">
-        {ANALYZE_STAGES.map((s, i) => {
-          const done = i < current
-          const active = i === current
-          return (
-            <View key={s.label} className="flex-row items-center gap-3">
-              <View className="w-5 h-5 items-center justify-center">
-                {done ? (
-                  <Check size={16} color={colors.success} strokeWidth={2.5} />
-                ) : active ? (
-                  <ActivityIndicator size="small" color={colors.text} />
-                ) : (
-                  <View className="w-1.5 h-1.5 rounded-full bg-text-subtle" style={{ borderCurve: 'continuous' }} />
-                )}
-              </View>
-              <Text
-                className="text-footnote"
-                style={{ color: done ? colors['text-muted'] : active ? colors.text : colors['text-subtle'] }}
-              >
-                {s.label}
-              </Text>
-            </View>
-          )
-        })}
-      </View>
-      {elapsed > SLOW_HINT_AFTER_MS && (
-        <Text className="text-text-subtle text-caption mt-6 text-center">
-          Taking a little longer than usual…
-        </Text>
-      )}
-    </View>
-  )
-}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
@@ -261,7 +206,7 @@ export default function NutritionSnapScreen() {
           </View>
         )}
 
-        {busy && <AnalyzingOverlay />}
+        {busy && <AnalyzingOverlay stages={ANALYZE_STAGES} />}
       </View>
     </SafeAreaView>
   )

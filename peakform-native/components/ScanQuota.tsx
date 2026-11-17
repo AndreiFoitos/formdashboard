@@ -2,7 +2,13 @@ import { Text, TouchableOpacity, View } from 'react-native'
 import { PressableScale } from './PressableScale'
 import { openPaywall, resetsLabel, type ScanKind, type ScanUsage } from '../hooks/usePlan'
 
-const NOUN: Record<ScanKind, string> = { food: 'food scan', bf: 'body-fat scan', ask: 'question', plan: 'plan build' }
+const NOUN: Record<ScanKind, string> = {
+  food: 'food scan',
+  bf: 'body-fat scan',
+  ask: 'question',
+  plan: 'plan build',
+  describe: 'meal description',
+}
 
 export function periodLabel(window: ScanUsage['window']): string {
   return window === 'day' ? 'today' : window === 'week' ? 'this week' : 'on the Free plan'
