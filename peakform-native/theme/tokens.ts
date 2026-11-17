@@ -26,6 +26,7 @@ export const colors = {
     bodyfat: '#a78bfa',
     form: '#2c66fb',
     volume: '#fafafa',
+    calories: '#fb923c',
   },
   muscle: {
     chest: '#f87171',

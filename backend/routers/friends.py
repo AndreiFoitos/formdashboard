@@ -23,6 +23,7 @@ from models.friend_invite import FriendInvite
 from models.sus_vote import SusVote
 from models.vouch import Vouch
 from services.dots import dots_score
+from services.exercise_taxonomy import lift_key
 from services.social_notifications import set_volume_kg
 
 router = APIRouter(prefix="/friends", tags=["friends"])
@@ -778,7 +779,7 @@ async def friend_recent_lifts(
     # scheme.
     top_by_key: dict[tuple, TrainingLog] = {}
     for log in logs:
-        key = (log.date, log.type)
+        key = (log.date, log.type, log.attachment)
         existing = top_by_key.get(key)
         if existing is None or (
             (log.weight_kg or 0) > (existing.weight_kg or 0)
@@ -812,6 +813,7 @@ async def friend_recent_lifts(
             "id": str(log.id),
             "date": log.date.isoformat(),
             "type": log.type,
+            "attachment": log.attachment,
             "weight_kg": log.weight_kg,
             "reps": log.reps,
             "already_sus": log.id in sus_ids,
@@ -1051,12 +1053,12 @@ async def weekly_recap(
         )
     )
 
-    # prior best weight per (user, exercise)
+    # prior best weight per (user, lift): cable attachments apart
     prior_best: dict[tuple[uuid.UUID, str], float] = {}
     for log in prior_q.scalars().all():
         if log.weight_kg is None:
             continue
-        key = (log.user_id, log.type)
+        key = (log.user_id, lift_key(log.type, log.attachment))
         if log.weight_kg > prior_best.get(key, 0):
             prior_best[key] = float(log.weight_kg)
 
@@ -1064,7 +1066,7 @@ async def weekly_recap(
     for log in week_q.scalars().all():
         if log.weight_kg is None:
             continue
-        key = (log.user_id, log.type)
+        key = (log.user_id, lift_key(log.type, log.attachment))
         if log.weight_kg > week_best.get(key, 0):
             week_best[key] = float(log.weight_kg)
 

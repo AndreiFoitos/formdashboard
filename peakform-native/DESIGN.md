@@ -56,7 +56,7 @@ Use these only in charts, scales and badges, never for UI chrome or text.
 | Group | Tokens |
 |---|---|
 | `score` | `low` #ef4444, `midLow` #f97316, `midHigh` #eab308, `high` #22c55e |
-| `data` | `protein` #818cf8, `carbs` #34d399, `fat` #fbbf24, `water` #38bdf8, `weight` #fafafa, `bodyfat` #a78bfa, `form` #2c66fb, `volume` #fafafa |
+| `data` | `protein` #818cf8, `carbs` #34d399, `fat` #fbbf24, `water` #38bdf8, `weight` #fafafa, `bodyfat` #a78bfa, `form` #2c66fb, `volume` #fafafa, `calories` #fb923c |
 | `muscle` | `chest` #f87171, `back` #34d399, `legs` #f472b6, `shoulders` #60a5fa, `arms` #a78bfa, `core` #facc15, `other` #a8a29e |
 | `medal` | `gold` #FCD34D, `silver` #D1D5DB, `bronze` #B45309 |
 | `rarity` | `common` #a1a1aa, `rare` #38bdf8, `epic` #c084fc, `legendary` #facc15 |
@@ -416,3 +416,4 @@ One line per decision made during the autonomous redesign run (2026-10-06).
 - 2026-10-07: `tabBarTotalHeight(inset)` = `TAB_BAR_HEIGHT` + bottom padding is the bar's real height. `tabBarClearance` stays 0: the custom bar takes layout space, so tab pages (Pit chat input, undo toast, scroll content) already end at its top edge; adding the bar height there would leave a gap of the bar's height.
 - 2026-10-07: Android adaptive icon is a 1024×1024 transparent foreground keyed out of `assets/icon.png` (logo inside the 66dp safe circle), on `backgroundColor` = `bg`; no background image. Monochrome is the same silhouette in white. Regenerate both from icon.png if the logo changes.
 - 2026-10-07: Units now live on the server profile (`users.units`, metric default) and follow the user across devices; SecureStore keeps a cache so the UI renders instantly and offline. A failed save keeps the local value, shows the inline error on the Units screen and retries on next start. Data stays metric (supersedes the Phase 2 device-local note).
+- 2026-11-10: `data.calories` #fb923c (orange) for the calories line on Trends: the other data colors are taken, and accent (the Nutrition calorie bar) is already the form score line on that screen.

@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Modal, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { X } from 'lucide-react-native'
-import { useLogPlanExercise, type TodayExercise } from '../../hooks/usePitCrew'
+import { api } from '../../api/client'
+import { useLogPlanExercise, type Suggestion, type TodayExercise } from '../../hooks/usePitCrew'
+import { attachmentQuery, type ExerciseProgression } from '../../hooks/useProgression'
 import { hapticLight, hapticSuccess } from '../../lib/haptics'
 import { extractErrorMessage } from '../../lib/apiError'
 import { cleanReps, cleanWeight, useUnits } from '../../lib/units'
-import { isPerDumbbell, loggingHint, UNILATERAL } from '../../lib/exercises'
+import { attachmentsFor, isPerDumbbell, loggingHint, UNILATERAL } from '../../lib/exercises'
+import { AttachmentPicker } from '../AttachmentPicker'
 import { KEYBOARD_DONE_ID, KeyboardDoneBar } from '../KeyboardDoneBar'
 import { TargetBadge } from '../TargetBadge'
 import { colors } from '../../theme/tokens'
@@ -13,6 +16,9 @@ import { colors } from '../../theme/tokens'
 // Log one exercise from today's plan. Sets come pre-filled with the
 // suggested weight and reps; edit what you actually did, then save. Goes
 // through the normal /training/log-exercise endpoint, tagged source "plan".
+// Cable exercises open on the attachment used last; switching it asks for
+// that attachment's target (with the plan's rep range and sets) and
+// re-fills the sets, since a rope and a triangle are different weights.
 
 interface Row {
   reps: string
@@ -29,15 +35,49 @@ export function ExerciseLogSheet({
   onClose: () => void
 }) {
   const u = useUnits()
-  const { suggestion } = exercise
-  const [rows, setRows] = useState<Row[]>(() =>
+  const rowsFor = (s: Pick<Suggestion, 'weight_kg' | 'reps'>): Row[] =>
     Array.from({ length: exercise.sets }, () => ({
-      reps: String(suggestion.reps),
-      weight: suggestion.weight_kg != null ? String(u.lift(suggestion.weight_kg)) : '',
-    })),
-  )
+      reps: String(s.reps),
+      weight: s.weight_kg != null ? String(u.lift(s.weight_kg)) : '',
+    }))
+  const [rows, setRows] = useState<Row[]>(() => rowsFor(exercise.suggestion))
   const log = useLogPlanExercise()
   const perDb = isPerDumbbell(exercise.key)
+
+  const attachments = attachmentsFor(exercise.key)
+  const planAttachment = exercise.attachment ?? null
+  const [attachment, setAttachment] = useState<string | null>(planAttachment)
+  // The target for another attachment than the plan's, once switched.
+  const [switched, setSwitched] = useState<Suggestion | null>(null)
+  const [switching, setSwitching] = useState(false)
+  const suggestion = switched ?? exercise.suggestion
+  // Two quick taps: only the last pick's target fills the sets.
+  const latestPick = useRef<string | null>(planAttachment)
+
+  async function pickAttachment(a: string | null) {
+    setAttachment(a)
+    latestPick.current = a
+    if (a === planAttachment) {
+      setSwitching(false)
+      setSwitched(null)
+      setRows(rowsFor(exercise.suggestion))
+      return
+    }
+    setSwitching(true)
+    try {
+      const plan = `reps_min=${exercise.reps_min}&reps_max=${exercise.reps_max}&sets=${exercise.sets}`
+      const { data } = await api.get<ExerciseProgression>(
+        `/training/progression/${exercise.key}${attachmentQuery(a)}&${plan}`,
+      )
+      if (latestPick.current !== a) return
+      setSwitched(data.target)
+      setRows(rowsFor(data.target))
+    } catch {
+      // Keep the sets as they are; the pick still saves.
+    } finally {
+      if (latestPick.current === a) setSwitching(false)
+    }
+  }
 
   function update(i: number, field: keyof Row, value: string) {
     const clean = field === 'reps' ? cleanReps(value) : cleanWeight(value)
@@ -53,7 +93,7 @@ export function ExerciseLogSheet({
       .filter((s) => s.reps || s.weight_kg)
     if (!sets.length) return
     log.mutate(
-      { type: exercise.key, sets },
+      { type: exercise.key, sets, attachment: attachments.length ? attachment : null },
       {
         onSuccess: () => {
           hapticSuccess()
@@ -96,13 +136,20 @@ export function ExerciseLogSheet({
           keyboardDismissMode="interactive"
           automaticallyAdjustKeyboardInsets
         >
+          {attachments.length > 0 && (
+            <View className="mb-4">
+              <Text className="text-text-subtle text-caption mb-2">Attachment</Text>
+              <AttachmentPicker options={attachments} value={attachment} onChange={pickAttachment} disabled={switching} />
+            </View>
+          )}
+
           <View className="bg-surface-raised border border-border rounded-xl p-3 mb-4" style={{ borderCurve: 'continuous' }}>
             <View className="flex-row items-center justify-between mb-2">
               <Text className="text-text-subtle text-caption">Today's target</Text>
               {suggestion.kind !== 'first' && <TargetBadge kind={suggestion.kind} />}
             </View>
             <Text className="text-text text-footnote">{suggestion.reason}</Text>
-            {exercise.last.length > 0 && (
+            {!switched && exercise.last.length > 0 && (
               <Text className="text-text-subtle text-caption mt-2">
                 Last time: {exercise.last.map((s) => `${s.weight_kg != null ? u.liftLabel(s.weight_kg) : '–'} × ${s.reps ?? '–'}`).join('  ·  ')}
               </Text>
@@ -162,9 +209,9 @@ export function ExerciseLogSheet({
 
           <TouchableOpacity
             onPress={save}
-            disabled={!valid || log.isPending}
+            disabled={!valid || log.isPending || switching}
             className="bg-accent rounded-md py-4 items-center mt-5 mb-12"
-            style={{ borderCurve: 'continuous', opacity: !valid || log.isPending ? 0.4 : 1 }}
+            style={{ borderCurve: 'continuous', opacity: !valid || log.isPending || switching ? 0.4 : 1 }}
           >
             {log.isPending ? (
               <ActivityIndicator color={colors['on-accent']} />

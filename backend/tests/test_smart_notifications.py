@@ -305,7 +305,7 @@ def ex(key, name, lo=8, hi=10):
 
 
 def sets(w, *reps):
-    return [SimpleNamespace(weight_kg=w, reps=r, set_type="normal") for r in reps]
+    return [SimpleNamespace(weight_kg=w, reps=r, set_type="normal", attachment=None) for r in reps]
 
 
 def test_logged_today_gives_next_time_and_up_next(monkeypatch):

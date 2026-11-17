@@ -402,14 +402,25 @@ async def best_one_rms(user: User, today: date, db: AsyncSession) -> dict[str, f
             TrainingLog.reps.is_not(None),
         )
     )).scalars().all()
-    best: dict[str, float] = {}
+    # Per lift, then each exercise takes the attachment it was done with
+    # last, the one its plan log sheet opens on: the triangle's 1RM would
+    # start a rope regular too heavy.
+    best: dict[tuple, float] = {}
+    latest: dict[str, TrainingLog] = {}
     for log_ in logs:
         if log_.weight_kg <= 0 or log_.reps <= 0:
             continue
+        cur = latest.get(log_.type)
+        if cur is None or (log_.date, log_.logged_at) > (cur.date, cur.logged_at):
+            latest[log_.type] = log_
         est = estimate_one_rm(float(log_.weight_kg), int(log_.reps))["mean"]
-        if est and est > best.get(log_.type, 0):
-            best[log_.type] = est
-    return best
+        lift = (log_.type, log_.attachment)
+        if est and est > best.get(lift, 0):
+            best[lift] = est
+    return {
+        key: best[(key, last.attachment)]
+        for key, last in latest.items() if (key, last.attachment) in best
+    }
 
 
 def start_weight(one_rm: float | None, reps_max: int, dumbbell: bool = False) -> float | None:

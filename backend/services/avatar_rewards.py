@@ -33,7 +33,7 @@ from models.user import User
 from models.vouch import Vouch
 from services import avatar_packs
 from services.billing import owned_pack_products
-from services.exercise_taxonomy import DUMBBELL_PAIR, UNILATERAL, volume_factor
+from services.exercise_taxonomy import DUMBBELL_PAIR, UNILATERAL, lift_key, volume_factor
 from services.social_notifications import BODYWEIGHT_EXERCISES
 from services.stimulants import get_caffeine_curve
 from services.streaks import refresh_streak
@@ -297,9 +297,9 @@ async def _stats(user: User, db: AsyncSession) -> dict[str, float]:
     # count_prs only needs each exercise's heaviest set per day.
     pr_rows = (
         await db.execute(
-            select(TrainingLog.type, TrainingLog.date, func.max(TrainingLog.weight_kg))
+            select(TrainingLog.type, TrainingLog.attachment, TrainingLog.date, func.max(TrainingLog.weight_kg))
             .where(TrainingLog.user_id == uid, TrainingLog.weight_kg > 0)
-            .group_by(TrainingLog.type, TrainingLog.date)
+            .group_by(TrainingLog.type, TrainingLog.attachment, TrainingLog.date)
         )
     ).all()
     return {
@@ -308,7 +308,8 @@ async def _stats(user: User, db: AsyncSession) -> dict[str, float]:
         "longest_streak": float(streak or 0),
         "vouches": float(vouches or 0),
         "water_days": float(water_days),
-        "pr_count": float(count_prs([(r[0], r[1], r[2]) for r in pr_rows])),
+        # Per lift: a rope and a triangle pushdown each set their own PRs.
+        "pr_count": float(count_prs([(lift_key(r[0], r[1]), r[2], r[3]) for r in pr_rows])),
     }
 
 

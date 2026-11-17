@@ -27,7 +27,7 @@ from models.custom_exercise import CustomExercise
 from models.friendship import Friendship
 from models.training_log import TrainingLog
 from models.user import User
-from services.exercise_taxonomy import volume_factor
+from services.exercise_taxonomy import EXERCISE_ATTACHMENTS, lift_key, volume_factor, with_attachment
 from services import push
 
 
@@ -113,10 +113,12 @@ async def notify_pr_if_applicable(
     reps: Optional[int],
     db: AsyncSession,
     redis,
+    attachment: Optional[str] = None,
 ) -> int:
     """If this set is a new 90-day PR for the user on this exercise, push to
     every accepted friend (deduped per friend+week+exercise). Returns the
-    number of pushes delivered.
+    number of pushes delivered. Cable exercises compare within one
+    attachment: 30 kg on the triangle is no PR over 22 kg on the rope.
 
     Sets with no weight (bodyweight exercises logged without added load) are
     skipped — there's no signal of a PR moving."""
@@ -127,12 +129,19 @@ async def notify_pr_if_applicable(
     cutoff = today - timedelta(days=90)
     # Find the prior best weight EXCLUDING today's logs so the just-inserted
     # row doesn't compare against itself.
+    same_lift = []
+    if exercise_key in EXERCISE_ATTACHMENTS:
+        same_lift = [
+            TrainingLog.attachment.is_(None) if attachment is None
+            else TrainingLog.attachment == attachment
+        ]
     result = await db.execute(
         select(sqlfunc.max(TrainingLog.weight_kg)).where(
             TrainingLog.user_id == user.id,
             TrainingLog.type == exercise_key,
             TrainingLog.date >= cutoff,
             TrainingLog.date < today,
+            *same_lift,
         )
     )
     prior_max = result.scalar()
@@ -144,14 +153,14 @@ async def notify_pr_if_applicable(
         return 0
 
     monday, _ = _week_bounds(today)
-    exercise_name = await _exercise_display_name(exercise_key, db)
+    exercise_name = with_attachment(await _exercise_display_name(exercise_key, db), attachment)
     sender = _sender_label(user)
 
     delivered_total = 0
     for fid in friend_ids:
         # Dedupe: one PR push per (sender, recipient, week, exercise).
         dedupe_key = (
-            f"notif:pr:{user.id}:{fid}:{monday.isoformat()}:{exercise_key}"
+            f"notif:pr:{user.id}:{fid}:{monday.isoformat()}:{lift_key(exercise_key, attachment)}"
         )
         if redis is not None:
             try:

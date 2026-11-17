@@ -285,6 +285,56 @@ def volume_factor(exercise_key: str) -> int:
     return (2 if exercise_key in DUMBBELL_PAIR else 1) * (2 if exercise_key in UNILATERAL else 1)
 
 
+# Cable attachments. The same cable move is a different lift with a rope
+# than with a triangle: 22 kg on the rope and 30 kg on the triangle is
+# normal. So weights only compare within one attachment: progression
+# targets, PRs, 1RM and the history chart keep them apart (lift_key).
+# Volume, muscle groups and plans still see one exercise. Sets logged
+# before attachments existed have none and stay their own lift until
+# re-tagged from History. Keep in sync with peakform-native/lib/exercises.ts
+# ATTACHMENT_LABEL / EXERCISE_ATTACHMENTS.
+ATTACHMENT_LABEL: dict[str, str] = {
+    "rope": "Rope",
+    "straight_bar": "Straight bar",
+    "v_bar": "V-bar",
+    "triangle": "Triangle",
+    "ez_bar": "EZ bar",
+    "wide_bar": "Wide bar",
+    "handle": "Handle",
+}
+
+EXERCISE_ATTACHMENTS: dict[str, tuple[str, ...]] = {
+    "tricep_pushdown":          ("rope", "straight_bar", "v_bar", "triangle", "ez_bar"),
+    "cable_overhead_extension": ("rope", "straight_bar", "ez_bar", "triangle"),
+    "single_arm_pushdown":      ("handle", "rope"),
+    "cable_curl":               ("straight_bar", "ez_bar", "rope"),
+    "cable_row":                ("triangle", "straight_bar", "wide_bar", "rope"),
+    "lat_pulldown":             ("wide_bar", "triangle", "straight_bar"),
+    "close_grip_pulldown":      ("triangle", "straight_bar", "v_bar"),
+    "straight_arm_pulldown":    ("straight_bar", "rope"),
+    "cable_pullover":           ("rope", "straight_bar"),
+    "cable_front_raise":        ("rope", "straight_bar", "handle"),
+}
+
+
+def clean_attachment(exercise_key: str, attachment: str | None) -> str | None:
+    """The attachment if this exercise offers it, else None."""
+    if attachment and attachment in EXERCISE_ATTACHMENTS.get(exercise_key, ()):
+        return attachment
+    return None
+
+
+def lift_key(exercise_key: str, attachment: str | None) -> str:
+    """One lift for weight comparisons: the exercise, plus its attachment."""
+    return f"{exercise_key}:{attachment}" if attachment else exercise_key
+
+
+def with_attachment(name: str, attachment: str | None) -> str:
+    """"Tricep Pushdown" + rope -> "Tricep Pushdown (rope)"."""
+    label = ATTACHMENT_LABEL.get(attachment or "")
+    return f"{name} ({label.lower()})" if label else name
+
+
 async def group_for_exercise(
     exercise_key: str, db: AsyncSession
 ) -> Optional[str]:

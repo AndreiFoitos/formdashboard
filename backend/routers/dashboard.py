@@ -85,7 +85,8 @@ async def get_trends(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Long-range charts: Form Score, body weight, weekly training volume.
+    """Long-range charts: Form Score, body weight, weekly training volume,
+    protein and calories (with the calorie target as a reference line).
 
     How far back you can look is a plan perk (services/plans.py): 30 days on
     Free, 90 on Plus, a year on Pro. Raw logs and the existing history screens
@@ -162,4 +163,9 @@ async def get_trends(
             {"date": s.date.isoformat(), "value": round(s.protein_g)}
             for s in summaries if s.protein_g
         ],
+        "calories": [
+            {"date": s.date.isoformat(), "value": s.calories_eaten}
+            for s in summaries if s.calories_eaten
+        ],
+        "calorie_target": current_user.calorie_target,
     }

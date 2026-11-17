@@ -38,7 +38,7 @@ TABLES = {
         "date", "meal_name", "calories", "protein_g", "carbs_g", "fat_g", "source", "logged_at",
     ]),
     "training_logs": (TrainingLog, [
-        "date", "type", "volume_sets", "weight_kg", "reps", "duration_min",
+        "date", "type", "attachment", "volume_sets", "weight_kg", "reps", "duration_min",
         "intensity", "notes", "source", "logged_at",
     ]),
     # Hydration and stimulants are timestamped only (no date column).
